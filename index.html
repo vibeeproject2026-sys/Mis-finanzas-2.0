@@ -42,9 +42,18 @@
   .section-title{font-size:15px;font-weight:800;margin-bottom:10px;letter-spacing:-.01em;}
   .empty-hint{font-size:12.5px;color:var(--ink-muted);padding:.4rem 0;}
 
+  .balance-card{background:var(--card);border-radius:24px;padding:18px;box-shadow:var(--shadow);border:1px solid rgba(231,226,242,.65);margin-bottom:16px;}
   .balance-label{color:var(--ink-muted);font-size:13px;font-weight:650;}
-  .balance-amount{font-size:40px;font-weight:850;letter-spacing:-.035em;margin-top:1px;}
+  .balance-amount{font-size:38px;font-weight:850;letter-spacing:-.035em;margin-top:2px;}
   .balance-month{color:var(--ink-muted);font-size:12px;text-transform:capitalize;margin-top:2px;}
+
+  .balance-metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
+  .b-metric{display:flex;flex-direction:column;gap:2px;}
+  .b-metric .lbl{font-size:11px;color:var(--ink-muted);font-weight:700;}
+  .b-metric .val{font-size:14px;font-weight:800;}
+  .b-metric .val.inc{color:var(--income);}
+  .b-metric .val.exp{color:var(--expense);}
+  .b-metric .val.sav{color:var(--violet);}
 
   .quick-grid{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 20px;}
   .quick-btn{display:flex;flex-direction:column;align-items:center;gap:5px;width:74px;padding:12px 4px;border-radius:20px;background:var(--card);box-shadow:var(--shadow);border:1px solid rgba(231,226,242,.65);}
@@ -64,8 +73,8 @@
   .chart-wrap{width:100%;height:130px;}
 
   .pie-layout{display:flex;align-items:center;gap:18px;padding:5px 0 2px;}
-  .pie-chart{width:145px;height:145px;flex:0 0 145px;position:relative;}
-  .pie-chart svg{width:100%;height:100%;display:block;}
+  .pie-chart{width:145px;height:145px;flex:0 0 145px;position:relative;overflow:hidden;}
+  .pie-chart svg{width:100%;height:100%;display:block;overflow:visible;}
   .pie-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
   .pie-center strong{font-size:16px;font-weight:850;}
   .pie-center span{font-size:9.5px;color:var(--ink-muted);margin-top:1px;}
@@ -154,7 +163,7 @@
   .type-toggle button.active-neutral{background:var(--violet);color:#fff;}
 
   .chip-wrap{display:flex;flex-wrap:wrap;gap:8px;}
-  .pick-chip{display:flex;align-items:center;gap:6px;padding:9px 13px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--card);border:1.5px solid var(--line);color:var(--ink);}
+  .pick-chip{display:flex;align-items:center;gap:6px;padding:99px 13px;padding:9px 13px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--card);border:1.5px solid var(--line);color:var(--ink);}
   .pick-chip.selected{color:#fff;border-color:transparent;}
   .pick-chip .em{font-size:15px;}
 
@@ -259,6 +268,17 @@ const todayStr = () => new Date().toISOString().slice(0,10);
 const monthKeyOf = (d) => d.slice(0,7);
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+function formatThousandInput(val){
+  const digits = String(val).replace(/\D/g, '');
+  if (!digits) return '';
+  return new Intl.NumberFormat('es-CO').format(digits);
+}
+
+function parseFormattedNumber(val){
+  if (!val) return '';
+  return val.replace(/\./g, '');
+}
+
 function fmtMoney(amount){
   const cur = DB.settings.currency || 'COP';
   const cfg = CURRENCIES[cur] || CURRENCIES.COP;
@@ -304,7 +324,11 @@ function computeMonthStats(){
       if (primary && t.categoryId === primary.id) primaryIncome += t.amount; else secondaryIncome += t.amount;
     } else expense += t.amount;
   });
-  return {primaryIncome, secondaryIncome, expense, income: primaryIncome+secondaryIncome};
+  const income = primaryIncome + secondaryIncome;
+  const netSavings = income - expense;
+  const savingsRate = income > 0 ? Math.max(0, Math.round((netSavings / income) * 100)) : 0;
+
+  return {primaryIncome, secondaryIncome, expense, income, netSavings, savingsRate};
 }
 function computeCategoryTotals(){
   const map = {};
@@ -365,7 +389,7 @@ function trendSVG(points){
 /* Gráfico de torta: cada gasto se expresa como porcentaje del ingreso total del mes (100%). */
 function expensePieSVG(catTotals, monthIncome){
   if (!catTotals.length || monthIncome <= 0) return '';
-  const cx=50, cy=50, r=43, stroke=20;
+  const cx=60, cy=60, r=42, stroke=16;
   const circumference=2*Math.PI*r;
   let offset=0;
   const slices=catTotals.map(rw => {
@@ -375,12 +399,11 @@ function expensePieSVG(catTotals, monthIncome){
     offset+=dash;
     return slice;
   });
-  const spentPct=Math.min(1, catTotals.reduce((s,r)=>s+r.total,0)/monthIncome);
   const gapColor='#EEEAF6';
-  let svg='<svg viewBox="0 0 100 100" aria-label="Gastos por categoría como porcentaje del ingreso total">';
+  let svg='<svg viewBox="0 0 120 120" aria-label="Gastos por categoría como porcentaje del ingreso total">';
   svg+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+gapColor+'" stroke-width="'+stroke+'"/>';
   slices.forEach(s=>{
-    svg+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+s.cat.color+'" stroke-width="'+stroke+'" stroke-dasharray="'+s.dash+' '+(circumference-s.dash)+'" stroke-dashoffset="'+(-s.offset)+'" transform="rotate(-90 50 50)" />';
+    svg+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+s.cat.color+'" stroke-width="'+stroke+'" stroke-dasharray="'+s.dash+' '+(circumference-s.dash)+'" stroke-dashoffset="'+(-s.offset)+'" transform="rotate(-90 60 60)" />';
   });
   svg+='</svg>';
   return svg;
@@ -425,9 +448,16 @@ function renderDashboard(){
   const expenseCats = DB.categories.filter(c => c.type==='expense');
 
   let html = '';
-  html += '<div class="balance-label">Balance total</div>';
+  html += '<div class="balance-card">';
+  html += '<div class="balance-label">Balance disponible</div>';
   html += '<div class="balance-amount" style="color:' + balColor + '">' + fmtMoney(totals.balance) + '</div>';
   html += '<div class="balance-month">' + esc(monthLabelStr(new Date())) + '</div>';
+  html += '<div class="balance-metrics">';
+  html += '<div class="b-metric"><span class="lbl">Ingresos del mes</span><span class="val inc">+' + fmtMoney(month.income) + '</span></div>';
+  html += '<div class="b-metric"><span class="lbl">Gastos del mes</span><span class="val exp">−' + fmtMoney(month.expense) + '</span></div>';
+  html += '<div class="b-metric"><span class="lbl">Ahorro neto este mes</span><span class="val ' + (month.netSavings>=0?'inc':'exp') + '">' + (month.netSavings>=0?'+':'') + fmtMoney(month.netSavings) + '</span></div>';
+  html += '<div class="b-metric"><span class="lbl">Tasa de ahorro</span><span class="val sav">' + month.savingsRate + '%</span></div>';
+  html += '</div></div>';
 
   if (expenseCats.length){
     html += '<div class="section-title" style="margin-top:20px">Registrar gasto rápido</div>';
@@ -580,7 +610,7 @@ function renderQuickSheet(){
     '<div class="sheet-handle"></div>' +
     '<div class="sheet-head"><h3>Registrar gasto</h3><button data-action="close-sheet">' + icon('close') + '</button></div>' +
     '<div class="quick-header"><div class="avatar" style="background:' + (cat?cat.color:'#8B85A3') + '22">' + emoji + '</div><div class="qname">' + esc(cat?cat.name:'') + '</div></div>' +
-    '<div class="field"><input id="q-amount" class="amount-input" type="number" inputmode="decimal" placeholder="$ 0" value="' + esc(sheet.amount) + '"></div>' +
+    '<div class="field"><input id="q-amount" class="amount-input" type="text" inputmode="numeric" placeholder="$ 0" value="' + esc(formatThousandInput(sheet.amount)) + '"></div>' +
     (sheet.showNote
       ? '<div class="field"><div class="field-label">Nota</div><input id="q-note" placeholder="Ej. almuerzo" value="' + esc(sheet.note) + '"></div>'
       : '<button class="link-btn" data-action="show-note">+ Agregar nota</button>') +
@@ -610,7 +640,7 @@ function renderTxSheet(){
       '<button class="' + (sheet.type==='expense'?'active-expense':'') + '" data-action="tx-type" data-type="expense">Gasto</button>' +
       '<button class="' + (sheet.type==='income'?'active-income':'') + '" data-action="tx-type" data-type="income">Ingreso</button>' +
     '</div>' +
-    '<div class="field"><div class="field-label">Monto</div><input id="f-amount" type="number" inputmode="decimal" placeholder="0" value="' + esc(sheet.amount) + '"></div>' +
+    '<div class="field"><div class="field-label">Monto</div><input id="f-amount" type="text" inputmode="numeric" placeholder="0" value="' + esc(formatThousandInput(sheet.amount)) + '"></div>' +
     '<div class="field"><div class="field-label">Categoría</div><div class="chip-wrap" id="chipList">' + chips + '</div></div>' +
     '<div class="field"><div class="field-label">Fecha</div><input id="f-date" type="date" value="' + esc(sheet.date) + '"></div>' +
     '<div class="field"><div class="field-label">Nota (opcional)</div><input id="f-note" placeholder="Ej. mercado de la semana" value="' + esc(sheet.note) + '"></div>' +
@@ -644,7 +674,7 @@ function renderCatSheet(){
       '<div class="toggle-row" data-action="toggle-primary"><div><div class="tlabel">Ingreso principal</div><div class="thint">Ej. tu salario — se destaca en el resumen</div></div>' +
       '<div class="switch ' + (sheet.primary?'on':'') + '" id="primarySwitch"><div class="knob"></div></div></div></div>' +
     '<div class="field" id="budgetField" style="display:' + (sheet.type==='expense'?'block':'none') + '">' +
-      '<div class="field-label">Presupuesto mensual (opcional)</div><input id="f-budget" type="number" inputmode="decimal" placeholder="Sin límite" value="' + esc(sheet.budget) + '"></div>' +
+      '<div class="field-label">Presupuesto mensual (opcional)</div><input id="f-budget" type="text" inputmode="numeric" placeholder="Sin límite" value="' + esc(formatThousandInput(sheet.budget)) + '"></div>' +
     '<div class="sheet-actions">' +
       (sheet.mode==='edit' ? '<button class="del-btn" data-action="delete-cat">' + icon('trash') + '</button>' : '') +
       '<button class="save-btn" id="cat-save-btn" data-action="save-cat" ' + (valid?'':'disabled') + '>Guardar</button>' +
@@ -664,18 +694,32 @@ function renderConfirmDialog(){
 function attachSheetFieldSync(){
   if (sheet.kind === 'tx'){
     const a = document.getElementById('f-amount'), d = document.getElementById('f-date'), n = document.getElementById('f-note');
-    if (a) a.addEventListener('input', () => { sheet.amount = a.value; refreshSaveState(); });
+    if (a) a.addEventListener('input', (e) => {
+      const raw = parseFormattedNumber(e.target.value);
+      sheet.amount = raw;
+      e.target.value = formatThousandInput(raw);
+      refreshSaveState();
+    });
     if (d) d.addEventListener('input', () => { sheet.date = d.value; });
     if (n) n.addEventListener('input', () => { sheet.note = n.value; });
   } else if (sheet.kind === 'quick'){
     const a = document.getElementById('q-amount'), n = document.getElementById('q-note'), d = document.getElementById('q-date');
-    if (a) a.addEventListener('input', () => { sheet.amount = a.value; refreshSaveState(); });
+    if (a) a.addEventListener('input', (e) => {
+      const raw = parseFormattedNumber(e.target.value);
+      sheet.amount = raw;
+      e.target.value = formatThousandInput(raw);
+      refreshSaveState();
+    });
     if (n) n.addEventListener('input', () => { sheet.note = n.value; });
     if (d) d.addEventListener('input', () => { sheet.date = d.value; });
   } else if (sheet.kind === 'cat'){
     const nm = document.getElementById('f-name'), b = document.getElementById('f-budget');
     if (nm) nm.addEventListener('input', () => { sheet.name = nm.value; refreshSaveState(); });
-    if (b) b.addEventListener('input', () => { sheet.budget = b.value; });
+    if (b) b.addEventListener('input', (e) => {
+      const raw = parseFormattedNumber(e.target.value);
+      sheet.budget = raw;
+      e.target.value = formatThousandInput(raw);
+    });
   }
 }
 function refreshSaveState(){
