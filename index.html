@@ -40,6 +40,8 @@
   .banner--warn{background:var(--expense-bg);color:var(--expense);}
 
   .section-title{font-size:15px;font-weight:800;margin-bottom:10px;letter-spacing:-.01em;}
+  .section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .section-header .section-title{margin-bottom:0;}
   .empty-hint{font-size:12.5px;color:var(--ink-muted);padding:.4rem 0;}
 
   .balance-card{background:var(--card);border-radius:24px;padding:18px;box-shadow:var(--shadow);border:1px solid rgba(231,226,242,.65);margin-bottom:16px;}
@@ -70,7 +72,18 @@
 
   .card{border-radius:22px;padding:17px;background:var(--card);box-shadow:var(--shadow);margin-bottom:14px;border:1px solid rgba(231,226,242,.55);}
 
-  .chart-wrap{width:100%;height:130px;}
+  .chart-wrap{width:100%;height:180px;position:relative;margin-top:8px;}
+  
+  /* Mini stats grid inside Trend Card */
+  .trend-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;background:var(--card-alt);padding:10px;border-radius:14px;}
+  .trend-metric{display:flex;flex-direction:column;gap:2px;}
+  .trend-metric .t-lbl{font-size:10px;color:var(--ink-muted);font-weight:700;text-transform:uppercase;}
+  .trend-metric .t-val{font-size:12px;font-weight:800;}
+
+  /* Mode Selector Pills */
+  .trend-pill-group{display:flex;background:var(--card-alt);padding:3px;border-radius:999px;gap:2px;}
+  .trend-pill{padding:4px 10px;font-size:11px;font-weight:700;border-radius:999px;color:var(--ink-muted);transition:all .15s;}
+  .trend-pill.active{background:var(--violet);color:#fff;box-shadow:0 2px 6px rgba(112,83,232,.3);}
 
   .pie-layout{display:flex;align-items:center;gap:18px;padding:5px 0 2px;}
   .pie-chart{width:145px;height:145px;flex:0 0 145px;position:relative;overflow:hidden;}
@@ -132,7 +145,7 @@
   .fab .icon{width:26px;height:26px;}
 
   .tabbar{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:100%;max-width:480px;z-index:90;
-    display:flex;justify-content:space-around;align-items:center;
+    display:flex;justify-space-around;align-items:center;
     background:rgba(255,255,255,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);
     padding-top:.6rem;padding-bottom:max(.85rem, env(safe-area-inset-bottom));}
   .tab-btn{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:64px;color:var(--ink-muted);}
@@ -163,7 +176,7 @@
   .type-toggle button.active-neutral{background:var(--violet);color:#fff;}
 
   .chip-wrap{display:flex;flex-wrap:wrap;gap:8px;}
-  .pick-chip{display:flex;align-items:center;gap:6px;padding:99px 13px;padding:9px 13px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--card);border:1.5px solid var(--line);color:var(--ink);}
+  .pick-chip{display:flex;align-items:center;gap:6px;padding:9px 13px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--card);border:1.5px solid var(--line);color:var(--ink);}
   .pick-chip.selected{color:#fff;border-color:transparent;}
   .pick-chip .em{font-size:15px;}
 
@@ -259,7 +272,7 @@ function saveDB(){
 }
 
 let DB = loadDB();
-let UI = {tab:'dashboard', txFilter:'all', search:''};
+let UI = {tab:'dashboard', txFilter:'all', search:'', trendMode:'daily'};
 let sheet = null;
 let confirmState = null;
 
@@ -285,6 +298,13 @@ function fmtMoney(amount){
   try { return new Intl.NumberFormat(cfg.locale, {style:'currency', currency:cur, maximumFractionDigits:0}).format(amount); }
   catch(e){ return amount.toFixed(0) + ' ' + cur; }
 }
+
+function fmtCompact(val){
+  if (Math.abs(val) >= 1000000) return (val/1000000).toFixed(1) + 'M';
+  if (Math.abs(val) >= 1000) return (val/1000).toFixed(0) + 'k';
+  return val.toFixed(0);
+}
+
 function monthLabelStr(date){ return new Intl.DateTimeFormat('es-CO', {month:'long', year:'numeric'}).format(date); }
 function catById(id){ return DB.categories.find(c => c.id === id); }
 function getPrimaryIncomeCat(){ return DB.categories.find(c => c.type==='income' && c.primary) || null; }
@@ -336,15 +356,91 @@ function computeCategoryTotals(){
   return Object.entries(map).map(([id,total]) => ({id, total, cat: catById(id)}))
     .filter(r => r.cat).sort((a,b) => b.total - a.total);
 }
-function computeBalanceSeries(){
+
+// NUEVO Y MEJORADO: Cálculo de serie de balance acumulado por día o por mes
+function computeBalanceSeries(mode='daily'){
   const sorted = DB.transactions.slice().sort((a,b) => a.date.localeCompare(b.date));
-  const byDate = {};
-  sorted.forEach(t => { const delta = t.type==='income'? t.amount : -t.amount; byDate[t.date] = (byDate[t.date]||0)+delta; });
-  const dates = Object.keys(byDate).sort();
-  let running = 0;
-  const pts = dates.map(d => { running += byDate[d]; return {date:d, balance:running}; });
-  return pts.slice(-30);
+  if (!sorted.length) return {pts:[], minVal:0, maxVal:0, avg:0, startVal:0, endVal:0};
+
+  if (mode === 'daily') {
+    // Agrupar por días dentro del mes actual o los últimos 30 días
+    const today = new Date();
+    const curMonthKey = today.toISOString().slice(0,7);
+    const firstDayStr = curMonthKey + '-01';
+    
+    // Balance inicial acumulado antes del 1º del mes
+    let initialBalance = 0;
+    sorted.filter(t => t.date < firstDayStr).forEach(t => {
+      initialBalance += (t.type === 'income' ? t.amount : -t.amount);
+    });
+
+    const year = today.getFullYear(), month = today.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    const monthTx = sorted.filter(t => monthKeyOf(t.date) === curMonthKey);
+    const byDay = {};
+    monthTx.forEach(t => {
+      const d = parseInt(t.date.slice(8,10), 10);
+      byDay[d] = (byDay[d]||0) + (t.type==='income'? t.amount : -t.amount);
+    });
+
+    let running = initialBalance;
+    const pts = [];
+    const maxDayToShow = today.getDate(); // Mostrar hasta el día actual del mes
+    
+    for(let d=1; d<=maxDayToShow; d++){
+      running += (byDay[d] || 0);
+      pts.push({
+        label: `${d}`,
+        fullDate: `${curMonthKey}-${String(d).padStart(2,'0')}`,
+        balance: running
+      });
+    }
+
+    const balances = pts.map(p => p.balance);
+    const minVal = Math.min(...balances);
+    const maxVal = Math.max(...balances);
+    const avg = balances.reduce((a,b)=>a+b,0) / balances.length;
+    const startVal = pts[0].balance;
+    const endVal = pts[pts.length-1].balance;
+
+    return {pts, minVal, maxVal, avg, startVal, endVal};
+  } else {
+    // Modo mensual: Últimos 6 meses
+    const monthMap = {};
+    let running = 0;
+    
+    // Calcular balance acumulado por fin de mes
+    sorted.forEach(t => {
+      const mKey = monthKeyOf(t.date);
+      running += (t.type==='income'? t.amount : -t.amount);
+      monthMap[mKey] = running;
+    });
+
+    const months = Object.keys(monthMap).sort();
+    const last6Months = months.slice(-6);
+    
+    const pts = last6Months.map(m => {
+      const d = new Date(m + '-01T00:00:00');
+      const label = d.toLocaleDateString('es-CO', {month:'short'}).replace('.','');
+      return {
+        label: label.charAt(0).toUpperCase() + label.slice(1),
+        fullDate: m,
+        balance: monthMap[m]
+      };
+    });
+
+    const balances = pts.map(p => p.balance);
+    const minVal = Math.min(...balances);
+    const maxVal = Math.max(...balances);
+    const avg = balances.reduce((a,b)=>a+b,0) / (balances.length || 1);
+    const startVal = pts.length ? pts[0].balance : 0;
+    const endVal = pts.length ? pts[pts.length-1].balance : 0;
+
+    return {pts, minVal, maxVal, avg, startVal, endVal};
+  }
 }
+
 function computeBudgetRows(){
   const totals = computeCategoryTotals();
   return DB.categories.filter(c => c.type==='expense' && c.budget).map(c => {
@@ -364,26 +460,99 @@ function filteredTx(){
     .sort((a,b) => (b.date+b.id).localeCompare(a.date+a.id));
 }
 
-function trendSVG(points){
-  if (points.length < 2) return '<div class="empty-hint">Registra movimientos para ver la evolución de tu balance.</div>';
-  const w = 300, h = 120, pad = 8;
-  const vals = points.map(p => p.balance);
-  const min = Math.min(...vals, 0), max = Math.max(...vals, 0);
-  const range = (max - min) || 1;
-  const stepX = (w - pad*2) / (points.length - 1);
-  const coords = points.map((p,i) => {
-    const x = pad + i*stepX;
-    const y = pad + (h - pad*2) * (1 - (p.balance - min)/range);
-    return [x,y];
+// NUEVO: SVG interactivo y rico con ejes, referencias y etiquetas informativas
+function trendSVG(data){
+  const {pts, minVal, maxVal} = data;
+  if (!pts || pts.length < 2) {
+    return '<div class="empty-hint" style="text-align:center;padding:2rem 0;">Añade más movimientos en distintas fechas para visualizar la tendencia de tu patrimonio.</div>';
+  }
+
+  const w = 320, h = 140;
+  const padL = 36, padR = 12, padT = 16, padB = 24;
+  const graphW = w - padL - padR;
+  const graphH = h - padT - padB;
+
+  // Ajustar escala para dejar espacio visual
+  const rangeRaw = (maxVal - minVal);
+  const paddingRange = rangeRaw === 0 ? Math.abs(maxVal || 1000) * 0.2 : rangeRaw * 0.15;
+  const yMin = minVal - paddingRange;
+  const yMax = maxVal + paddingRange;
+  const yRange = (yMax - yMin) || 1;
+
+  const stepX = graphW / (pts.length - 1);
+
+  const coords = pts.map((p, i) => {
+    const x = padL + i * stepX;
+    const y = padT + graphH * (1 - (p.balance - yMin) / yRange);
+    return [x, y, p];
   });
-  const last = vals[vals.length-1];
-  const color = last >= 0 ? 'var(--income)' : 'var(--expense)';
-  const linePath = coords.map((c,i) => (i===0?'M':'L') + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
-  const areaPath = linePath + ' L' + coords[coords.length-1][0].toFixed(1) + ',' + (h-pad) + ' L' + coords[0][0].toFixed(1) + ',' + (h-pad) + ' Z';
-  return '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:100%;overflow:visible">' +
-    '<path d="' + areaPath + '" fill="' + color + '" opacity="0.16"/>' +
-    '<path d="' + linePath + '" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>' +
-    '</svg>';
+
+  const lastVal = pts[pts.length - 1].balance;
+  const color = lastVal >= 0 ? 'var(--violet)' : 'var(--expense)';
+
+  const linePath = coords.map((c, i) => (i === 0 ? 'M' : 'L') + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
+  const areaPath = linePath + ' L' + coords[coords.length - 1][0].toFixed(1) + ',' + (h - padB) + ' L' + coords[0][0].toFixed(1) + ',' + (h - padB) + ' Z';
+
+  // Línea del cero si aplica
+  let zeroY = null;
+  if (yMin < 0 && yMax > 0) {
+    zeroY = padT + graphH * (1 - (0 - yMin) / yRange);
+  }
+
+  // Generar etiquetas del eje X (mostramos máximo 6 para evitar saturación)
+  const xLabelsCount = Math.min(pts.length, 6);
+  const stepLabelIndex = Math.floor((pts.length - 1) / (xLabelsCount - 1)) || 1;
+  let xLabelsHTML = '';
+  
+  for (let i = 0; i < pts.length; i += stepLabelIndex) {
+    const c = coords[i];
+    xLabelsHTML += `<text x="${c[0].toFixed(1)}" y="${h - 6}" font-size="9.5" fill="var(--ink-muted)" text-anchor="middle" font-weight="600">${c[2].label}</text>`;
+  }
+  // Asegurar mostrar siempre el último día/mes
+  if ((pts.length - 1) % stepLabelIndex !== 0) {
+    const lastC = coords[coords.length - 1];
+    xLabelsHTML += `<text x="${lastC[0].toFixed(1)}" y="${h - 6}" font-size="9.5" fill="var(--ink-muted)" text-anchor="middle" font-weight="600">${lastC[2].label}</text>`;
+  }
+
+  // Puntos clave (Máximo, Mínimo y Actual)
+  let dotsHTML = '';
+  coords.forEach((c, i) => {
+    if (i === coords.length - 1 || c[2].balance === maxVal || c[2].balance === minVal) {
+      const isLast = i === coords.length - 1;
+      const dotColor = isLast ? color : (c[2].balance === maxVal ? 'var(--income)' : 'var(--expense)');
+      dotsHTML += `<circle cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" r="${isLast ? 4.5 : 3.5}" fill="${dotColor}" stroke="#fff" stroke-width="1.8"/>`;
+    }
+  });
+
+  return `
+    <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;overflow:visible;">
+      <defs>
+        <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${color}" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      
+      <!-- Guías horizontales (Máximo y Mínimo) -->
+      <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="var(--line)" stroke-dasharray="3 3"/>
+      <text x="${padL - 4}" y="${padT + 3}" font-size="8.5" fill="var(--ink-muted)" text-anchor="end" font-weight="600">${fmtCompact(maxVal)}</text>
+      
+      <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--line)" stroke-dasharray="3 3"/>
+      <text x="${padL - 4}" y="${h - padB + 3}" font-size="8.5" fill="var(--ink-muted)" text-anchor="end" font-weight="600">${fmtCompact(minVal)}</text>
+
+      ${zeroY !== null ? `<line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${w - padR}" y2="${zeroY.toFixed(1)}" stroke="var(--ink-muted)" stroke-opacity="0.3" stroke-width="1"/>` : ''}
+
+      <!-- Área y Línea principal -->
+      <path d="${areaPath}" fill="url(#trendGrad)"/>
+      <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+
+      <!-- Puntos de datos destacados -->
+      ${dotsHTML}
+
+      <!-- Etiquetas del eje X -->
+      ${xLabelsHTML}
+    </svg>
+  `;
 }
 
 /* Gráfico de torta: cada gasto se expresa como porcentaje del ingreso total del mes (100%). */
@@ -441,7 +610,7 @@ function renderDashboard(){
   const totals = computeTotals();
   const month = computeMonthStats();
   const catTotals = computeCategoryTotals();
-  const series = computeBalanceSeries();
+  const seriesData = computeBalanceSeries(UI.trendMode || 'daily');
   const budgets = computeBudgetRows();
   const primaryCat = getPrimaryIncomeCat();
   const balColor = totals.balance >= 0 ? 'var(--income)' : 'var(--expense)';
@@ -472,7 +641,30 @@ function renderDashboard(){
   html += '<div class="stat-card" style="background:var(--expense-bg)"><div class="label" style="color:var(--expense)">' + icon('arrowDown') + ' Gastos del mes</div><div class="amount" style="color:var(--expense)">' + fmtMoney(month.expense) + '</div></div>';
   html += '</div>';
 
-  html += '<div class="card"><div class="section-title">Balance en el tiempo</div><div class="chart-wrap">' + trendSVG(series) + '</div></div>';
+  // TARJETA DE BALANCE EN EL TIEMPO REDISEÑADA Y ÚTIL
+  const diffTrend = seriesData.endVal - seriesData.startVal;
+  const diffColor = diffTrend >= 0 ? 'var(--income)' : 'var(--expense)';
+  const diffSign = diffTrend >= 0 ? '+' : '';
+
+  html += '<div class="card">';
+  html += '<div class="section-header">';
+  html += '<div class="section-title">Evolución del balance</div>';
+  html += '<div class="trend-pill-group">';
+  html += '<button class="trend-pill ' + ((UI.trendMode||'daily')==='daily'?'active':'') + '" data-action="set-trend-mode" data-mode="daily">Este mes</button>';
+  html += '<button class="trend-pill ' + (UI.trendMode==='monthly'?'active':'') + '" data-action="set-trend-mode" data-mode="monthly">6 meses</button>';
+  html += '</div>';
+  html += '</div>';
+
+  if (seriesData.pts && seriesData.pts.length >= 2) {
+    html += '<div class="trend-metrics">';
+    html += '<div class="trend-metric"><span class="t-lbl">Variación</span><span class="t-val" style="color:' + diffColor + '">' + diffSign + fmtMoney(diffTrend) + '</span></div>';
+    html += '<div class="trend-metric"><span class="t-lbl">Punto Máximo</span><span class="t-val">' + fmtMoney(seriesData.maxVal) + '</span></div>';
+    html += '<div class="trend-metric"><span class="t-lbl">Promedio</span><span class="t-val">' + fmtMoney(seriesData.avg) + '</span></div>';
+    html += '</div>';
+  }
+
+  html += '<div class="chart-wrap">' + trendSVG(seriesData) + '</div>';
+  html += '</div>';
 
   html += '<div class="card"><div class="section-title">Gastos por categoría (este mes)</div>';
   if (catTotals.length){
@@ -822,6 +1014,7 @@ document.addEventListener('click',(e)=>{
 
   if(action==='set-tab'){UI.tab=t.dataset.tab;render();return;}
   if(action==='set-filter'){UI.txFilter=t.dataset.filter;refreshTxList();return;}
+  if(action==='set-trend-mode'){UI.trendMode=t.dataset.mode;render();return;}
 
   if(action==='new-tx'){openNewTx();return;}
   if(action==='edit-tx'){openEditTx(t.dataset.id);return;}
