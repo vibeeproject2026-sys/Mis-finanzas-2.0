@@ -155,7 +155,7 @@
     max-width:480px;
     z-index:90;
     display:flex;
-    justify-content:space-around;
+    justify-style:space-around;
     align-items:center;
     background:rgba(255,255,255,.94);
     backdrop-filter:blur(14px);
@@ -190,7 +190,7 @@
   .type-toggle button.active-neutral{background:var(--violet);color:#fff;}
 
   .chip-wrap{display:flex;flex-wrap:wrap;gap:8px;}
-  .pick-chip{display:flex;align-items:center;gap:6px;padding:9px 13px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--card);border:1.5px solid var(--line);color:var(--ink);}
+  .pick-chip{display:flex;align-items:center;gap:6px;padding:99px 13px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--card);border:1.5px solid var(--line);color:var(--ink);}
   .pick-chip.selected{color:#fff;border-color:transparent;}
 
   .swatch{width:32px;height:32px;border-radius:999px;border:3px solid transparent;}
@@ -292,8 +292,15 @@ let sheet = null;
 let confirmState = null;
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
-const todayStr = () => new Date().toISOString().slice(0,10);
-const monthKeyOf = (d) => d.slice(0,7);
+
+function todayStr(){
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function formatThousandInput(val){
@@ -339,10 +346,26 @@ function computeTotals(){
   DB.transactions.forEach(t => { if (t.type==='income') income+=t.amount; else expense+=t.amount; });
   return {income, expense, balance: income-expense};
 }
+
+/* FUNCIÓN CORREGIDA: Filtra por el mes actual usando la zona horaria local de forma robusta */
 function currentMonthTx(){
-  const mk = new Date().toISOString().slice(0,7);
-  return DB.transactions.filter(t => monthKeyOf(t.date) === mk);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const localMonthKey = `${year}-${month}`;
+
+  return DB.transactions.filter(t => {
+    if (!t.date) return false;
+    const parts = t.date.split('-');
+    if (parts.length >= 2) {
+      const tYear = parts[0];
+      const tMonth = parts[1].padStart(2, '0');
+      return `${tYear}-${tMonth}` === localMonthKey;
+    }
+    return false;
+  });
 }
+
 function computeMonthStats(){
   const primary = getPrimaryIncomeCat();
   let primaryIncome=0, secondaryIncome=0, expense=0;
@@ -357,6 +380,7 @@ function computeMonthStats(){
 
   return {primaryIncome, secondaryIncome, expense, income, netSavings, savingsRate};
 }
+
 function computeCategoryTotals(){
   const map = {};
   currentMonthTx().forEach(t => { if (t.type==='expense') map[t.categoryId] = (map[t.categoryId]||0) + t.amount; });
@@ -381,11 +405,14 @@ function computeBurnMetrics(){
     .filter(c => c.isFixed || c.icon === 'home' || c.icon === 'zap' || c.name.toLowerCase().includes('arriendo') || c.name.toLowerCase().includes('servicio'))
     .map(c => c.id);
 
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString().slice(0,10);
+  const thirtyDaysAgoTime = today.getTime() - (30 * 24 * 60 * 60 * 1000);
   
   const past30VariableExpense = DB.transactions
-    .filter(t => t.type === 'expense' && t.date >= thirtyDaysAgo && !fixedCatIds.includes(t.categoryId))
+    .filter(t => {
+      if (t.type !== 'expense' || fixedCatIds.includes(t.categoryId) || !t.date) return false;
+      const tDate = new Date(t.date + 'T00:00:00');
+      return tDate.getTime() >= thirtyDaysAgoTime;
+    })
     .reduce((sum, t) => sum + t.amount, 0);
 
   const avgDailyBurn = past30VariableExpense > 0 ? (past30VariableExpense / 30) : 1;
@@ -585,7 +612,6 @@ function renderTransactions(){
   return html;
 }
 
-/* RENDER SECCIÓN DE CRÉDITOS */
 function renderCredits(){
   let html = '';
   html += '<div class="filter-row" style="margin-bottom:14px;">';
@@ -785,7 +811,6 @@ function renderCatSheet(){
     '</div></div></div>';
 }
 
-/* SHEETS PARA CRÉDITOS Y APORTES */
 function renderCreditSheet(){
   const valid = sheet.title.trim().length > 0 && Number(sheet.total) > 0;
   return '<div class="overlay">' +
@@ -960,7 +985,6 @@ function deleteCat(id){
   saveDB(); sheet=null; confirmState=null; render();
 }
 
-/* FUNCIONES DE LÓGICA DE CRÉDITOS Y APORTES */
 function openNewCredit(){
   sheet = {kind:'credit', mode:'new', id:null, title:'', type:UI.creditFilter||'against', total:''};
   renderOverlays();
@@ -1119,7 +1143,6 @@ document.addEventListener('click',(e)=>{
   if(action==='save-cat'){saveCatSheet();return;}
   if(action==='delete-cat'){confirmState={message:'Eliminar categoría.',onConfirm:()=>deleteCat(sheet.id)};renderOverlays();return;}
 
-  /* ACCIONES DE CRÉDITOS */
   if(action==='new-credit'){openNewCredit();return;}
   if(action==='edit-credit'){openEditCredit(t.dataset.id);return;}
   if(action==='credit-type'){
