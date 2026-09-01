@@ -227,9 +227,9 @@
   .pie-chart{width:140px;height:140px;flex:0 0 140px;position:relative;overflow:hidden;}
   .pie-chart svg{width:100%;height:100%;display:block;overflow:visible;}
   .pie-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-align:center;}
-  .pie-center strong{font-size:14px;font-weight:850;color:var(--ink);line-height:1.1;}
-  .pie-center span{font-size:9px;color:var(--ink-muted);margin-top:2px;font-weight:700;text-transform:uppercase;}
-  .pie-legend{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;}
+  .pie-center strong{font-size:18px;font-weight:850;color:var(--ink);line-height:1.1;letter-spacing:-0.02em;}
+  .pie-center span{font-size:9.5px;color:var(--ink-muted);margin-top:3px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;}
+  .pie-legend{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;}
   .pie-legend-row{display:flex;align-items:center;gap:7px;min-width:0;}
   .pie-dot{width:9px;height:9px;border-radius:50%;flex:0 0 9px;}
   .pie-name{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
@@ -763,29 +763,53 @@ function filteredTx(){
     .sort((a,b) => (b.date+b.id).localeCompare(a.date+a.id));
 }
 
-function expensePieSVG(catTotals, monthExpense){
+function expensePieSVG(catTotals, monthExpense, monthIncome){
   if (!catTotals.length || monthExpense <= 0) return '';
-  const cx=60, cy=60, r=42, stroke=14;
-  const circumference=2*Math.PI*r;
-  let offset=0;
 
-  const slices=catTotals.map(rw => {
-    const pct = Math.max(0, rw.total / monthExpense);
-    const dash = pct * circumference;
-    const slice = { ...rw, pct, dash, offset };
-    offset += dash;
-    return slice;
+  const cx = 60, cy = 60, r = 44, stroke = 16;
+  const circumference = 2 * Math.PI * r;
+  // Pequeño gap visual entre segmentos para que no se vean pegados
+  const gap = 3.2;
+  const usable = Math.max(0, circumference - gap);
+
+  // Si hay ingreso, la torta representa el 100% del ingreso.
+  // Si no hay ingreso, caemos al comportamiento anterior (100% = gastos).
+  const base = (monthIncome > 0) ? monthIncome : monthExpense;
+  const remainingPct = (monthIncome > 0) ? Math.max(0, (monthIncome - monthExpense) / monthIncome) : 0;
+
+  let offset = 0;
+  const slices = [];
+
+  // Segmentos de categorías (proporcionales al ingreso o al total de gastos)
+  catTotals.forEach(rw => {
+    const pct = Math.max(0, rw.total / base);
+    if (pct <= 0) return;
+    const rawDash = pct * usable;
+    const dash = Math.max(0, rawDash - gap * 0.15); // deja un poquito de aire
+    slices.push({ color: rw.cat.color, dash, offset, isRemaining: false });
+    offset += rawDash + (gap * 0.35);
   });
 
-  const gapColor='#EEEAF6';
-  let svg='<svg viewBox="0 0 120 120" aria-label="Gastos por categoría">';
-  svg+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+gapColor+'" stroke-width="'+stroke+'"/>';
-  slices.forEach(s=>{
-    if (s.dash > 0) {
-      svg+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+s.cat.color+'" stroke-width="'+stroke+'" stroke-dasharray="'+s.dash+' '+(circumference-s.dash)+'" stroke-dashoffset="'+(-s.offset)+'" transform="rotate(-90 60 60)" stroke-linecap="round" />';
+  // Segmento gris = porcentaje de ingreso aún disponible
+  if (remainingPct > 0.005) {
+    const rawDash = remainingPct * usable;
+    const dash = Math.max(0, rawDash - gap * 0.1);
+    slices.push({ color: '#D6D1E8', dash, offset, isRemaining: true });
+  }
+
+  let svg = '<svg viewBox="0 0 120 120" aria-label="Gastos respecto al ingreso">';
+  // Fondo sutil
+  svg += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#F0ECF8" stroke-width="'+stroke+'"/>';
+
+  slices.forEach(s => {
+    if (s.dash > 0.5) {
+      svg += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+s.color+'" stroke-width="'+stroke+'" ' +
+        'stroke-dasharray="'+s.dash.toFixed(2)+' '+(circumference - s.dash).toFixed(2)+'" ' +
+        'stroke-dashoffset="'+(-s.offset).toFixed(2)+'" transform="rotate(-90 60 60)" stroke-linecap="butt" />';
     }
   });
-  svg+='</svg>';
+
+  svg += '</svg>';
   return svg;
 }
 
@@ -905,14 +929,24 @@ function renderDashboard(){
   // ===== Gastos por categoría (siempre visible) =====
   html += '<div class="card"><div class="section-title">Gastos por categoría (este mes)</div>';
   if (catTotals.length && month.expense > 0){
+    const spentPct = month.income > 0
+      ? Math.min(100, Math.round((month.expense / month.income) * 100))
+      : 100;
+    const remainingPct = month.income > 0 ? Math.max(0, 100 - spentPct) : 0;
+
     html += '<div class="pie-layout">';
-    html += '<div class="pie-chart">' + expensePieSVG(catTotals, month.expense) +
-      '<div class="pie-center"><strong>' + fmtMoney(month.expense) + '</strong><span>Total Gastos</span></div></div>';
+    html += '<div class="pie-chart">' + expensePieSVG(catTotals, month.expense, month.income) +
+      '<div class="pie-center"><strong>' + spentPct + '%</strong><span>del ingreso</span></div></div>';
     html += '<div class="pie-legend">';
     catTotals.forEach(r => {
-      const pct = (r.total / month.expense) * 100;
-      html += '<div class="pie-legend-row"><span class="pie-dot" style="background:'+r.cat.color+'"></span><span class="pie-name">'+esc(r.cat.name)+'</span><span class="pie-pct">'+(pct<0.1?'<0.1':pct.toFixed(1))+'%</span></div>';
+      // % respecto al total de gastos (más legible en la leyenda)
+      const pctOfExpenses = (r.total / month.expense) * 100;
+      html += '<div class="pie-legend-row"><span class="pie-dot" style="background:'+r.cat.color+'"></span><span class="pie-name">'+esc(r.cat.name)+'</span><span class="pie-pct">'+(pctOfExpenses<0.1?'<0.1':pctOfExpenses.toFixed(1))+'%</span></div>';
     });
+    // Fila del restante disponible
+    if (month.income > 0 && remainingPct > 0) {
+      html += '<div class="pie-legend-row"><span class="pie-dot" style="background:#D6D1E8"></span><span class="pie-name">Disponible</span><span class="pie-pct">' + remainingPct + '%</span></div>';
+    }
     html += '</div></div>';
   } else {
     html += '<div class="empty-hint">Aún no hay gastos registrados este mes. Usa los botones de arriba o el + para agregar.</div>';
