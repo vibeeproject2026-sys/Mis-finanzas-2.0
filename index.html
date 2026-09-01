@@ -265,7 +265,7 @@
   .type-toggle button.active-income{background:var(--income);color:#fff;}
   .type-toggle button.active-neutral{background:var(--violet);color:#fff;}
 
-  /* CHIPS DE CATEGORÍA CON DEGRADADOS */
+  /* CHIPS DE CATEGORÍA CON DEGRADADOS Y ESTILOS */
   .chip-wrap{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;}
   .pick-chip{
     display:inline-flex;
@@ -472,13 +472,11 @@ function currentMonthTx(){
   });
 }
 
-/* CÁLCULO DE MÉTRICAS CORREGIDO: Evita mostrar 0 cuando hay transacciones acumuladas */
 function computeMonthStats(){
   const primary = getPrimaryIncomeCat();
   let primaryIncome=0, secondaryIncome=0, expense=0;
   let txs = currentMonthTx();
 
-  // Si no hay movimientos en el mes actual pero hay transacciones guardadas, usa el acumulado global como fallback
   if (txs.length === 0 && DB.transactions.length > 0) {
     txs = DB.transactions;
   }
@@ -491,7 +489,6 @@ function computeMonthStats(){
 
   let income = primaryIncome + secondaryIncome;
 
-  // Si los ingresos del mes están en 0 pero existen ingresos registrados globalmente en la app
   if (income === 0 && DB.transactions.some(t => t.type === 'income')) {
     DB.transactions.forEach(t => {
       if (t.type === 'income') {
@@ -734,11 +731,13 @@ function renderTxRow(t){
     '<div class="tx-amount ' + t.type + '">' + (t.type==='income'?'+':'−') + fmtMoney(t.amount) + '</div>' +
     '</button>';
 }
+
 function renderTxListHTML(){
   const list = filteredTx();
   if (!list.length) return '<div class="empty-state">No hay movimientos.</div>';
   return list.map(renderTxRow).join('');
 }
+
 function renderTransactions(){
   let html = '';
   html += '<div class="search-box">' + icon('search') + '<input id="search-input" placeholder="Buscar por nota o categoría" value="' + esc(UI.search) + '"></div>';
@@ -907,7 +906,6 @@ function renderTxCatChips(cats, selectedId){
 function renderTxSheet(){
   const cats = DB.categories.filter(c => c.type === sheet.type);
   const chips = renderTxCatChips(cats, sheet.categoryId);
-
   const valid = Number(sheet.amount) > 0 && sheet.categoryId;
 
   return '<div class="overlay">' +
