@@ -481,7 +481,9 @@ function formatThousandInput(val){
 
 function parseFormattedNumber(val){
   if (!val) return '';
-  return val.replace(/\./g, '');
+  // Modificación clave: remueve TODO lo que no sea dígito de forma estricta. 
+  // Previene que espacios o comas resulten en un NaN que arruine las sumas
+  return String(val).replace(/\D/g, ''); 
 }
 
 function fmtMoney(amount){
@@ -513,25 +515,20 @@ const icon = (name, cls) => '<span class="icon ' + (cls||'') + '">' + ICONS[name
 
 function computeTotals(){
   let income=0, expense=0;
-  DB.transactions.forEach(t => { if (t.type==='income') income+=t.amount; else expense+=t.amount; });
+  DB.transactions.forEach(t => { 
+    if (t.type==='income') income+=(Number(t.amount)||0); 
+    else expense+=(Number(t.amount)||0); 
+  });
   return {income, expense, balance: income-expense};
 }
 
 function currentMonthTx(){
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const localMonthKey = `${year}-${month}`;
+  const localMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   return DB.transactions.filter(t => {
     if (!t.date) return false;
-    const parts = t.date.split('-');
-    if (parts.length >= 2) {
-      const tYear = parts[0];
-      const tMonth = parts[1].padStart(2, '0');
-      return `${tYear}-${tMonth}` === localMonthKey;
-    }
-    return false;
+    return t.date.substring(0, 7) === localMonthKey; // Extrae "YYYY-MM" infaliblemente
   });
 }
 
@@ -541,9 +538,10 @@ function computeMonthStats(){
   let txs = currentMonthTx();
 
   txs.forEach(t => {
+    const amt = Number(t.amount) || 0;
     if (t.type==='income'){
-      if (primary && t.categoryId === primary.id) primaryIncome += t.amount; else secondaryIncome += t.amount;
-    } else expense += t.amount;
+      if (primary && t.categoryId === primary.id) primaryIncome += amt; else secondaryIncome += amt;
+    } else expense += amt;
   });
 
   const income = primaryIncome + secondaryIncome;
@@ -559,9 +557,8 @@ function computeMonthOverMonthMetrics(){
   const curM = now.getMonth();
 
   const prevMDate = new Date(curY, curM - 1, 1);
-  const prevY = prevMDate.getFullYear();
-  const prevM = String(prevMDate.getMonth() + 1).padStart(2, '0');
-  const prevMonthKey = `${prevY}-${prevM}`;
+  const prevMonthKey = `${prevMDate.getFullYear()}-${String(prevMDate.getMonth() + 1).padStart(2, '0')}`;
+  const currentMonthKey = `${curY}-${String(curM + 1).padStart(2, '0')}`;
 
   let currentExpense = 0;
   let prevExpense = 0;
@@ -573,23 +570,22 @@ function computeMonthOverMonthMetrics(){
 
   DB.transactions.forEach(t => {
     if(!t.date) return;
-    const parts = t.date.split('-');
-    if(parts.length < 2) return;
-    const mKey = `${parts[0]}-${parts[1].padStart(2, '0')}`;
+    const mKey = t.date.substring(0, 7);
+    const amt = Number(t.amount) || 0;
 
-    if(mKey === `${curY}-${String(curM + 1).padStart(2, '0')}`){
+    if(mKey === currentMonthKey){
       if(t.type === 'expense') {
-        currentExpense += t.amount;
-        currentCatMap[t.categoryId] = (currentCatMap[t.categoryId]||0) + t.amount;
+        currentExpense += amt;
+        currentCatMap[t.categoryId] = (currentCatMap[t.categoryId]||0) + amt;
       } else {
-        currentSavings += t.amount;
+        currentSavings += amt;
       }
     } else if(mKey === prevMonthKey){
       if(t.type === 'expense') {
-        prevExpense += t.amount;
-        prevCatMap[t.categoryId] = (prevCatMap[t.categoryId]||0) + t.amount;
+        prevExpense += amt;
+        prevCatMap[t.categoryId] = (prevCatMap[t.categoryId]||0) + amt;
       } else {
-        prevSavings += t.amount;
+        prevSavings += amt;
       }
     }
   });
@@ -622,7 +618,9 @@ function computeMonthOverMonthMetrics(){
 
 function computeCategoryTotals(){
   const map = {};
-  currentMonthTx().forEach(t => { if (t.type==='expense') map[t.categoryId] = (map[t.categoryId]||0) + t.amount; });
+  currentMonthTx().forEach(t => { 
+    if (t.type==='expense') map[t.categoryId] = (map[t.categoryId]||0) + (Number(t.amount)||0); 
+  });
   return Object.entries(map).map(([id,total]) => ({id, total, cat: catById(id)}))
     .filter(r => r.cat).sort((a,b) => b.total - a.total);
 }
@@ -653,7 +651,7 @@ function computeBurnMetrics(){
       const tDate = new Date(t.date + 'T00:00:00');
       return tDate.getTime() >= thirtyDaysAgoTime;
     })
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + (Number(t.amount)||0), 0);
 
   const avgDailyBurn = past30VariableExpense > 0 ? (past30VariableExpense / 30) : 1;
   const runwayDays = (avgDailyBurn > 0 && totals.balance > 0) ? Math.floor(totals.balance / avgDailyBurn) : 0;
@@ -902,7 +900,7 @@ function renderCredits(){
   }
 
   list.forEach(c => {
-    const totalPaid = (c.payments || []).reduce((sum, p) => sum + p.amount, 0);
+    const totalPaid = (c.payments || []).reduce((sum, p) => sum + (Number(p.amount)||0), 0);
     const pending = Math.max(0, c.total - totalPaid);
     const pct = c.total > 0 ? Math.min(100, Math.round((totalPaid / c.total) * 100)) : 0;
     const isAgainst = c.type === 'against';
