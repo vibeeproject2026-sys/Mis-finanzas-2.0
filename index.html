@@ -155,7 +155,7 @@
     max-width:480px;
     z-index:90;
     display:flex;
-    justify-style:space-around;
+    justify-content:space-around;
     align-items:center;
     background:rgba(255,255,255,.94);
     backdrop-filter:blur(14px);
@@ -189,9 +189,40 @@
   .type-toggle button.active-income{background:var(--income);color:#fff;}
   .type-toggle button.active-neutral{background:var(--violet);color:#fff;}
 
-  .chip-wrap{display:flex;flex-wrap:wrap;gap:8px;}
-  .pick-chip{display:flex;align-items:center;gap:6px;padding:99px 13px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--card);border:1.5px solid var(--line);color:var(--ink);}
-  .pick-chip.selected{color:#fff;border-color:transparent;}
+  /* CHIPS DE CATEGORÍA MEJORADOS, PROPORCIONALES Y CREATIVOS */
+  .chip-wrap{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;}
+  .pick-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 14px 8px 8px;
+    border-radius:18px;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+    border:1.5px solid var(--line);
+    background:var(--card);
+    color:var(--ink);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select:none;
+  }
+  .pick-chip:active{transform:scale(0.95);}
+  .pick-chip .chip-icon{
+    width:32px;
+    height:32px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:16px;
+    transition:all 0.2s ease;
+    flex-shrink:0;
+  }
+  .pick-chip .chip-label{
+    white-space:nowrap;
+    letter-spacing:-0.01em;
+  }
 
   .swatch{width:32px;height:32px;border-radius:999px;border:3px solid transparent;}
   .swatch.selected{border-color:var(--ink);}
@@ -347,7 +378,6 @@ function computeTotals(){
   return {income, expense, balance: income-expense};
 }
 
-/* FUNCIÓN CORREGIDA: Filtra por el mes actual usando la zona horaria local de forma robusta */
 function currentMonthTx(){
   const now = new Date();
   const year = now.getFullYear();
@@ -388,6 +418,7 @@ function computeCategoryTotals(){
     .filter(r => r.cat).sort((a,b) => b.total - a.total);
 }
 
+/* FUNCIÓN CORREGIDA: Calcula el dinero disponible basándose en el balance real acumulado si los ingresos del mes están en 0 */
 function computeBurnMetrics(){
   const today = new Date();
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -398,7 +429,9 @@ function computeBurnMetrics(){
   const totals = computeTotals();
   const monthStats = computeMonthStats();
 
-  const remainingMonthMoney = Math.max(0, monthStats.income - monthStats.expense);
+  // Si hay balance acumulado positivo, se prioriza este balance para no mostrar $0 al eliminar movimientos del mes
+  const availableFunds = totals.balance > 0 ? totals.balance : Math.max(0, monthStats.income - monthStats.expense);
+  const remainingMonthMoney = Math.max(0, availableFunds);
   const dailyAvailable = remainingMonthMoney / daysRemaining;
 
   const fixedCatIds = DB.categories
@@ -749,13 +782,26 @@ function renderQuickSheet(){
     '</div></div></div>';
 }
 
+/* FUNCIÓN AUXILIAR DE RENDERIZADO DE CATEGORÍAS MEJORADA CON DEGRADADOS Y TAMAÑOS PROPORCIONALES */
+function renderTxCatChips(cats, selectedId){
+  if(!cats.length) return '<div class="empty-hint">Crea primero una categoría.</div>';
+  return cats.map(c => {
+    const emoji = ICON_EMOJI[c.icon] || '⭐';
+    const sel = selectedId === c.id;
+    const bgStyle = sel 
+      ? `background: linear-gradient(135deg, ${c.color}, ${c.color}DD); color: #fff; border-color: transparent; box-shadow: 0 6px 16px ${c.color}55; transform: scale(1.02);`
+      : `background: var(--card); border: 1.5px solid var(--line); color: var(--ink);`;
+    const iconBg = sel ? 'background: rgba(255,255,255,0.25);' : `background: ${c.color}15;`;
+    return `<button class="pick-chip ${sel?'selected':''}" style="${bgStyle}" data-action="pick-tx-cat" data-id="${c.id}">
+      <span class="chip-icon" style="${iconBg}">${emoji}</span>
+      <span class="chip-label">${esc(c.name)}</span>
+    </button>`;
+  }).join('');
+}
+
 function renderTxSheet(){
   const cats = DB.categories.filter(c => c.type === sheet.type);
-  const chips = cats.map(c => {
-    const emoji = ICON_EMOJI[c.icon] || '⭐';
-    const sel = sheet.categoryId === c.id;
-    return '<button class="pick-chip ' + (sel?'selected':'') + '" style="' + (sel? 'background:'+c.color+';border-color:'+c.color : '') + '" data-action="pick-tx-cat" data-id="' + c.id + '"><span class="em">' + emoji + '</span>' + esc(c.name) + '</button>';
-  }).join('') || '<div class="empty-hint">Crea primero una categoría.</div>';
+  const chips = renderTxCatChips(cats, sheet.categoryId);
 
   const valid = Number(sheet.amount) > 0 && sheet.categoryId;
 
@@ -1098,12 +1144,11 @@ document.addEventListener('click',(e)=>{
   }
   if(action==='pick-tx-cat'){
     sheet.categoryId=t.dataset.id;
-    document.getElementById('chipList').innerHTML=
-      DB.categories.filter(c=>c.type===sheet.type).map(c=>{
-        const emoji=ICON_EMOJI[c.icon]||'⭐';
-        const sel=sheet.categoryId===c.id;
-        return '<button class="pick-chip '+(sel?'selected':'')+'" style="'+(sel?'background:'+c.color+';border-color:'+c.color:'')+'" data-action="pick-tx-cat" data-id="'+c.id+'"><span class="em">'+emoji+'</span>'+esc(c.name)+'</button>';
-      }).join('');
+    const chipContainer = document.getElementById('chipList');
+    if(chipContainer){
+      const cats = DB.categories.filter(c => c.type === sheet.type);
+      chipContainer.innerHTML = renderTxCatChips(cats, sheet.categoryId);
+    }
     refreshSaveState();
     return;
   }
