@@ -96,7 +96,6 @@
   .pie-dot{width:9px;height:9px;border-radius:50%;flex:0 0 9px;}
   .pie-name{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
   .pie-pct{font-size:11.5px;font-weight:800;flex-shrink:0;}
-  .pie-note{font-size:10.5px;color:var(--ink-muted);line-height:1.4;margin-top:10px;}
 
   .search-box{display:flex;align-items:center;gap:8px;border-radius:16px;padding:11px 14px;background:var(--card);box-shadow:var(--shadow);margin-bottom:10px;border:1px solid rgba(231,226,242,.55);}
   .search-box input{flex:1;border:none;background:transparent;outline:none;font-size:13.5px;color:var(--ink);}
@@ -122,13 +121,24 @@
   .star-badge{font-size:10px;background:var(--amber-bg);color:var(--amber);padding:2px 6px;border-radius:999px;font-weight:800;}
   .fixed-badge{font-size:10px;background:var(--card-alt);color:var(--violet);padding:2px 6px;border-radius:999px;font-weight:800;}
 
+  /* SECCIÓN CRÉDITOS STYLES */
+  .credit-card{background:var(--card);border-radius:20px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px;border:1px solid rgba(231,226,242,.65);}
+  .credit-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+  .credit-title{font-size:15px;font-weight:800;}
+  .credit-sub{font-size:11.5px;color:var(--ink-muted);margin-top:2px;}
+  .credit-values{display:flex;justify-content:space-between;align-items:baseline;margin:10px 0 4px;font-size:12.5px;}
+  .credit-pending{font-weight:850;font-size:16px;}
+  .credit-pending.against{color:var(--expense);}
+  .credit-pending.favor{color:var(--income);}
+  .payment-item{display:flex;justify-content:space-between;align-items:center;background:var(--card-alt);padding:8px 12px;border-radius:12px;font-size:12px;margin-top:6px;}
+  .add-pay-btn{width:100%;padding:8px;border-radius:12px;background:var(--card-alt);color:var(--violet);font-weight:700;font-size:12px;margin-top:10px;text-align:center;}
+
   .settings-list{border-radius:18px;padding:5px;background:var(--card);box-shadow:var(--shadow);}
   .settings-row{width:100%;display:flex;justify-content:space-between;align-items:center;padding:12px 13px;border-radius:14px;font-size:13.5px;}
   .settings-row.active{background:var(--card-alt);}
   .data-box{border-radius:18px;padding:15px;background:var(--card);box-shadow:var(--shadow);font-size:13px;}
   .data-box .row{display:flex;justify-content:space-between;padding:2px 0;}
   .data-box .row .muted{color:var(--ink-muted);}
-  .note{font-size:11.5px;color:var(--ink-muted);margin-top:8px;line-height:1.5;}
   .danger-btn{width:100%;border-radius:18px;padding:13px;font-size:13.5px;font-weight:700;background:var(--expense-bg);color:var(--expense);margin-top:8px;}
   .secondary-btn{width:100%;border-radius:18px;padding:13px;font-size:13.5px;font-weight:700;background:var(--card);box-shadow:var(--shadow);margin-top:8px;}
 
@@ -136,7 +146,6 @@
   .fab{position:absolute;right:16px;bottom:0;width:60px;height:60px;border-radius:20px;background:linear-gradient(135deg,var(--violet),var(--pink));color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(124,92,252,.4);pointer-events:auto;border:3px solid rgba(255,255,255,.9);}
   .fab:active{transform:scale(.94);}
 
-  /* BARRA INFERIOR DE NAVEGACIÓN CORREGIDA Y CENTRADA */
   .tabbar{
     position:fixed;
     left:50%;
@@ -158,7 +167,7 @@
   .tab-btn{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;color:var(--ink-muted);}
   .tab-btn.active{color:var(--violet);}
   .tab-btn .icon{width:22px;height:22px;}
-  .tab-btn span{font-size:11px;}
+  .tab-btn span{font-size:10px;}
   .tab-btn.active span{font-weight:800;}
 
   .overlay{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;justify-content:center;background:rgba(33,27,54,.45);}
@@ -265,11 +274,12 @@ function loadDB(){
       return {
         transactions: parsed.transactions || [],
         categories: (parsed.categories && parsed.categories.length) ? parsed.categories : DEFAULT_CATEGORIES.slice(),
+        credits: parsed.credits || [],
         settings: parsed.settings || {currency:'COP'},
       };
     }
   } catch(e){}
-  return {transactions:[], categories:DEFAULT_CATEGORIES.slice(), settings:{currency:'COP'}};
+  return {transactions:[], categories:DEFAULT_CATEGORIES.slice(), credits:[], settings:{currency:'COP'}};
 }
 function saveDB(){
   if (!storageOk) return;
@@ -277,7 +287,7 @@ function saveDB(){
 }
 
 let DB = loadDB();
-let UI = {tab:'dashboard', txFilter:'all', search:''};
+let UI = {tab:'dashboard', txFilter:'all', creditFilter:'against', search:''};
 let sheet = null;
 let confirmState = null;
 
@@ -320,6 +330,7 @@ const ICONS = {
   list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg>',
   tag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3h6a2 2 0 0 1 2 2v6a2 2 0 0 1-.6 1.4l-8 8a2 2 0 0 1-2.8 0l-6-6a2 2 0 0 1 0-2.8l8-8A2 2 0 0 1 12 3z"/><circle cx="15.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/></svg>',
   gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>',
+  credit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
 };
 const icon = (name, cls) => '<span class="icon ' + (cls||'') + '">' + ICONS[name] + '</span>';
 
@@ -353,7 +364,6 @@ function computeCategoryTotals(){
     .filter(r => r.cat).sort((a,b) => b.total - a.total);
 }
 
-// CORRECCIÓN DE ALGORITMOS DE CÁLCULO Y GASTOS FIJOS
 function computeBurnMetrics(){
   const today = new Date();
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -364,11 +374,9 @@ function computeBurnMetrics(){
   const totals = computeTotals();
   const monthStats = computeMonthStats();
 
-  // 1. Presupuesto diario restante ajustado según dinero no gastado en el mes actual
   const remainingMonthMoney = Math.max(0, monthStats.income - monthStats.expense);
   const dailyAvailable = remainingMonthMoney / daysRemaining;
 
-  // 2. Exclusión de Gastos Fijos (Marcados explícitamente como isFixed o por tipo de categoría)
   const fixedCatIds = DB.categories
     .filter(c => c.isFixed || c.icon === 'home' || c.icon === 'zap' || c.name.toLowerCase().includes('arriendo') || c.name.toLowerCase().includes('servicio'))
     .map(c => c.id);
@@ -376,25 +384,14 @@ function computeBurnMetrics(){
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString().slice(0,10);
   
-  // Gastos variables de los últimos 30 días
   const past30VariableExpense = DB.transactions
     .filter(t => t.type === 'expense' && t.date >= thirtyDaysAgo && !fixedCatIds.includes(t.categoryId))
     .reduce((sum, t) => sum + t.amount, 0);
 
   const avgDailyBurn = past30VariableExpense > 0 ? (past30VariableExpense / 30) : 1;
-  
-  // Días de autonomía proyectados cubriendo solo gastos diarios cotidianos
   const runwayDays = (avgDailyBurn > 0 && totals.balance > 0) ? Math.floor(totals.balance / avgDailyBurn) : 0;
 
-  return {
-    daysRemaining,
-    daysInMonth,
-    currentDay,
-    monthPctPassed,
-    dailyAvailable,
-    avgDailyBurn,
-    runwayDays
-  };
+  return { daysRemaining, daysInMonth, currentDay, monthPctPassed, dailyAvailable, avgDailyBurn, runwayDays };
 }
 
 function computeBudgetRows(){
@@ -450,17 +447,19 @@ function render(){
     (!storageOk ? '<div class="banner banner--warn">' + icon('alert') + ' Modo sin almacenamiento local activo.</div>' : '') +
     (UI.tab==='dashboard' ? renderDashboard() :
      UI.tab==='transactions' ? renderTransactions() :
+     UI.tab==='credits' ? renderCredits() :
      UI.tab==='categories' ? renderCategories() :
      renderSettings());
 
   document.getElementById('fab-slot').innerHTML =
     (UI.tab==='dashboard' || UI.tab==='transactions')
       ? '<button class="fab" data-action="new-tx">' + icon('plus') + '</button>'
-      : '';
+      : (UI.tab==='credits' ? '<button class="fab" data-action="new-credit">' + icon('plus') + '</button>' : '');
 
   document.getElementById('tabbar').innerHTML = [
     ['dashboard','wallet','Resumen'],
     ['transactions','list','Movimientos'],
+    ['credits','credit','Créditos'],
     ['categories','tag','Categorías'],
     ['settings','gear','Ajustes'],
   ].map(([id,ic,label]) =>
@@ -585,6 +584,53 @@ function renderTransactions(){
   html += '<div id="tx-list">' + renderTxListHTML() + '</div>';
   return html;
 }
+
+/* RENDER SECCIÓN DE CRÉDITOS */
+function renderCredits(){
+  let html = '';
+  html += '<div class="filter-row" style="margin-bottom:14px;">';
+  [['against','En contra (Deudas)'],['favor','A favor (Cobros)']].forEach(([val,label]) => {
+    html += '<button class="chip ' + (UI.creditFilter===val?'selected':'') + '" data-action="set-credit-filter" data-filter="' + val + '">' + label + '</button>';
+  });
+  html += '</div>';
+
+  const list = (DB.credits || []).filter(c => c.type === UI.creditFilter);
+  if (!list.length){
+    return html + '<div class="empty-state">No hay créditos registrados en esta sección.</div>';
+  }
+
+  list.forEach(c => {
+    const totalPaid = (c.payments || []).reduce((sum, p) => sum + p.amount, 0);
+    const pending = Math.max(0, c.total - totalPaid);
+    const pct = c.total > 0 ? Math.min(100, Math.round((totalPaid / c.total) * 100)) : 0;
+    const isAgainst = c.type === 'against';
+    const colorBar = isAgainst ? 'var(--expense)' : 'var(--income)';
+
+    html += '<div class="credit-card">';
+    html += '<div class="credit-head"><div><div class="credit-title">' + esc(c.title) + '</div><div class="credit-sub">Total: ' + fmtMoney(c.total) + '</div></div>';
+    html += '<button data-action="edit-credit" data-id="' + c.id + '">' + icon('pencil') + '</button></div>';
+    
+    html += '<div class="credit-values"><span>Falta por ' + (isAgainst ? 'pagar' : 'cobrar') + ':</span>';
+    html += '<span class="credit-pending ' + (isAgainst ? 'against' : 'favor') + '">' + fmtMoney(pending) + '</span></div>';
+    
+    html += '<div class="bar-track" style="margin-bottom:12px;"><div class="bar-fill" style="width:' + pct + '%;background:' + colorBar + '"></div></div>';
+
+    if (c.payments && c.payments.length){
+      html += '<div style="margin-top:8px;"><span style="font-size:11px;font-weight:700;color:var(--ink-muted);">HISTORIAL DE APORTES:</span>';
+      c.payments.forEach(p => {
+        html += '<div class="payment-item"><span>' + esc(p.date) + (p.note ? ' - ' + esc(p.note) : '') + '</span>' +
+          '<span><b>+' + fmtMoney(p.amount) + '</b> <button style="margin-left:6px" data-action="edit-payment" data-cid="' + c.id + '" data-pid="' + p.id + '">' + icon('pencil') + '</button></span></div>';
+      });
+      html += '</div>';
+    }
+
+    html += '<button class="add-pay-btn" data-action="new-payment" data-id="' + c.id + '">+ Agregar aporte</button>';
+    html += '</div>';
+  });
+
+  return html;
+}
+
 function refreshTxList(){ document.getElementById('tx-list').innerHTML = renderTxListHTML(); }
 function attachSearchListener(){
   const input = document.getElementById('search-input');
@@ -627,7 +673,8 @@ function renderSettings(){
 
   html += '<div class="section-title" style="margin-top:18px">Tus datos</div>';
   html += '<div class="data-box"><div class="row"><span class="muted">Movimientos guardados</span><span>' + DB.transactions.length + '</span></div>' +
-    '<div class="row"><span class="muted">Categorías</span><span>' + DB.categories.length + '</span></div></div>';
+    '<div class="row"><span class="muted">Categorías</span><span>' + DB.categories.length + '</span></div>' +
+    '<div class="row"><span class="muted">Créditos registrados</span><span>' + (DB.credits||[]).length + '</span></div></div>';
 
   html += '<div class="section-title" style="margin-top:18px">Copia de seguridad</div>';
   html += '<button class="secondary-btn" data-action="export-backup">Exportar copia de seguridad</button>';
@@ -644,6 +691,8 @@ function renderOverlays(){
   if (sheet && sheet.kind === 'tx') html += renderTxSheet();
   if (sheet && sheet.kind === 'quick') html += renderQuickSheet();
   if (sheet && sheet.kind === 'cat') html += renderCatSheet();
+  if (sheet && sheet.kind === 'credit') html += renderCreditSheet();
+  if (sheet && sheet.kind === 'payment') html += renderPaymentSheet();
   if (confirmState) html += renderConfirmDialog();
   el.innerHTML = html;
   if (sheet) attachSheetFieldSync();
@@ -736,6 +785,40 @@ function renderCatSheet(){
     '</div></div></div>';
 }
 
+/* SHEETS PARA CRÉDITOS Y APORTES */
+function renderCreditSheet(){
+  const valid = sheet.title.trim().length > 0 && Number(sheet.total) > 0;
+  return '<div class="overlay">' +
+    '<div class="sheet">' +
+    '<div class="sheet-handle"></div>' +
+    '<div class="sheet-head"><h3>' + (sheet.mode==='edit'?'Editar crédito':'Nuevo crédito') + '</h3><button data-action="close-sheet">' + icon('close') + '</button></div>' +
+    '<div class="type-toggle">' +
+      '<button class="' + (sheet.type==='against'?'active-expense':'') + '" data-action="credit-type" data-type="against">En contra (Deuda)</button>' +
+      '<button class="' + (sheet.type==='favor'?'active-income':'') + '" data-action="credit-type" data-type="favor">A favor (Cobro)</button>' +
+    '</div>' +
+    '<div class="field"><div class="field-label">' + (sheet.type==='against'?'Nombre / Concepto':'Persona / Deudor') + '</div><input id="c-title" placeholder="Ej. Tarjeta de crédito / Pedro" value="' + esc(sheet.title) + '"></div>' +
+    '<div class="field"><div class="field-label">Valor total del crédito</div><input id="c-total" type="text" inputmode="numeric" placeholder="0" value="' + esc(formatThousandInput(sheet.total)) + '"></div>' +
+    '<div class="sheet-actions">' +
+      (sheet.mode==='edit' ? '<button class="del-btn" data-action="delete-credit">' + icon('trash') + '</button>' : '') +
+      '<button class="save-btn" id="credit-save-btn" data-action="save-credit" ' + (valid?'':'disabled') + '>Guardar</button>' +
+    '</div></div></div>';
+}
+
+function renderPaymentSheet(){
+  const valid = Number(sheet.amount) > 0;
+  return '<div class="overlay">' +
+    '<div class="sheet">' +
+    '<div class="sheet-handle"></div>' +
+    '<div class="sheet-head"><h3>' + (sheet.mode==='edit'?'Editar aporte':'Registrar aporte') + '</h3><button data-action="close-sheet">' + icon('close') + '</button></div>' +
+    '<div class="field"><div class="field-label">Monto del aporte</div><input id="p-amount" type="text" inputmode="numeric" placeholder="0" value="' + esc(formatThousandInput(sheet.amount)) + '"></div>' +
+    '<div class="field"><div class="field-label">Fecha del aporte</div><input id="p-date" type="date" value="' + esc(sheet.date) + '"></div>' +
+    '<div class="field"><div class="field-label">Nota (opcional)</div><input id="p-note" placeholder="Ej. Abono cuota 1" value="' + esc(sheet.note) + '"></div>' +
+    '<div class="sheet-actions">' +
+      (sheet.mode==='edit' ? '<button class="del-btn" data-action="delete-payment">' + icon('trash') + '</button>' : '') +
+      '<button class="save-btn" id="pay-save-btn" data-action="save-payment" ' + (valid?'':'disabled') + '>Guardar aporte</button>' +
+    '</div></div></div>';
+}
+
 function renderConfirmDialog(){
   return '<div class="overlay overlay-center">' +
     '<div class="confirm-box">' +
@@ -775,6 +858,25 @@ function attachSheetFieldSync(){
       sheet.budget = raw;
       e.target.value = formatThousandInput(raw);
     });
+  } else if (sheet.kind === 'credit'){
+    const t = document.getElementById('c-title'), tot = document.getElementById('c-total');
+    if (t) t.addEventListener('input', () => { sheet.title = t.value; refreshSaveState(); });
+    if (tot) tot.addEventListener('input', (e) => {
+      const raw = parseFormattedNumber(e.target.value);
+      sheet.total = raw;
+      e.target.value = formatThousandInput(raw);
+      refreshSaveState();
+    });
+  } else if (sheet.kind === 'payment'){
+    const a = document.getElementById('p-amount'), d = document.getElementById('p-date'), n = document.getElementById('p-note');
+    if (a) a.addEventListener('input', (e) => {
+      const raw = parseFormattedNumber(e.target.value);
+      sheet.amount = raw;
+      e.target.value = formatThousandInput(raw);
+      refreshSaveState();
+    });
+    if (d) d.addEventListener('input', () => { sheet.date = d.value; });
+    if (n) n.addEventListener('input', () => { sheet.note = n.value; });
   }
 }
 
@@ -785,9 +887,15 @@ function refreshSaveState(){
   } else if (sheet.kind === 'quick'){
     const btn = document.getElementById('quick-save-btn');
     if (btn) btn.disabled = !(Number(sheet.amount) > 0);
-  } else {
+  } else if (sheet.kind === 'cat'){
     const btn = document.getElementById('cat-save-btn');
     if (btn) btn.disabled = !(sheet.name.trim().length > 0);
+  } else if (sheet.kind === 'credit'){
+    const btn = document.getElementById('credit-save-btn');
+    if (btn) btn.disabled = !(sheet.title.trim().length > 0 && Number(sheet.total) > 0);
+  } else if (sheet.kind === 'payment'){
+    const btn = document.getElementById('pay-save-btn');
+    if (btn) btn.disabled = !(Number(sheet.amount) > 0);
   }
 }
 
@@ -851,6 +959,75 @@ function deleteCat(id){
   DB.categories=DB.categories.filter(c=>c.id!==id);
   saveDB(); sheet=null; confirmState=null; render();
 }
+
+/* FUNCIONES DE LÓGICA DE CRÉDITOS Y APORTES */
+function openNewCredit(){
+  sheet = {kind:'credit', mode:'new', id:null, title:'', type:UI.creditFilter||'against', total:''};
+  renderOverlays();
+}
+function openEditCredit(id){
+  const c = (DB.credits||[]).find(x => x.id === id);
+  if (!c) return;
+  sheet = {kind:'credit', mode:'edit', id:c.id, title:c.title, type:c.type, total:String(c.total)};
+  renderOverlays();
+}
+function saveCreditSheet(){
+  const total = Number(sheet.total);
+  if (!sheet.title.trim() || !(total > 0)) return;
+  if (!DB.credits) DB.credits = [];
+  const credit = {
+    id: sheet.id || uid(),
+    title: sheet.title.trim(),
+    type: sheet.type,
+    total: total,
+    payments: sheet.id ? ((DB.credits.find(x => x.id === sheet.id)||{}).payments||[]) : []
+  };
+  const exists = DB.credits.some(c => c.id === credit.id);
+  DB.credits = exists ? DB.credits.map(c => c.id === credit.id ? credit : c) : DB.credits.concat([credit]);
+  saveDB(); sheet = null; render();
+}
+function deleteCredit(id){
+  DB.credits = (DB.credits||[]).filter(c => c.id !== id);
+  saveDB(); sheet = null; confirmState = null; render();
+}
+
+function openNewPayment(creditId){
+  sheet = {kind:'payment', mode:'new', creditId:creditId, paymentId:null, amount:'', date:todayStr(), note:''};
+  renderOverlays();
+}
+function openEditPayment(creditId, paymentId){
+  const c = (DB.credits||[]).find(x => x.id === creditId);
+  if (!c) return;
+  const p = (c.payments||[]).find(x => x.id === paymentId);
+  if (!p) return;
+  sheet = {kind:'payment', mode:'edit', creditId:creditId, paymentId:p.id, amount:String(p.amount), date:p.date, note:p.note||''};
+  renderOverlays();
+}
+function savePaymentSheet(){
+  const amount = Number(sheet.amount);
+  if (!(amount > 0)) return;
+  const p = {id: sheet.paymentId || uid(), amount: amount, date: sheet.date || todayStr(), note: (sheet.note||'').trim()};
+  DB.credits = DB.credits.map(c => {
+    if (c.id === sheet.creditId){
+      let pays = c.payments || [];
+      const exists = pays.some(x => x.id === p.id);
+      pays = exists ? pays.map(x => x.id === p.id ? p : x) : pays.concat([p]);
+      return Object.assign({}, c, {payments: pays});
+    }
+    return c;
+  });
+  saveDB(); sheet = null; render();
+}
+function deletePayment(creditId, paymentId){
+  DB.credits = DB.credits.map(c => {
+    if (c.id === creditId){
+      return Object.assign({}, c, {payments: (c.payments||[]).filter(p => p.id !== paymentId)});
+    }
+    return c;
+  });
+  saveDB(); sheet = null; confirmState = null; render();
+}
+
 function exportBackup(){
   const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
@@ -865,7 +1042,7 @@ function importBackupFile(file){
     try{
       const parsed=JSON.parse(e.target.result);
       if(!parsed||!Array.isArray(parsed.transactions)||!Array.isArray(parsed.categories)) throw new Error('formato inválido');
-      DB={transactions:parsed.transactions,categories:parsed.categories,settings:parsed.settings||{currency:'COP'}};
+      DB={transactions:parsed.transactions,categories:parsed.categories,credits:parsed.credits||[],settings:parsed.settings||{currency:'COP'}};
       saveDB(); render();
     }catch(err){alert('Copia de seguridad no válida.');}
   };
@@ -879,6 +1056,7 @@ document.addEventListener('click',(e)=>{
 
   if(action==='set-tab'){UI.tab=t.dataset.tab;render();return;}
   if(action==='set-filter'){UI.txFilter=t.dataset.filter;refreshTxList();return;}
+  if(action==='set-credit-filter'){UI.creditFilter=t.dataset.filter;render();return;}
 
   if(action==='new-tx'){openNewTx();return;}
   if(action==='edit-tx'){openEditTx(t.dataset.id);return;}
@@ -941,6 +1119,22 @@ document.addEventListener('click',(e)=>{
   if(action==='save-cat'){saveCatSheet();return;}
   if(action==='delete-cat'){confirmState={message:'Eliminar categoría.',onConfirm:()=>deleteCat(sheet.id)};renderOverlays();return;}
 
+  /* ACCIONES DE CRÉDITOS */
+  if(action==='new-credit'){openNewCredit();return;}
+  if(action==='edit-credit'){openEditCredit(t.dataset.id);return;}
+  if(action==='credit-type'){
+    sheet.type=t.dataset.type;
+    renderOverlays();
+    return;
+  }
+  if(action==='save-credit'){saveCreditSheet();return;}
+  if(action==='delete-credit'){confirmState={message:'Eliminar este crédito.',onConfirm:()=>deleteCredit(sheet.id)};renderOverlays();return;}
+
+  if(action==='new-payment'){openNewPayment(t.dataset.id);return;}
+  if(action==='edit-payment'){openEditPayment(t.dataset.cid, t.dataset.pid);return;}
+  if(action==='save-payment'){savePaymentSheet();return;}
+  if(action==='delete-payment'){confirmState={message:'Eliminar este aporte.',onConfirm:()=>deletePayment(sheet.creditId, sheet.paymentId)};renderOverlays();return;}
+
   if(action==='close-sheet'){sheet=null;renderOverlays();return;}
   if(action==='cancel-confirm'){confirmState=null;renderOverlays();return;}
   if(action==='confirm-ok'){const fn=confirmState.onConfirm;confirmState=null;fn();return;}
@@ -950,7 +1144,7 @@ document.addEventListener('click',(e)=>{
   if(action==='import-backup'){document.getElementById('import-file').click();return;}
   if(action==='reset-data'){
     confirmState={message:'Borrar todos los movimientos.',onConfirm:()=>{
-      DB={transactions:[],categories:DEFAULT_CATEGORIES.slice(),settings:{currency:DB.settings.currency}};
+      DB={transactions:[],categories:DEFAULT_CATEGORIES.slice(),credits:[],settings:{currency:DB.settings.currency}};
       saveDB();confirmState=null;render();
     }};
     renderOverlays();
