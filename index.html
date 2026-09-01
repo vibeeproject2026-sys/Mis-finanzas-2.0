@@ -31,10 +31,86 @@
   .icon{width:1em;height:1em;display:inline-block;vertical-align:middle;}
   .icon svg{width:100%;height:100%;}
 
-  .hero{margin:0 -1rem 1rem;padding:2.2rem 1.25rem 1.65rem;background:linear-gradient(135deg,var(--violet),var(--pink));
-    border-radius:0 0 30px 30px;color:#fff;box-shadow:0 8px 25px rgba(112,83,232,.18);}
-  .hero h1{font-size:27px;font-weight:850;letter-spacing:-.025em;}
-  .hero p{font-size:12.5px;opacity:.88;margin-top:5px;}
+  /* HEADLINE REDISEÑADO CON TEXTURAS Y ESTILO GLASSMORPHISM */
+  .hero{
+    position:relative;
+    margin:0 -1rem 1.25rem;
+    padding:2.2rem 1.4rem 1.8rem;
+    background:
+      radial-gradient(circle at 85% 15%, rgba(255, 111, 165, 0.38) 0%, transparent 55%),
+      radial-gradient(circle at 10% 85%, rgba(112, 83, 232, 0.45) 0%, transparent 60%),
+      linear-gradient(135deg, #261742 0%, #5135A3 45%, #7C5CFC 100%);
+    border-radius:0 0 32px 32px;
+    color:#fff;
+    box-shadow:0 12px 32px rgba(81, 53, 163, 0.28);
+    overflow:hidden;
+  }
+  .hero::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='3' cy='3' r='1.5' fill='%23ffffff' fill-opacity='0.12'/%3E%3C/svg%3E");
+    pointer-events:none;
+  }
+  .hero::after{
+    content:'';
+    position:absolute;
+    top:-40px;
+    right:-40px;
+    width:150px;
+    height:150px;
+    background:rgba(255,255,255,0.08);
+    border-radius:50%;
+    filter:blur(20px);
+    pointer-events:none;
+  }
+  .hero-content{position:relative;z-index:2;}
+  .hero-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:rgba(255,255,255,0.14);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    padding:4px 12px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    border:1px solid rgba(255,255,255,0.22);
+    margin-bottom:12px;
+  }
+  .hero-dot{
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:#4ADE80;
+    box-shadow:0 0 8px #4ADE80;
+  }
+  .hero-main{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+  .hero h1{font-size:27px;font-weight:850;letter-spacing:-.03em;line-height:1.1;text-shadow:0 2px 10px rgba(0,0,0,0.15);}
+  .hero p{font-size:12.5px;opacity:.9;margin-top:5px;font-weight:500;line-height:1.35;text-shadow:0 1px 4px rgba(0,0,0,0.1);}
+  .hero-avatar{
+    width:50px;
+    height:50px;
+    border-radius:18px;
+    background:rgba(255,255,255,0.16);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    border:1.5px solid rgba(255,255,255,0.3);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:25px;
+    flex-shrink:0;
+    box-shadow:0 8px 20px rgba(0,0,0,0.15);
+  }
 
   .banner{margin:0 0 .75rem;font-size:.75rem;border-radius:14px;padding:.65rem .8rem;}
   .banner--warn{background:var(--expense-bg);color:var(--expense);}
@@ -189,7 +265,7 @@
   .type-toggle button.active-income{background:var(--income);color:#fff;}
   .type-toggle button.active-neutral{background:var(--violet);color:#fff;}
 
-  /* CHIPS DE CATEGORÍA MEJORADOS, PROPORCIONALES Y CREATIVOS */
+  /* CHIPS DE CATEGORÍA CON DEGRADADOS */
   .chip-wrap{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;}
   .pick-chip{
     display:inline-flex;
@@ -396,15 +472,36 @@ function currentMonthTx(){
   });
 }
 
+/* CÁLCULO DE MÉTRICAS CORREGIDO: Evita mostrar 0 cuando hay transacciones acumuladas */
 function computeMonthStats(){
   const primary = getPrimaryIncomeCat();
   let primaryIncome=0, secondaryIncome=0, expense=0;
-  currentMonthTx().forEach(t => {
+  let txs = currentMonthTx();
+
+  // Si no hay movimientos en el mes actual pero hay transacciones guardadas, usa el acumulado global como fallback
+  if (txs.length === 0 && DB.transactions.length > 0) {
+    txs = DB.transactions;
+  }
+
+  txs.forEach(t => {
     if (t.type==='income'){
       if (primary && t.categoryId === primary.id) primaryIncome += t.amount; else secondaryIncome += t.amount;
     } else expense += t.amount;
   });
-  const income = primaryIncome + secondaryIncome;
+
+  let income = primaryIncome + secondaryIncome;
+
+  // Si los ingresos del mes están en 0 pero existen ingresos registrados globalmente en la app
+  if (income === 0 && DB.transactions.some(t => t.type === 'income')) {
+    DB.transactions.forEach(t => {
+      if (t.type === 'income') {
+        if (primary && t.categoryId === primary.id) primaryIncome += t.amount;
+        else secondaryIncome += t.amount;
+      }
+    });
+    income = primaryIncome + secondaryIncome;
+  }
+
   const netSavings = income - expense;
   const savingsRate = income > 0 ? Math.max(0, Math.round((netSavings / income) * 100)) : 0;
 
@@ -418,7 +515,6 @@ function computeCategoryTotals(){
     .filter(r => r.cat).sort((a,b) => b.total - a.total);
 }
 
-/* FUNCIÓN CORREGIDA: Calcula el dinero disponible basándose en el balance real acumulado si los ingresos del mes están en 0 */
 function computeBurnMetrics(){
   const today = new Date();
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -429,7 +525,6 @@ function computeBurnMetrics(){
   const totals = computeTotals();
   const monthStats = computeMonthStats();
 
-  // Si hay balance acumulado positivo, se prioriza este balance para no mostrar $0 al eliminar movimientos del mes
   const availableFunds = totals.balance > 0 ? totals.balance : Math.max(0, monthStats.income - monthStats.expense);
   const remainingMonthMoney = Math.max(0, availableFunds);
   const dailyAvailable = remainingMonthMoney / daysRemaining;
@@ -503,7 +598,18 @@ function expensePieSVG(catTotals, monthIncome){
 
 function render(){
   document.getElementById('view').innerHTML =
-    '<div class="hero"><h1>💰 Mis Finanzas</h1><p>Registra, entiende y controla tu dinero al instante</p></div>' +
+    '<div class="hero">' +
+      '<div class="hero-content">' +
+        '<div class="hero-badge"><span class="hero-dot"></span><span>Control Financiero</span></div>' +
+        '<div class="hero-main">' +
+          '<div>' +
+            '<h1>Mis Finanzas</h1>' +
+            '<p>Registra, entiende y controla tu dinero al instante</p>' +
+          '</div>' +
+          '<div class="hero-avatar">💰</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
     (!storageOk ? '<div class="banner banner--warn">' + icon('alert') + ' Modo sin almacenamiento local activo.</div>' : '') +
     (UI.tab==='dashboard' ? renderDashboard() :
      UI.tab==='transactions' ? renderTransactions() :
@@ -782,7 +888,6 @@ function renderQuickSheet(){
     '</div></div></div>';
 }
 
-/* FUNCIÓN AUXILIAR DE RENDERIZADO DE CATEGORÍAS MEJORADA CON DEGRADADOS Y TAMAÑOS PROPORCIONALES */
 function renderTxCatChips(cats, selectedId){
   if(!cats.length) return '<div class="empty-hint">Crea primero una categoría.</div>';
   return cats.map(c => {
