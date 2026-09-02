@@ -751,6 +751,16 @@ function computeBudgetRows(){
   });
 }
 
+function computeCreditsPendingTotal(){
+  return (DB.credits || [])
+    .filter(c => c.type === 'against')
+    .reduce((sum, c) => {
+      const paid = (c.payments || []).reduce((s,p) => s + (Number(p.amount)||0), 0);
+      const pending = Math.max(0, (Number(c.total)||0) - paid);
+      return sum + pending;
+    }, 0);
+}
+
 function filteredTx(){
   return DB.transactions
     .filter(t => UI.txFilter==='all' ? true : t.type===UI.txFilter)
@@ -763,19 +773,21 @@ function filteredTx(){
     .sort((a,b) => (b.date+b.id).localeCompare(a.date+a.id));
 }
 
-function expensePieSVG(catTotals, monthExpense, monthIncome){
-  if (!catTotals.length || monthExpense <= 0) return '';
+function expensePieSVG(catTotals, monthExpense, monthIncome, creditsPending){
+  creditsPending = Number(creditsPending) || 0;
+  if (!catTotals.length && creditsPending <= 0) return '';
 
   const cx = 60, cy = 60, r = 44, stroke = 16;
   const circumference = 2 * Math.PI * r;
   // Pequeño gap visual entre segmentos para que no se vean pegados
   const gap = 3.2;
   const usable = Math.max(0, circumference - gap);
+  const CREDIT_COLOR = '#9F1239';
 
   // Si hay ingreso, la torta representa el 100% del ingreso.
-  // Si no hay ingreso, caemos al comportamiento anterior (100% = gastos).
-  const base = (monthIncome > 0) ? monthIncome : monthExpense;
-  const remainingPct = (monthIncome > 0) ? Math.max(0, (monthIncome - monthExpense) / monthIncome) : 0;
+  // Si no hay ingreso, caemos al comportamiento anterior (100% = gastos + créditos).
+  const base = (monthIncome > 0) ? monthIncome : (monthExpense + creditsPending);
+  const remainingPct = (monthIncome > 0) ? Math.max(0, (monthIncome - monthExpense - creditsPending) / monthIncome) : 0;
 
   let offset = 0;
   const slices = [];
@@ -790,6 +802,15 @@ function expensePieSVG(catTotals, monthExpense, monthIncome){
     offset += rawDash + (gap * 0.35);
   });
 
+  // Segmento de créditos pendientes (deudas), solo si hay algo pendiente
+  if (creditsPending > 0 && base > 0) {
+    const pct = Math.max(0, creditsPending / base);
+    const rawDash = pct * usable;
+    const dash = Math.max(0, rawDash - gap * 0.15);
+    slices.push({ color: CREDIT_COLOR, dash, offset, isRemaining: false });
+    offset += rawDash + (gap * 0.35);
+  }
+
   // Segmento gris = porcentaje de ingreso aún disponible
   if (remainingPct > 0.005) {
     const rawDash = remainingPct * usable;
@@ -797,7 +818,7 @@ function expensePieSVG(catTotals, monthExpense, monthIncome){
     slices.push({ color: '#D6D1E8', dash, offset, isRemaining: true });
   }
 
-  let svg = '<svg viewBox="0 0 120 120" aria-label="Gastos respecto al ingreso">';
+  let svg = '<svg viewBox="0 0 120 120" aria-label="Gastos y créditos respecto al ingreso">';
   // Fondo sutil
   svg += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#F0ECF8" stroke-width="'+stroke+'"/>';
 
@@ -927,15 +948,16 @@ function renderDashboard(){
   }
 
   // ===== Gastos por categoría (siempre visible) =====
+  const creditsPending = computeCreditsPendingTotal();
   html += '<div class="card"><div class="section-title">Gastos por categoría (este mes)</div>';
-  if (catTotals.length && month.expense > 0){
+  if ((catTotals.length && month.expense > 0) || creditsPending > 0){
     const spentPct = month.income > 0
-      ? Math.min(100, Math.round((month.expense / month.income) * 100))
+      ? Math.min(100, Math.round(((month.expense + creditsPending) / month.income) * 100))
       : 100;
     const remainingPct = month.income > 0 ? Math.max(0, 100 - spentPct) : 0;
 
     html += '<div class="pie-layout">';
-    html += '<div class="pie-chart">' + expensePieSVG(catTotals, month.expense, month.income) +
+    html += '<div class="pie-chart">' + expensePieSVG(catTotals, month.expense, month.income, creditsPending) +
       '<div class="pie-center"><strong>' + spentPct + '%</strong><span>del ingreso</span></div></div>';
     html += '<div class="pie-legend">';
     catTotals.forEach(r => {
@@ -943,6 +965,12 @@ function renderDashboard(){
       const pctOfExpenses = (r.total / month.expense) * 100;
       html += '<div class="pie-legend-row"><span class="pie-dot" style="background:'+r.cat.color+'"></span><span class="pie-name">'+esc(r.cat.name)+'</span><span class="pie-pct">'+(pctOfExpenses<0.1?'<0.1':pctOfExpenses.toFixed(1))+'%</span></div>';
     });
+    // Fila de créditos pendientes (deudas), solo aparece si hay créditos registrados con saldo pendiente
+    if (creditsPending > 0) {
+      const creditsBase = month.income > 0 ? month.income : (month.expense + creditsPending);
+      const pctOfCredits = creditsBase > 0 ? (creditsPending / creditsBase) * 100 : 0;
+      html += '<div class="pie-legend-row"><span class="pie-dot" style="background:#9F1239"></span><span class="pie-name">Créditos pendientes</span><span class="pie-pct">'+(pctOfCredits<0.1?'<0.1':pctOfCredits.toFixed(1))+'%</span></div>';
+    }
     // Fila del restante disponible
     if (month.income > 0 && remainingPct > 0) {
       html += '<div class="pie-legend-row"><span class="pie-dot" style="background:#D6D1E8"></span><span class="pie-name">Disponible</span><span class="pie-pct">' + remainingPct + '%</span></div>';
