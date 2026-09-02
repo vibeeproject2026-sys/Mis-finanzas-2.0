@@ -751,13 +751,16 @@ function computeBudgetRows(){
   });
 }
 
-function computeCreditsPendingTotal(){
+function computeCreditsPaidThisMonth(){
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   return (DB.credits || [])
     .filter(c => c.type === 'against')
     .reduce((sum, c) => {
-      const paid = (c.payments || []).reduce((s,p) => s + (Number(p.amount)||0), 0);
-      const pending = Math.max(0, (Number(c.total)||0) - paid);
-      return sum + pending;
+      const monthlyPaid = (c.payments || [])
+        .filter(p => p.date && typeof p.date === 'string' && p.date.substring(0,7) === currentMonthKey)
+        .reduce((s,p) => s + (Number(p.amount)||0), 0);
+      return sum + monthlyPaid;
     }, 0);
 }
 
@@ -948,16 +951,16 @@ function renderDashboard(){
   }
 
   // ===== Gastos por categoría (siempre visible) =====
-  const creditsPending = computeCreditsPendingTotal();
+  const creditsPaid = computeCreditsPaidThisMonth();
   html += '<div class="card"><div class="section-title">Gastos por categoría (este mes)</div>';
-  if ((catTotals.length && month.expense > 0) || creditsPending > 0){
+  if ((catTotals.length && month.expense > 0) || creditsPaid > 0){
     const spentPct = month.income > 0
-      ? Math.min(100, Math.round(((month.expense + creditsPending) / month.income) * 100))
+      ? Math.min(100, Math.round(((month.expense + creditsPaid) / month.income) * 100))
       : 100;
     const remainingPct = month.income > 0 ? Math.max(0, 100 - spentPct) : 0;
 
     html += '<div class="pie-layout">';
-    html += '<div class="pie-chart">' + expensePieSVG(catTotals, month.expense, month.income, creditsPending) +
+    html += '<div class="pie-chart">' + expensePieSVG(catTotals, month.expense, month.income, creditsPaid) +
       '<div class="pie-center"><strong>' + spentPct + '%</strong><span>del ingreso</span></div></div>';
     html += '<div class="pie-legend">';
     catTotals.forEach(r => {
@@ -965,11 +968,11 @@ function renderDashboard(){
       const pctOfExpenses = (r.total / month.expense) * 100;
       html += '<div class="pie-legend-row"><span class="pie-dot" style="background:'+r.cat.color+'"></span><span class="pie-name">'+esc(r.cat.name)+'</span><span class="pie-pct">'+(pctOfExpenses<0.1?'<0.1':pctOfExpenses.toFixed(1))+'%</span></div>';
     });
-    // Fila de créditos pendientes (deudas), solo aparece si hay créditos registrados con saldo pendiente
-    if (creditsPending > 0) {
-      const creditsBase = month.income > 0 ? month.income : (month.expense + creditsPending);
-      const pctOfCredits = creditsBase > 0 ? (creditsPending / creditsBase) * 100 : 0;
-      html += '<div class="pie-legend-row"><span class="pie-dot" style="background:#9F1239"></span><span class="pie-name">Créditos pendientes</span><span class="pie-pct">'+(pctOfCredits<0.1?'<0.1':pctOfCredits.toFixed(1))+'%</span></div>';
+    // Fila de abonos a créditos este mes, solo aparece si se registró algún pago en el mes actual
+    if (creditsPaid > 0) {
+      const creditsBase = month.income > 0 ? month.income : (month.expense + creditsPaid);
+      const pctOfCredits = creditsBase > 0 ? (creditsPaid / creditsBase) * 100 : 0;
+      html += '<div class="pie-legend-row"><span class="pie-dot" style="background:#9F1239"></span><span class="pie-name">Abonado a créditos (mes)</span><span class="pie-pct">'+(pctOfCredits<0.1?'<0.1':pctOfCredits.toFixed(1))+'%</span></div>';
     }
     // Fila del restante disponible
     if (month.income > 0 && remainingPct > 0) {
