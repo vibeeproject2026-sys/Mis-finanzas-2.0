@@ -1140,68 +1140,64 @@ async function callGeminiForInvoice(base64Data, mimeType){
     throw new Error('Primero agrega tu clave de Gemini en Ajustes (sección "Reconocimiento de facturas").');
   }
 
-  // Primero consultamos los modelos que Google realmente expone para ESTA API key.
-  // Así no se fuerza un modelo que la clave no tenga habilitado.
-  let modelsData;
+  // Google permite consultar los modelos disponibles para una API key.
+  // Usamos esa lista solo para obtener candidatos y después probamos la llamada real.
+  let available = [];
   try {
     const modelsResp = await fetch(GEMINI_MODELS_ENDPOINT + '?key=' + encodeURIComponent(apiKey), {
       method: 'GET',
       headers: { 'Accept': 'application/json' }
     });
-    try { modelsData = await modelsResp.json(); } catch(e) { modelsData = null; }
-
+    const modelsData = await modelsResp.json().catch(() => null);
     if (!modelsResp.ok){
       const msg = modelsData && modelsData.error && modelsData.error.message ? modelsData.error.message : '';
       if (modelsResp.status === 400 || modelsResp.status === 401 || modelsResp.status === 403){
         throw new Error('Tu clave de Gemini no es válida o no tiene acceso a la Gemini API. Revísala en Google AI Studio.');
       }
-      throw new Error('No se pudo consultar los modelos disponibles de Gemini (error ' + modelsResp.status + ').' + (msg ? ' ' + msg : ''));
+      throw new Error('No se pudo consultar los modelos de Gemini (error ' + modelsResp.status + ').' + (msg ? ' ' + msg : ''));
     }
+    available = Array.isArray(modelsData && modelsData.models) ? modelsData.models : [];
   } catch(err){
     if (err && err.message && !/Failed to fetch|NetworkError|Load failed/i.test(err.message)) throw err;
     throw new Error('No se pudo conectar con Gemini. Revisa tu conexión a internet.');
   }
 
-  const available = Array.isArray(modelsData && modelsData.models) ? modelsData.models : [];
   const supported = available.filter(m => {
-    const name = String(m && (m.baseModelId || m.name || '')).replace(/^models\//, '');
+    const name = String(m && (m.name || m.baseModelId || '')).replace(/^models\//, '');
     const methods = Array.isArray(m && m.supportedGenerationMethods) ? m.supportedGenerationMethods : [];
-    if (!name || !methods.includes('generateContent')) return false;
-    return !/(image|tts|live|audio|embedding|robotics|transcribe|veo)/i.test(name);
+    return !!name && methods.includes('generateContent') && !/(embedding|image-generation|imagen|veo|tts|live|audio|robotics|transcribe)/i.test(name);
   });
 
   const preferred = [
     'gemini-2.5-flash',
     'gemini-2.5-flash-lite',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
     'gemini-2.5-pro',
-    'gemini-3.7-flash',
-    'gemini-3.6-flash',
-    'gemini-3.5-flash',
-    'gemini-3.1-flash-lite',
     'gemini-3-flash-preview',
+    'gemini-3.5-flash',
     'gemini-flash-latest'
   ];
 
-  let modelName = null;
-  for (const wanted of preferred){
+  const candidates = [];
+  const addCandidate = (name) => {
+    name = String(name || '').replace(/^models\//, '').trim();
+    if (name && !candidates.includes(name)) candidates.push(name);
+  };
+
+  // Primero, modelos que la propia API reporta para esta clave.
+  preferred.forEach(wanted => {
     const found = supported.find(m => {
-      const n = String(m.baseModelId || m.name || '').replace(/^models\//, '');
+      const n = String(m.name || m.baseModelId || '').replace(/^models\//, '');
       return n === wanted;
     });
-    if (found){
-      modelName = String(found.baseModelId || found.name).replace(/^models\//, '');
-      break;
-    }
-  }
+    if (found) addCandidate(found.name || found.baseModelId);
+  });
+  supported.forEach(m => addCandidate(m.name || m.baseModelId));
 
-  // Último recurso: cualquier modelo generativo multimodal no especializado.
-  if (!modelName && supported.length){
-    modelName = String(supported[0].baseModelId || supported[0].name).replace(/^models\//, '');
-  }
-
-  if (!modelName){
-    throw new Error('Esta API key no tiene ningún modelo Gemini disponible para analizar imágenes. Crea una API key nueva en Google AI Studio y vuelve a intentarlo.');
-  }
+  // Si la lista del proyecto es inconsistente o está desactualizada, estos son
+  // nombres oficiales conocidos que se prueban como respaldo.
+  preferred.forEach(addCandidate);
 
   const body = {
     contents: [{
@@ -1216,45 +1212,69 @@ async function callGeminiForInvoice(base64Data, mimeType){
     }
   };
 
-  const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelName) + ':generateContent';
-  let resp;
-  try {
-    resp = await fetch(endpoint + '?key=' + encodeURIComponent(apiKey), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-  } catch(networkErr){
-    throw new Error('No se pudo conectar con Gemini. Revisa tu conexión a internet.');
+  let lastStatus = 0;
+  let lastMessage = '';
+  let lastModel = '';
+
+  for (const modelName of candidates){
+    // Probamos v1beta (documentado para generateContent) y v1 como respaldo.
+    for (const apiVersion of ['v1beta', 'v1']){
+      const endpoint = 'https://generativelanguage.googleapis.com/' + apiVersion + '/models/' + encodeURIComponent(modelName) + ':generateContent?key=' + encodeURIComponent(apiKey);
+      let resp;
+      try {
+        resp = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      } catch(networkErr){
+        throw new Error('No se pudo conectar con Gemini. Revisa tu conexión a internet.');
+      }
+
+      let data = null;
+      try { data = await resp.json(); } catch(e) {}
+      if (resp.ok){
+        const text = data && data.candidates && data.candidates[0] && data.candidates[0].content && Array.isArray(data.candidates[0].content.parts)
+          ? data.candidates[0].content.parts.filter(part => part && typeof part.text === 'string').map(part => part.text).join('')
+          : '';
+        if (!text) throw new Error('Gemini no devolvió resultados. Intenta con una foto más clara.');
+
+        let parsed;
+        try { parsed = JSON.parse(text); } catch(e){
+          const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+          try { parsed = JSON.parse(cleaned); } catch(e2){ throw new Error('No se pudo interpretar la respuesta de Gemini. Intenta de nuevo.'); }
+        }
+
+        const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
+        return rawItems
+          .map(it => ({ id: uid(), name: String(it.name || '').trim().slice(0,60) || 'Ítem', price: Math.round(Number(it.price)) || 0 }))
+          .filter(it => it.price > 0);
+      }
+
+      const msg = data && data.error && data.error.message ? data.error.message : '';
+      lastStatus = resp.status;
+      lastMessage = msg;
+      lastModel = modelName;
+
+      // 404/400 pueden significar que ese alias/modelo no es usable con esa versión.
+      // Probamos el siguiente candidato sin cambiar nada de la interfaz.
+      if (resp.status === 404 || resp.status === 400) continue;
+      if (resp.status === 401 || resp.status === 403){
+        throw new Error('Tu clave de Gemini no es válida o no tiene permisos para usar la Gemini API. Revísala en Google AI Studio.');
+      }
+      if (resp.status === 429){
+        throw new Error('Alcanzaste el límite gratuito de Gemini por ahora. Intenta de nuevo en unos minutos.');
+      }
+    }
   }
 
-  let data = null;
-  try { data = await resp.json(); } catch(e) {}
-
-  if (!resp.ok){
-    const msg = data && data.error && data.error.message ? data.error.message : '';
-    if (resp.status === 400) throw new Error('Gemini rechazó la solicitud. ' + (msg || 'Intenta con una foto JPG o PNG más clara.'));
-    if (resp.status === 401 || resp.status === 403) throw new Error('Tu clave de Gemini no es válida o no tiene permisos para usar la Gemini API. Revísala en Google AI Studio.');
-    if (resp.status === 404) throw new Error('Gemini no encontró el modelo seleccionado para esta clave. La app intentó usar un modelo disponible para tu API key y no pudo completar la solicitud.');
-    if (resp.status === 429) throw new Error('Alcanzaste el límite gratuito de Gemini por ahora. Intenta de nuevo en unos minutos.');
-    throw new Error('No se pudo contactar a Gemini (error ' + resp.status + ').' + (msg ? ' ' + msg : ''));
+  if (lastStatus === 404){
+    throw new Error('Google respondió 404 para los modelos disponibles. Último modelo probado: ' + lastModel + (lastMessage ? '. ' + lastMessage : '. La API key puede estar limitada a otro proyecto o configuración de Gemini.') );
   }
-
-  const text = data && data.candidates && data.candidates[0] && data.candidates[0].content && Array.isArray(data.candidates[0].content.parts)
-    ? data.candidates[0].content.parts.filter(part => part && typeof part.text === 'string').map(part => part.text).join('')
-    : '';
-  if (!text) throw new Error('Gemini no devolvió resultados. Intenta con una foto más clara.');
-
-  let parsed;
-  try { parsed = JSON.parse(text); } catch(e){
-    const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-    try { parsed = JSON.parse(cleaned); } catch(e2){ throw new Error('No se pudo interpretar la respuesta de Gemini. Intenta de nuevo.'); }
+  if (lastStatus === 400){
+    throw new Error('Gemini rechazó la solicitud. ' + (lastMessage || 'La API key o el modelo no aceptan esta solicitud.'));
   }
-
-  const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
-  return rawItems
-    .map(it => ({ id: uid(), name: String(it.name || '').trim().slice(0,60) || 'Ítem', price: Math.round(Number(it.price)) || 0 }))
-    .filter(it => it.price > 0);
+  throw new Error('No se pudo completar la solicitud a Gemini.' + (lastMessage ? ' ' + lastMessage : ''));
 }
 
 function openInvoiceScan(){
