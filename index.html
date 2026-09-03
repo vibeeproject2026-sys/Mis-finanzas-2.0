@@ -1045,10 +1045,13 @@ function renderDashboard(){
   html += '<span class="burn-val" style="color:var(--violet)">' + fmtMoney(burn.dailyAvailable) + ' / día</span>';
   html += '</div>';
 
-  // "En ritmo" compara el presupuesto diario disponible con el ritmo
-  // de gasto cotidiano del período actual de 10 días.
-  const statusClass = burn.dailyAvailable > burn.avgDailyBurn ? 'ok' : (burn.dailyAvailable > 0 ? 'warn' : 'alert');
-  const statusText = burn.dailyAvailable > burn.avgDailyBurn ? 'En ritmo' : (burn.dailyAvailable > 0 ? 'Ajustar' : 'Sin saldo');
+  // "En ritmo" compara el presupuesto diario disponible con el
+  // promedio diario REAL del período actual.
+  const statusClass = burn.dailyAvailable > burn.avgDailyBurn ? 'ok'
+    : (burn.dailyAvailable > 0 ? 'warn' : 'alert');
+  const statusText = burn.dailyAvailable > burn.avgDailyBurn ? 'En ritmo'
+    : (burn.dailyAvailable > 0 ? 'Ajustar' : 'Sin saldo');
+
   html += '<span class="burn-status ' + statusClass + '">' + statusText + '</span>';
   html += '</div>';
 
@@ -1056,16 +1059,28 @@ function renderDashboard(){
   html += '<div class="runway-icon">⏳</div>';
   html += '<div class="runway-main">';
 
-  html += '<div class="runway-lbl">Ritmo de gasto · 10 días</div>';
-  html += '<div class="runway-val">Promedio <span>' + fmtMoney(burn.projectedTenDayBurn) + ' / 10 días</span></div>';
-  html += '<div style="font-size:11px;opacity:.82;margin-top:4px">≈ ' + fmtMoney(burn.avgDailyBurn) + ' / día</div>';
+  // El título identifica el período fijo actual.
+  html += '<div class="runway-lbl">Ritmo de gasto · período ' +
+    burn.periodStartDay + '–' + burn.periodEndDay + '</div>';
 
-  html += '<div style="font-size:10.5px;opacity:.72;margin-top:5px">';
-  html += burn.currentPeriodDays < 10
-    ? 'Período en curso: <b>' + burn.currentPeriodDays + ' días</b> · acumulado ' + fmtMoney(burn.currentPeriodExpense)
-    : 'Período completo: <b>' + fmtMoney(burn.currentPeriodExpense) + '</b> en 10 días';
-  html += '</div>';
+  // Mientras el período no haya terminado, NO mostramos una cifra
+  // proyectada como si fuera un promedio real de 10 días.
+  if (burn.currentPeriodDays < 10) {
+    html += '<div class="runway-val">Ritmo actual <span>' +
+      fmtMoney(burn.avgDailyBurn) + ' / día</span></div>';
+    html += '<div style="font-size:11px;opacity:.82;margin-top:4px">' +
+      'Acumulado ' + fmtMoney(burn.currentPeriodExpense) +
+      ' en ' + burn.currentPeriodDays + ' días</div>';
+    html += '<div style="font-size:10.5px;opacity:.72;margin-top:5px">' +
+      'Promedio de 10 días disponible al completar el período.</div>';
+  } else {
+    html += '<div class="runway-val">Promedio <span>' +
+      fmtMoney(burn.currentPeriodExpense) + ' / 10 días</span></div>';
+    html += '<div style="font-size:11px;opacity:.82;margin-top:4px">≈ ' +
+      fmtMoney(burn.avgDailyBurn) + ' / día</div>';
+  }
 
+  // Evolución de los períodos del mes.
   html += '<div style="margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12)">';
   html += '<div style="font-size:10px;opacity:.72;font-weight:700;text-transform:uppercase;letter-spacing:.02em;margin-bottom:4px">Evolución del mes</div>';
 
@@ -1076,13 +1091,17 @@ function renderDashboard(){
   html += '<span>11–20</span><b>' + fmtMoney(burn.periodExpenses[1]) + '</b></div>';
 
   html += '<div style="display:flex;justify-content:space-between;gap:8px;font-size:10.5px;margin-top:3px;opacity:.68">';
-  html += '<span>21–' + burn.daysInMonth + '</span><b>' + fmtMoney(burn.periodExpenses[2]) + '</b></div>';
+  html += '<span>21–' + burn.daysInMonth + '</span><b>' +
+    fmtMoney(burn.periodExpenses[2]) + '</b></div>';
   html += '</div>';
 
   html += '<div style="font-size:10.5px;opacity:.72;margin-top:7px">';
-  html += burn.runwayDays > 0
-    ? 'Con tu saldo actual cubres aproximadamente <b>' + burn.runwayDays + ' días</b> a este ritmo.'
-    : 'Registra gastos cotidianos para calcular tu autonomía.';
+  if (burn.runwayDays > 0) {
+    html += 'Con tu saldo actual cubres aproximadamente <b>' +
+      burn.runwayDays + ' días</b> a este ritmo.';
+  } else {
+    html += 'Registra gastos cotidianos para calcular tu autonomía.';
+  }
   html += '</div>';
 
   html += '</div></div>';
