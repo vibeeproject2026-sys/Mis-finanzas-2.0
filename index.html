@@ -1132,6 +1132,7 @@ function renderTransactions(){
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions';
+const GEMINI_LEGACY_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
 const GEMINI_INVOICE_PROMPT = 'Analiza esta foto de una factura o recibo de compra. Devuelve ÚNICAMENTE un JSON con este formato exacto, sin texto adicional ni markdown: {"items":[{"name":"nombre del producto","price":12500}]}. Reglas: incluye solo los productos/artículos comprados; NO incluyas NIT, IVA, subtotal, total, cambio, efectivo, fecha, ni datos del establecimiento. Los precios deben ser números enteros en pesos, sin puntos, comas ni símbolos. Si el nombre de un producto está cortado o poco claro, usa tu mejor interpretación razonable. Si una línea no tiene un precio claro, no la incluyas.';
 
 async function callGeminiForInvoice(base64Data, mimeType){
@@ -1139,6 +1140,24 @@ async function callGeminiForInvoice(base64Data, mimeType){
   if (!apiKey){
     throw new Error('Primero agrega tu clave de Gemini en Ajustes (sección "Reconocimiento de facturas").');
   }
+
+  const schema = {
+    type: 'object',
+    properties: {
+      items: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            price: { type: 'integer' }
+          },
+          required: ['name', 'price']
+        }
+      }
+    },
+    required: ['items']
+  };
 
   const body = {
     model: GEMINI_MODEL,
@@ -1149,23 +1168,7 @@ async function callGeminiForInvoice(base64Data, mimeType){
     response_format: {
       type: 'text',
       mime_type: 'application/json',
-      schema: {
-        type: 'object',
-        properties: {
-          items: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                name: { type: 'string' },
-                price: { type: 'integer' }
-              },
-              required: ['name', 'price']
-            }
-          }
-        },
-        required: ['items']
-      }
+      schema: schema
     }
   };
 
@@ -1180,13 +1183,62 @@ async function callGeminiForInvoice(base64Data, mimeType){
     throw new Error('No se pudo conectar con Gemini. Revisa tu conexión a internet.');
   }
 
+  // Si Interactions responde 404, usamos el endpoint REST clásico de Gemini
+  // automáticamente. No cambia el flujo de la app: solo evita que un 404
+  // del endpoint de Interactions impida analizar la factura.
+  let data;
+  if (resp.status === 404){
+    const legacyBody = {
+      contents: [{
+        parts: [
+          { text: GEMINI_INVOICE_PROMPT },
+          { inlineData: { mimeType: mimeType, data: base64Data } }
+        ]
+      }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: schema
+      }
+    };
+
+    try {
+      resp = await fetch(GEMINI_LEGACY_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(legacyBody)
+      });
+    } catch(networkErr){
+      throw new Error('No se pudo conectar con Gemini. Revisa tu conexión a internet.');
+    }
+
+    if (!resp.ok){
+      if (resp.status === 400 || resp.status === 401 || resp.status === 403) throw new Error('Tu clave de Gemini no es válida. Revísala en Ajustes.');
+      if (resp.status === 429) throw new Error('Alcanzaste el límite gratuito de Gemini por ahora. Intenta de nuevo en unos minutos.');
+      throw new Error('No se pudo contactar a Gemini (error ' + resp.status + ').');
+    }
+
+    data = await resp.json();
+    const text = data && data.candidates && data.candidates[0] && data.candidates[0].content && Array.isArray(data.candidates[0].content.parts)
+      ? data.candidates[0].content.parts.filter(part => part && typeof part.text === 'string').map(part => part.text).join('')
+      : '';
+    if (!text) throw new Error('Gemini no devolvió resultados. Intenta con una foto más clara.');
+
+    let parsed;
+    try { parsed = JSON.parse(text); } catch(e){ throw new Error('No se pudo interpretar la respuesta de Gemini. Intenta de nuevo.'); }
+
+    const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
+    return rawItems
+      .map(it => ({ id: uid(), name: String(it.name || '').trim().slice(0,60) || 'Ítem', price: Math.round(Number(it.price)) || 0 }))
+      .filter(it => it.price > 0);
+  }
+
   if (!resp.ok){
     if (resp.status === 400 || resp.status === 401 || resp.status === 403) throw new Error('Tu clave de Gemini no es válida. Revísala en Ajustes.');
     if (resp.status === 429) throw new Error('Alcanzaste el límite gratuito de Gemini por ahora. Intenta de nuevo en unos minutos.');
     throw new Error('No se pudo contactar a Gemini (error ' + resp.status + ').');
   }
 
-  const data = await resp.json();
+  data = await resp.json();
   const modelStep = Array.isArray(data.steps) ? data.steps.find(step => step && step.type === 'model_output') : null;
   const textContent = modelStep && Array.isArray(modelStep.content)
     ? modelStep.content.find(content => content && content.type === 'text')
