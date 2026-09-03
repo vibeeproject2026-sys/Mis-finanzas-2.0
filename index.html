@@ -495,6 +495,7 @@ function loadDB(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
+      // Normalización fuerte de montos para evitar NaN / strings que resetean a 0
       const txs = (parsed.transactions || []).map(t => ({
         ...t,
         amount: Number(t.amount) || 0,
@@ -528,6 +529,7 @@ function loadDB(){
 function saveDB(){
   if (!storageOk) return;
   try {
+    // Aseguramos que los montos se guarden siempre como números
     const clean = {
       transactions: DB.transactions.map(t => ({...t, amount: Number(t.amount) || 0})),
       categories: DB.categories,
@@ -810,25 +812,30 @@ function expensePieSVG(catTotals, monthExpense, monthIncome, creditsPending){
 
   const cx = 60, cy = 60, r = 44, stroke = 16;
   const circumference = 2 * Math.PI * r;
+  // Pequeño gap visual entre segmentos para que no se vean pegados
   const gap = 3.2;
   const usable = Math.max(0, circumference - gap);
   const CREDIT_COLOR = '#9F1239';
 
+  // Si hay ingreso, la torta representa el 100% del ingreso.
+  // Si no hay ingreso, caemos al comportamiento anterior (100% = gastos + créditos).
   const base = (monthIncome > 0) ? monthIncome : (monthExpense + creditsPending);
   const remainingPct = (monthIncome > 0) ? Math.max(0, (monthIncome - monthExpense - creditsPending) / monthIncome) : 0;
 
   let offset = 0;
   const slices = [];
 
+  // Segmentos de categorías (proporcionales al ingreso o al total de gastos)
   catTotals.forEach(rw => {
     const pct = Math.max(0, rw.total / base);
     if (pct <= 0) return;
     const rawDash = pct * usable;
-    const dash = Math.max(0, rawDash - gap * 0.15);
+    const dash = Math.max(0, rawDash - gap * 0.15); // deja un poquito de aire
     slices.push({ color: rw.cat.color, dash, offset, isRemaining: false });
     offset += rawDash + (gap * 0.35);
   });
 
+  // Segmento de créditos pendientes (deudas), solo si hay algo pendiente
   if (creditsPending > 0 && base > 0) {
     const pct = Math.max(0, creditsPending / base);
     const rawDash = pct * usable;
@@ -837,6 +844,7 @@ function expensePieSVG(catTotals, monthExpense, monthIncome, creditsPending){
     offset += rawDash + (gap * 0.35);
   }
 
+  // Segmento gris = porcentaje de ingreso aún disponible
   if (remainingPct > 0.005) {
     const rawDash = remainingPct * usable;
     const dash = Math.max(0, rawDash - gap * 0.1);
@@ -844,6 +852,7 @@ function expensePieSVG(catTotals, monthExpense, monthIncome, creditsPending){
   }
 
   let svg = '<svg viewBox="0 0 120 120" aria-label="Gastos y créditos respecto al ingreso">';
+  // Fondo sutil
   svg += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#F0ECF8" stroke-width="'+stroke+'"/>';
 
   slices.forEach(s => {
@@ -975,6 +984,7 @@ function renderDashboard(){
     }).join('') + '</div>';
   }
 
+  // ===== Gastos por categoría (siempre visible) =====
   const creditsPaid = computeCreditsPaidThisMonth();
   html += '<div class="card"><div class="section-title">Gastos por categoría (este mes)</div>';
   if ((catTotals.length && month.expense > 0) || creditsPaid > 0){
@@ -988,14 +998,17 @@ function renderDashboard(){
       '<div class="pie-center"><strong>' + spentPct + '%</strong><span>del ingreso</span></div></div>';
     html += '<div class="pie-legend">';
     catTotals.forEach(r => {
+      // % respecto al total de gastos (más legible en la leyenda)
       const pctOfExpenses = (r.total / month.expense) * 100;
       html += '<div class="pie-legend-row"><span class="pie-dot" style="background:'+r.cat.color+'"></span><span class="pie-name">'+esc(r.cat.name)+'</span><span class="pie-pct">'+(pctOfExpenses<0.1?'<0.1':pctOfExpenses.toFixed(1))+'%</span></div>';
     });
+    // Fila de abonos a créditos este mes, solo aparece si se registró algún pago en el mes actual
     if (creditsPaid > 0) {
       const creditsBase = month.income > 0 ? month.income : (month.expense + creditsPaid);
       const pctOfCredits = creditsBase > 0 ? (creditsPaid / creditsBase) * 100 : 0;
       html += '<div class="pie-legend-row"><span class="pie-dot" style="background:#9F1239"></span><span class="pie-name">Abonado a créditos (mes)</span><span class="pie-pct">'+(pctOfCredits<0.1?'<0.1':pctOfCredits.toFixed(1))+'%</span></div>';
     }
+    // Fila del restante disponible
     if (month.income > 0 && remainingPct > 0) {
       html += '<div class="pie-legend-row"><span class="pie-dot" style="background:#D6D1E8"></span><span class="pie-name">Disponible</span><span class="pie-pct">' + remainingPct + '%</span></div>';
     }
@@ -1005,6 +1018,7 @@ function renderDashboard(){
   }
   html += '</div>';
 
+  // ===== Comparativa Mes a Mes (Carrusel dinámico) =====
   html += '<div class="mom-card">';
   html += '<div class="mom-header">';
   html += '<span class="mom-title">📊 Comparativa Mes a Mes</span>';
@@ -1014,6 +1028,7 @@ function renderDashboard(){
 
   html += '<div class="mom-carousel"><div class="mom-track" id="mom-track">';
 
+  // Slide 1: Gastos
   const expUp = mom.expChangePct > 0;
   html += '<div class="mom-slide"><div class="mom-slide-grid">';
   html += '<div class="mom-box"><div class="lbl">Gastos este mes</div><div class="val" style="color:var(--expense)">' + fmtMoney(mom.currentExpense) + '</div></div>';
@@ -1021,6 +1036,7 @@ function renderDashboard(){
   html += '<div class="delta ' + (expUp?'up':(mom.expChangePct<0?'down':'neutral')) + '">' + (expUp?'▲ +':'▼ ') + Math.abs(mom.expChangePct) + '%</div></div>';
   html += '</div></div>';
 
+  // Slide 2: Ingresos
   const incUp = mom.incChangePct > 0;
   html += '<div class="mom-slide"><div class="mom-slide-grid">';
   html += '<div class="mom-box"><div class="lbl">Ingresos este mes</div><div class="val" style="color:var(--income)">' + fmtMoney(mom.currentIncome) + '</div></div>';
@@ -1028,17 +1044,20 @@ function renderDashboard(){
   html += '<div class="delta ' + (incUp?'down':(mom.incChangePct<0?'up':'neutral')) + '">' + (incUp?'▲ +':'▼ ') + Math.abs(mom.incChangePct) + '%</div></div>';
   html += '</div></div>';
 
+  // Slide 3: Ahorro
   html += '<div class="mom-slide"><div class="mom-slide-grid">';
   html += '<div class="mom-box"><div class="lbl">Ahorro este mes</div><div class="val" style="color:' + (mom.currentSavings>=0?'var(--income)':'var(--expense)') + '">' + (mom.currentSavings>=0?'+':'') + fmtMoney(mom.currentSavings) + '</div></div>';
   html += '<div class="mom-box"><div class="lbl">Ahorro mes pasado</div><div class="val" style="color:' + (mom.prevSavings>=0?'var(--income)':'var(--expense)') + '">' + (mom.prevSavings>=0?'+':'') + fmtMoney(mom.prevSavings) + '</div></div>';
   html += '</div></div>';
 
+  // Slide 4: Tasa de ahorro
   html += '<div class="mom-slide"><div class="mom-single">';
   html += '<div class="lbl">Tasa de ahorro actual</div>';
   html += '<div class="val" style="color:var(--violet)">' + mom.savingsRate + '%</div>';
   html += '<div class="sub">Porcentaje de tus ingresos que logras guardar este mes</div>';
   html += '</div></div>';
 
+  // Slide 5: Categoría con mayor crecimiento
   if (mom.highestGrowthCat) {
     html += '<div class="mom-slide"><div class="mom-single">';
     html += '<div class="lbl">Mayor aumento de gasto</div>';
@@ -1053,7 +1072,7 @@ function renderDashboard(){
     html += '</div></div>';
   }
 
-  html += '</div></div>';
+  html += '</div></div>'; // track + carousel
 
   if (mom.highestGrowthCat) {
     html += '<div class="mom-insight"><span>💡</span><div><b>Atención en ' + esc(mom.highestGrowthCat.name) + ':</b> Tu gasto subió ' + fmtMoney(mom.maxDiff) + ' respecto al mes anterior.</div></div>';
@@ -1109,9 +1128,10 @@ function renderTransactions(){
   return html;
 }
 
-// SOLUCIÓN APLICADA: SE CAMBIA GEMINI_MODEL POR UNA VERSIÓN EXISTENTE DE LA API.
-const GEMINI_MODEL = 'gemini-1.5-flash';
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1/models/' + GEMINI_MODEL + ':generateContent';
+// ===================== FACTURAS (escaneo con IA - Gemini) =====================
+
+const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions';
 const GEMINI_INVOICE_PROMPT = 'Analiza esta foto de una factura o recibo de compra. Devuelve ÚNICAMENTE un JSON con este formato exacto, sin texto adicional ni markdown: {"items":[{"name":"nombre del producto","price":12500}]}. Reglas: incluye solo los productos/artículos comprados; NO incluyas NIT, IVA, subtotal, total, cambio, efectivo, fecha, ni datos del establecimiento. Los precios deben ser números enteros en pesos, sin puntos, comas ni símbolos. Si el nombre de un producto está cortado o poco claro, usa tu mejor interpretación razonable. Si una línea no tiene un precio claro, no la incluyas.';
 
 async function callGeminiForInvoice(base64Data, mimeType){
@@ -1121,13 +1141,32 @@ async function callGeminiForInvoice(base64Data, mimeType){
   }
 
   const body = {
-    contents: [{
-      parts: [
-        { text: GEMINI_INVOICE_PROMPT },
-        { inline_data: { mime_type: mimeType, data: base64Data } }
-      ]
-    }],
-    generationConfig: { response_mime_type: 'application/json' }
+    model: GEMINI_MODEL,
+    input: [
+      { type: 'text', text: GEMINI_INVOICE_PROMPT },
+      { type: 'image', data: base64Data, mime_type: mimeType }
+    ],
+    response_format: {
+      type: 'text',
+      mime_type: 'application/json',
+      schema: {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                price: { type: 'integer' }
+              },
+              required: ['name', 'price']
+            }
+          }
+        },
+        required: ['items']
+      }
+    }
   };
 
   let resp;
@@ -1148,8 +1187,11 @@ async function callGeminiForInvoice(base64Data, mimeType){
   }
 
   const data = await resp.json();
-  const text = data && data.candidates && data.candidates[0] && data.candidates[0].content &&
-    data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text;
+  const modelStep = Array.isArray(data.steps) ? data.steps.find(step => step && step.type === 'model_output') : null;
+  const textContent = modelStep && Array.isArray(modelStep.content)
+    ? modelStep.content.find(content => content && content.type === 'text')
+    : null;
+  const text = textContent && textContent.text;
   if (!text) throw new Error('Gemini no devolvió resultados. Intenta con una foto más clara.');
 
   let parsed;
@@ -1624,35 +1666,472 @@ function renderTxSheet(){
       '<button class="' + (sheet.type==='expense'?'active-expense':'') + '" data-action="tx-type" data-type="expense">Gasto</button>' +
       '<button class="' + (sheet.type==='income'?'active-income':'') + '" data-action="tx-type" data-type="income">Ingreso</button>' +
     '</div>' +
-    '<div class="field"><div class="field-label">Categoría</div><div class="chip-wrap">' + chips + '</div></div>' +
-    '<div class="field"><div class="field-label">Monto</div><input id="tx-amount" class="amount-input" type="text" inputmode="numeric" placeholder="$ 0" value="' + esc(formatThousandInput(sheet.amount)) + '"></div>' +
-    '<div class="field"><div class="field-label">Fecha</div><input id="tx-date" type="date" value="' + esc(sheet.date) + '"></div>' +
-    '<div class="field"><div class="field-label">Nota</div><input id="tx-note" placeholder="Opcional" value="' + esc(sheet.note) + '"></div>' +
-    '<div class="sheet-actions" style="margin-top:14px">' +
-      (sheet.mode==='edit' ? '<button class="del-btn" data-action="delete-tx">Eliminar</button>' : '') +
-      '<button class="save-btn" data-action="save-tx" ' + (valid?'':'disabled') + '>Guardar</button>' +
+    '<div class="field"><div class="field-label">Monto</div><input id="f-amount" type="text" inputmode="numeric" placeholder="0" value="' + esc(formatThousandInput(sheet.amount)) + '"></div>' +
+    '<div class="field"><div class="field-label">Categoría</div><div class="chip-wrap" id="chipList">' + chips + '</div></div>' +
+    '<div class="field"><div class="field-label">Fecha</div><input id="f-date" type="date" value="' + esc(sheet.date) + '"></div>' +
+    '<div class="field"><div class="field-label">Nota (opcional)</div><input id="f-note" placeholder="Ej. mercado de la semana" value="' + esc(sheet.note) + '"></div>' +
+    '<div class="sheet-actions">' +
+      (sheet.mode==='edit' ? '<button class="del-btn" data-action="delete-tx">' + icon('trash') + '</button>' : '') +
+      '<button class="save-btn" id="tx-save-btn" data-action="save-tx" ' + (valid?'':'disabled') + '>Guardar</button>' +
     '</div></div></div>';
 }
 
-function renderCatSheet(){ return ''; }
-function renderCreditSheet(){ return ''; }
-function renderPaymentSheet(){ return ''; }
-function renderConfirmDialog(){ return ''; }
-function attachSheetFieldSync(){}
+function renderCatSheet(){
+  const swatches = SWATCHES.map(sw =>
+    '<button class="swatch ' + (sheet.color===sw?'selected':'') + '" style="background:' + sw + '" data-action="pick-color" data-color="' + sw + '"></button>'
+  ).join('');
+  const icons = ICON_KEYS.map(k =>
+    '<button class="emoji-btn ' + (sheet.icon===k?'selected':'') + '" data-action="pick-icon" data-icon="' + k + '">' + ICON_EMOJI[k] + '</button>'
+  ).join('');
+  const valid = sheet.name.trim().length > 0;
 
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('button[data-action]');
-  if(!btn) return;
-  const action = btn.dataset.action;
-  if(action === 'set-tab') { UI.tab = btn.dataset.tab; render(); }
-  if(action === 'close-sheet') { sheet = null; renderOverlays(); }
-  if(action === 'scan-invoice') { openInvoiceScan(); }
+  return '<div class="overlay">' +
+    '<div class="sheet">' +
+    '<div class="sheet-handle"></div>' +
+    '<div class="sheet-head"><h3>' + (sheet.mode==='edit'?'Editar categoría':'Nueva categoría') + '</h3><button data-action="close-sheet">' + icon('close') + '</button></div>' +
+    '<div class="field"><div class="field-label">Nombre</div><input id="f-name" placeholder="Ej. Suscripciones" value="' + esc(sheet.name) + '"></div>' +
+    '<div class="field"><div class="field-label">Tipo</div><div class="type-toggle">' +
+      '<button class="' + (sheet.type==='expense'?'active-neutral':'') + '" data-action="cat-type" data-type="expense">Gasto</button>' +
+      '<button class="' + (sheet.type==='income'?'active-neutral':'') + '" data-action="cat-type" data-type="income">Ingreso</button>' +
+    '</div></div>' +
+    '<div class="field"><div class="field-label">Color</div><div class="chip-wrap" id="swatchList">' + swatches + '</div></div>' +
+    '<div class="field"><div class="field-label">Ícono</div><div class="chip-wrap" id="iconList">' + icons + '</div></div>' +
+    '<div id="primaryField" style="display:' + (sheet.type==='income'?'block':'none') + '">' +
+      '<div class="toggle-row" data-action="toggle-primary"><div><div class="tlabel">Ingreso principal</div><div class="thint">Ej. tu salario</div></div>' +
+      '<div class="switch ' + (sheet.primary?'on':'') + '" id="primarySwitch"><div class="knob"></div></div></div></div>' +
+    '<div id="fixedField" style="display:' + (sheet.type==='expense'?'block':'none') + '">' +
+      '<div class="toggle-row" data-action="toggle-fixed"><div><div class="tlabel">Gasto fijo</div><div class="thint">Excluir del ritmo de gasto diario (Ej. arriendo)</div></div>' +
+      '<div class="switch ' + (sheet.isFixed?'on-violet':'') + '" id="fixedSwitch"><div class="knob"></div></div></div></div>' +
+    '<div class="field" id="budgetField" style="display:' + (sheet.type==='expense'?'block':'none') + '">' +
+      '<div class="field-label">Presupuesto mensual</div><input id="f-budget" type="text" inputmode="numeric" placeholder="Sin límite" value="' + esc(formatThousandInput(sheet.budget)) + '"></div>' +
+    '<div class="sheet-actions">' +
+      (sheet.mode==='edit' ? '<button class="del-btn" data-action="delete-cat">' + icon('trash') + '</button>' : '') +
+      '<button class="save-btn" id="cat-save-btn" data-action="save-cat" ' + (valid?'':'disabled') + '>Guardar</button>' +
+    '</div></div></div>';
+}
+
+function renderCreditSheet(){
+  const valid = sheet.title.trim().length > 0 && Number(sheet.total) > 0;
+  return '<div class="overlay">' +
+    '<div class="sheet">' +
+    '<div class="sheet-handle"></div>' +
+    '<div class="sheet-head"><h3>' + (sheet.mode==='edit'?'Editar crédito':'Nuevo crédito') + '</h3><button data-action="close-sheet">' + icon('close') + '</button></div>' +
+    '<div class="type-toggle">' +
+      '<button class="' + (sheet.type==='against'?'active-expense':'') + '" data-action="credit-type" data-type="against">En contra (Deuda)</button>' +
+      '<button class="' + (sheet.type==='favor'?'active-income':'') + '" data-action="credit-type" data-type="favor">A favor (Cobro)</button>' +
+    '</div>' +
+    '<div class="field"><div class="field-label">' + (sheet.type==='against'?'Nombre / Concepto':'Persona / Deudor') + '</div><input id="c-title" placeholder="Ej. Tarjeta de crédito / Pedro" value="' + esc(sheet.title) + '"></div>' +
+    '<div class="field"><div class="field-label">Valor total del crédito</div><input id="c-total" type="text" inputmode="numeric" placeholder="0" value="' + esc(formatThousandInput(sheet.total)) + '"></div>' +
+    '<div class="sheet-actions">' +
+      (sheet.mode==='edit' ? '<button class="del-btn" data-action="delete-credit">' + icon('trash') + '</button>' : '') +
+      '<button class="save-btn" id="credit-save-btn" data-action="save-credit" ' + (valid?'':'disabled') + '>Guardar</button>' +
+    '</div></div></div>';
+}
+
+function renderPaymentSheet(){
+  const valid = Number(sheet.amount) > 0;
+  return '<div class="overlay">' +
+    '<div class="sheet">' +
+    '<div class="sheet-handle"></div>' +
+    '<div class="sheet-head"><h3>' + (sheet.mode==='edit'?'Editar aporte':'Registrar aporte') + '</h3><button data-action="close-sheet">' + icon('close') + '</button></div>' +
+    '<div class="field"><div class="field-label">Monto del aporte</div><input id="p-amount" type="text" inputmode="numeric" placeholder="0" value="' + esc(formatThousandInput(sheet.amount)) + '"></div>' +
+    '<div class="field"><div class="field-label">Fecha del aporte</div><input id="p-date" type="date" value="' + esc(sheet.date) + '"></div>' +
+    '<div class="field"><div class="field-label">Nota (opcional)</div><input id="p-note" placeholder="Ej. Abono cuota 1" value="' + esc(sheet.note) + '"></div>' +
+    '<div class="sheet-actions">' +
+      (sheet.mode==='edit' ? '<button class="del-btn" data-action="delete-payment">' + icon('trash') + '</button>' : '') +
+      '<button class="save-btn" id="pay-save-btn" data-action="save-payment" ' + (valid?'':'disabled') + '>Guardar aporte</button>' +
+    '</div></div></div>';
+}
+
+function renderConfirmDialog(){
+  return '<div class="overlay overlay-center">' +
+    '<div class="confirm-box">' +
+    '<p>' + esc(confirmState.message) + '</p>' +
+    '<div class="confirm-actions">' +
+      '<button class="confirm-cancel" data-action="cancel-confirm">Cancelar</button>' +
+      '<button class="confirm-ok" data-action="confirm-ok">Confirmar</button>' +
+    '</div></div></div>';
+}
+
+function attachSheetFieldSync(){
+  if (sheet.kind === 'tx'){
+    const a = document.getElementById('f-amount'), d = document.getElementById('f-date'), n = document.getElementById('f-note');
+    if (a) a.addEventListener('input', (e) => {
+      const raw = parseFormattedNumber(e.target.value);
+      sheet.amount = raw;
+      e.target.value = formatThousandInput(raw);
+      refreshSaveState();
+    });
+    if (d) d.addEventListener('input', () => { sheet.date = d.value; });
+    if (n) n.addEventListener('input', () => { sheet.note = n.value; });
+  } else if (sheet.kind === 'quick'){
+    const a = document.getElementById('q-amount'), n = document.getElementById('q-note'), d = document.getElementById('q-date');
+    if (a) a.addEventListener('input', (e) => {
+      const raw = parseFormattedNumber(e.target.value);
+      sheet.amount = raw;
+      e.target.value = formatThousandInput(raw);
+      refreshSaveState();
+    });
+    if (n) n.addEventListener('input', () => { sheet.note = n.value; });
+    if (d) d.addEventListener('input', () => { sheet.date = d.value; });
+  } else if (sheet.kind === 'cat'){
+    const nm = document.getElementById('f-name'), b = document.getElementById('f-budget');
+    if (nm) nm.addEventListener('input', () => { sheet.name = nm.value; refreshSaveState(); });
+    if (b) b.addEventListener('input', (e) => {
+      const raw = parseFormattedNumber(e.target.value);
+      sheet.budget = raw;
+      e.target.value = formatThousandInput(raw);
+    });
+  } else if (sheet.kind === 'credit'){
+    const t = document.getElementById('c-title'), tot = document.getElementById('c-total');
+    if (t) t.addEventListener('input', () => { sheet.title = t.value; refreshSaveState(); });
+    if (tot) tot.addEventListener('input', (e) => {
+      const raw = parseFormattedNumber(e.target.value);
+      sheet.total = raw;
+      e.target.value = formatThousandInput(raw);
+      refreshSaveState();
+    });
+  } else if (sheet.kind === 'payment'){
+    const a = document.getElementById('p-amount'), d = document.getElementById('p-date'), n = document.getElementById('p-note');
+    if (a) a.addEventListener('input', (e) => {
+      const raw = parseFormattedNumber(e.target.value);
+      sheet.amount = raw;
+      e.target.value = formatThousandInput(raw);
+      refreshSaveState();
+    });
+    if (d) d.addEventListener('input', () => { sheet.date = d.value; });
+    if (n) n.addEventListener('input', () => { sheet.note = n.value; });
+  } else if (sheet.kind === 'invoice'){
+    const ti = document.getElementById('inv-title'), da = document.getElementById('inv-date');
+    if (ti) ti.addEventListener('input', () => { sheet.title = ti.value; });
+    if (da) da.addEventListener('input', () => { sheet.date = da.value; });
+
+    const list = document.getElementById('inv-items-list');
+    if (list) list.addEventListener('input', (e) => {
+      const idx = e.target.dataset.idx, field = e.target.dataset.field;
+      if (idx === undefined || !field) return;
+      if (field === 'price'){
+        const raw = parseFormattedNumber(e.target.value);
+        sheet.items[idx].price = raw;
+        e.target.value = formatThousandInput(raw);
+      } else {
+        sheet.items[idx][field] = e.target.value;
+      }
+      const totalEl = document.getElementById('inv-total-val');
+      if (totalEl) totalEl.textContent = fmtMoney(sheet.items.reduce((s,it)=>s+(Number(it.price)||0),0));
+      refreshInvoiceSaveState();
+    });
+  }
+}
+
+function refreshSaveState(){
+  if (sheet.kind === 'tx'){
+    const btn = document.getElementById('tx-save-btn');
+    if (btn) btn.disabled = !(Number(sheet.amount) > 0 && sheet.categoryId);
+  } else if (sheet.kind === 'quick'){
+    const btn = document.getElementById('quick-save-btn');
+    if (btn) btn.disabled = !(Number(sheet.amount) > 0);
+  } else if (sheet.kind === 'cat'){
+    const btn = document.getElementById('cat-save-btn');
+    if (btn) btn.disabled = !(sheet.name.trim().length > 0);
+  } else if (sheet.kind === 'credit'){
+    const btn = document.getElementById('credit-save-btn');
+    if (btn) btn.disabled = !(sheet.title.trim().length > 0 && Number(sheet.total) > 0);
+  } else if (sheet.kind === 'payment'){
+    const btn = document.getElementById('pay-save-btn');
+    if (btn) btn.disabled = !(Number(sheet.amount) > 0);
+  }
+}
+
+function openNewTx(){
+  const firstExpense = DB.categories.find(c => c.type==='expense');
+  sheet = {kind:'tx', mode:'new', id:null, type:'expense', categoryId:firstExpense?firstExpense.id:'', amount:'', date:todayStr(), note:''};
+  renderOverlays();
+}
+function openEditTx(id){
+  const t = DB.transactions.find(x => x.id===id);
+  if (!t) return;
+  sheet = {kind:'tx', mode:'edit', id:t.id, type:t.type, categoryId:t.categoryId, amount:String(Number(t.amount)||0), date:t.date, note:t.note||''};
+  renderOverlays();
+}
+function openQuickAdd(catId){
+  sheet = {kind:'quick', categoryId:catId, amount:'', note:'', date:todayStr(), showNote:false, showDate:false};
+  renderOverlays();
+}
+function saveTxSheet(){
+  const amount = Number(sheet.amount);
+  if (!(amount > 0) || !sheet.categoryId) return;
+  const tx = {id:sheet.id||uid(), type:sheet.type, amount: amount, categoryId:sheet.categoryId, date:sheet.date||todayStr(), note:(sheet.note||'').trim()};
+  const exists = DB.transactions.some(t => t.id === tx.id);
+  DB.transactions = exists ? DB.transactions.map(t => t.id===tx.id?tx:t) : DB.transactions.concat([tx]);
+
+  if (sheet.sourceInvoiceId){
+    DB.invoices = (DB.invoices||[]).map(inv => inv.id === sheet.sourceInvoiceId
+      ? Object.assign({}, inv, {registered:true, categoryId:tx.categoryId, txId:tx.id})
+      : inv);
+  }
+
+  saveDB(); sheet=null; render();
+}
+function saveQuickSheet(){
+  const amount = Number(sheet.amount);
+  if (!(amount > 0)) return;
+  const tx = {id:uid(), type:'expense', amount: amount, categoryId:sheet.categoryId, date:sheet.date||todayStr(), note:(sheet.note||'').trim()};
+  DB.transactions = DB.transactions.concat([tx]);
+  saveDB(); sheet=null; render();
+}
+function deleteTx(id){
+  DB.transactions = DB.transactions.filter(t=>t.id!==id);
+  saveDB(); sheet=null; confirmState=null; render();
+}
+function openNewCat(){
+  sheet={kind:'cat',mode:'new',id:null,name:'',type:'expense',color:SWATCHES[0],icon:ICON_KEYS[0],budget:'',primary:false,isFixed:false};
+  renderOverlays();
+}
+function openEditCat(id){
+  const c=catById(id);
+  if (!c) return;
+  sheet={kind:'cat',mode:'edit',id:c.id,name:c.name,type:c.type,color:c.color,icon:c.icon,budget:c.budget?String(c.budget):'',primary:!!c.primary,isFixed:!!c.isFixed};
+  renderOverlays();
+}
+function saveCatSheet(){
+  if (!sheet.name.trim()) return;
+  const cat={id:sheet.id||uid(),name:sheet.name.trim(),type:sheet.type,color:sheet.color,icon:sheet.icon,
+    budget:sheet.type==='expense'&&sheet.budget?Number(sheet.budget):null,
+    primary:sheet.type==='income'?!!sheet.primary:false,
+    isFixed:sheet.type==='expense'?!!sheet.isFixed:false};
+  const exists=DB.categories.some(c=>c.id===cat.id);
+  let next=exists?DB.categories.map(c=>c.id===cat.id?cat:c):DB.categories.concat([cat]);
+  if (cat.primary) next=next.map(c=>c.id===cat.id?c:(c.type==='income'?Object.assign({},c,{primary:false}):c));
+  DB.categories=next;
+  saveDB(); sheet=null; render();
+}
+function deleteCat(id){
+  DB.categories=DB.categories.filter(c=>c.id!==id);
+  saveDB(); sheet=null; confirmState=null; render();
+}
+
+function openNewCredit(){
+  sheet = {kind:'credit', mode:'new', id:null, title:'', type:UI.creditFilter||'against', total:''};
+  renderOverlays();
+}
+function openEditCredit(id){
+  const c = (DB.credits||[]).find(x => x.id === id);
+  if (!c) return;
+  sheet = {kind:'credit', mode:'edit', id:c.id, title:c.title, type:c.type, total:String(Number(c.total)||0)};
+  renderOverlays();
+}
+function saveCreditSheet(){
+  const total = Number(sheet.total);
+  if (!sheet.title.trim() || !(total > 0)) return;
+  if (!DB.credits) DB.credits = [];
+  const credit = {
+    id: sheet.id || uid(),
+    title: sheet.title.trim(),
+    type: sheet.type,
+    total: total,
+    payments: sheet.id ? ((DB.credits.find(x => x.id === sheet.id)||{}).payments||[]) : []
+  };
+  const exists = DB.credits.some(c => c.id === credit.id);
+  DB.credits = exists ? DB.credits.map(c => c.id === credit.id ? credit : c) : DB.credits.concat([credit]);
+  saveDB(); sheet = null; render();
+}
+function deleteCredit(id){
+  DB.credits = (DB.credits||[]).filter(c => c.id !== id);
+  saveDB(); sheet = null; confirmState = null; render();
+}
+
+function openNewPayment(creditId){
+  sheet = {kind:'payment', mode:'new', creditId:creditId, paymentId:null, amount:'', date:todayStr(), note:''};
+  renderOverlays();
+}
+function openEditPayment(creditId, paymentId){
+  const c = (DB.credits||[]).find(x => x.id === creditId);
+  if (!c) return;
+  const p = (c.payments||[]).find(x => x.id === paymentId);
+  if (!p) return;
+  sheet = {kind:'payment', mode:'edit', creditId:creditId, paymentId:p.id, amount:String(Number(p.amount)||0), date:p.date, note:p.note||''};
+  renderOverlays();
+}
+function savePaymentSheet(){
+  const amount = Number(sheet.amount);
+  if (!(amount > 0)) return;
+  const p = {id: sheet.paymentId || uid(), amount: amount, date: sheet.date || todayStr(), note: (sheet.note||'').trim()};
+  DB.credits = DB.credits.map(c => {
+    if (c.id === sheet.creditId){
+      let pays = c.payments || [];
+      const exists = pays.some(x => x.id === p.id);
+      pays = exists ? pays.map(x => x.id === p.id ? p : x) : pays.concat([p]);
+      return Object.assign({}, c, {payments: pays});
+    }
+    return c;
+  });
+  saveDB(); sheet = null; render();
+}
+function deletePayment(creditId, paymentId){
+  DB.credits = DB.credits.map(c => {
+    if (c.id === creditId){
+      return Object.assign({}, c, {payments: (c.payments||[]).filter(p => p.id !== paymentId)});
+    }
+    return c;
+  });
+  saveDB(); sheet = null; confirmState = null; render();
+}
+
+function exportBackup(){
+  const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='finanzas-backup-'+todayStr()+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function importBackupFile(file){
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    try{
+      const parsed=JSON.parse(e.target.result);
+      if(!parsed||!Array.isArray(parsed.transactions)||!Array.isArray(parsed.categories)) throw new Error('formato inválido');
+      DB={
+        transactions: (parsed.transactions||[]).map(t => ({...t, amount: Number(t.amount)||0})),
+        categories: parsed.categories,
+        credits: (parsed.credits||[]).map(c => ({
+          ...c,
+          total: Number(c.total)||0,
+          payments: (c.payments||[]).map(p => ({...p, amount: Number(p.amount)||0}))
+        })),
+        invoices: (parsed.invoices||[]).map(inv => ({
+          ...inv,
+          total: Number(inv.total)||0,
+          items: (inv.items||[]).map(it => ({...it, price: Number(it.price)||0}))
+        })),
+        settings: parsed.settings||{currency:'COP'}
+      };
+      saveDB(); render();
+    }catch(err){alert('Copia de seguridad no válida.');}
+  };
+  reader.readAsText(file);
+}
+
+document.addEventListener('click',(e)=>{
+  const t=e.target.closest('[data-action]');
+  if(!t)return;
+  const action=t.dataset.action;
+
+  if(action==='set-tab'){UI.tab=t.dataset.tab;render();return;}
+  if(action==='set-filter'){UI.txFilter=t.dataset.filter;refreshTxList();return;}
+  if(action==='set-credit-filter'){UI.creditFilter=t.dataset.filter;render();return;}
+
+  if(action==='new-tx'){openNewTx();return;}
+  if(action==='edit-tx'){openEditTx(t.dataset.id);return;}
+  if(action==='quick-cat'){openQuickAdd(t.dataset.id);return;}
+  if(action==='show-note'){sheet.showNote=true;renderOverlays();return;}
+  if(action==='show-date'){sheet.showDate=true;renderOverlays();return;}
+  if(action==='save-quick'){saveQuickSheet();return;}
+
+  if(action==='tx-type'){
+    sheet.type=t.dataset.type;
+    const firstOfType=DB.categories.find(c=>c.type===sheet.type);
+    sheet.categoryId=firstOfType?firstOfType.id:'';
+    renderOverlays();
+    return;
+  }
+  if(action==='pick-tx-cat'){
+    sheet.categoryId=t.dataset.id;
+    const chipContainer = document.getElementById('chipList');
+    if(chipContainer){
+      const cats = DB.categories.filter(c => c.type === sheet.type);
+      chipContainer.innerHTML = renderTxCatChips(cats, sheet.categoryId);
+    }
+    refreshSaveState();
+    return;
+  }
+  if(action==='save-tx'){saveTxSheet();return;}
+  if(action==='delete-tx'){confirmState={message:'Eliminar este movimiento.',onConfirm:()=>deleteTx(sheet.id)};renderOverlays();return;}
+
+  if(action==='new-cat'){openNewCat();return;}
+  if(action==='edit-cat'){openEditCat(t.dataset.id);return;}
+  if(action==='cat-type'){
+    sheet.type=t.dataset.type;
+    document.getElementById('budgetField').style.display=sheet.type==='expense'?'block':'none';
+    document.getElementById('primaryField').style.display=sheet.type==='income'?'block':'none';
+    document.getElementById('fixedField').style.display=sheet.type==='expense'?'block':'none';
+    document.querySelectorAll('.type-toggle button[data-action="cat-type"]').forEach(b=>b.classList.toggle('active-neutral',b.dataset.type===sheet.type));
+    return;
+  }
+  if(action==='toggle-primary'){
+    sheet.primary=!sheet.primary;
+    document.getElementById('primarySwitch').classList.toggle('on',sheet.primary);
+    return;
+  }
+  if(action==='toggle-fixed'){
+    sheet.isFixed=!sheet.isFixed;
+    document.getElementById('fixedSwitch').classList.toggle('on-violet',sheet.isFixed);
+    return;
+  }
+  if(action==='pick-color'){
+    sheet.color=t.dataset.color;
+    document.querySelectorAll('#swatchList .swatch').forEach(s=>s.classList.toggle('selected',s.dataset.color===sheet.color));
+    return;
+  }
+  if(action==='pick-icon'){
+    sheet.icon=t.dataset.icon;
+    document.querySelectorAll('#iconList .emoji-btn').forEach(b=>b.classList.toggle('selected',b.dataset.icon===sheet.icon));
+    return;
+  }
+  if(action==='save-cat'){saveCatSheet();return;}
+  if(action==='delete-cat'){confirmState={message:'Eliminar categoría.',onConfirm:()=>deleteCat(sheet.id)};renderOverlays();return;}
+
+  if(action==='new-credit'){openNewCredit();return;}
+  if(action==='edit-credit'){openEditCredit(t.dataset.id);return;}
+  if(action==='credit-type'){
+    sheet.type=t.dataset.type;
+    renderOverlays();
+    return;
+  }
+  if(action==='save-credit'){saveCreditSheet();return;}
+  if(action==='delete-credit'){confirmState={message:'Eliminar este crédito.',onConfirm:()=>deleteCredit(sheet.id)};renderOverlays();return;}
+
+  if(action==='new-payment'){openNewPayment(t.dataset.id);return;}
+  if(action==='edit-payment'){openEditPayment(t.dataset.cid, t.dataset.pid);return;}
+  if(action==='save-payment'){savePaymentSheet();return;}
+  if(action==='delete-payment'){confirmState={message:'Eliminar este aporte.',onConfirm:()=>deletePayment(sheet.creditId, sheet.paymentId)};renderOverlays();return;}
+
+  if(action==='scan-invoice'){openInvoiceScan();return;}
+  if(action==='toggle-invoice'){UI.openInvoiceId = (UI.openInvoiceId===t.dataset.id)?null:t.dataset.id;render();return;}
+  if(action==='edit-invoice'){openEditInvoice(t.dataset.id);return;}
+  if(action==='register-invoice'){openRegisterInvoice(t.dataset.id);return;}
+  if(action==='add-invoice-item'){sheet.items.push({id:uid(), name:'', price:''});refreshInvoiceItemsUI();return;}
+  if(action==='remove-invoice-item'){
+    const idx=Number(t.dataset.idx);
+    sheet.items.splice(idx,1);
+    if(!sheet.items.length) sheet.items.push({id:uid(), name:'', price:''});
+    refreshInvoiceItemsUI();
+    return;
+  }
+  if(action==='save-invoice'){saveInvoiceSheet();return;}
+  if(action==='delete-invoice'){confirmState={message:'Eliminar esta factura.',onConfirm:()=>deleteInvoice(sheet.id)};renderOverlays();return;}
+
+  if(action==='close-sheet'){sheet=null;renderOverlays();return;}
+  if(action==='cancel-confirm'){confirmState=null;renderOverlays();return;}
+  if(action==='confirm-ok'){const fn=confirmState.onConfirm;confirmState=null;fn();return;}
+
+  if(action==='set-currency'){DB.settings.currency=t.dataset.code;saveDB();render();return;}
+  if(action==='export-backup'){exportBackup();return;}
+  if(action==='import-backup'){document.getElementById('import-file').click();return;}
+  if(action==='reset-data'){
+    confirmState={message:'Borrar todos los movimientos.',onConfirm:()=>{
+      DB={transactions:[],categories:DEFAULT_CATEGORIES.slice(),credits:[],invoices:[],settings:{currency:DB.settings.currency, geminiApiKey:DB.settings.geminiApiKey}};
+      saveDB();confirmState=null;render();
+    }};
+    renderOverlays();
+    return;
+  }
 });
 
-document.addEventListener('change', (e) => {
-  if (e.target.id === 'invoice-camera-input' && e.target.files && e.target.files[0]) {
-    handleInvoiceImage(e.target.files[0]);
-  }
+document.addEventListener('change',(e)=>{
+  if(e.target.id==='import-file'&&e.target.files[0])importBackupFile(e.target.files[0]);
+  if(e.target.id==='invoice-camera-input'&&e.target.files[0])handleInvoiceImage(e.target.files[0]);
 });
 
 render();
