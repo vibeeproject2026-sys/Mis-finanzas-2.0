@@ -1111,7 +1111,7 @@ function renderTransactions(){
 
 // SOLUCIÓN APLICADA: SE CAMBIA GEMINI_MODEL POR UNA VERSIÓN EXISTENTE DE LA API.
 const GEMINI_MODEL = 'gemini-1.5-flash';
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
+const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1/models/' + GEMINI_MODEL + ':generateContent';
 const GEMINI_INVOICE_PROMPT = 'Analiza esta foto de una factura o recibo de compra. Devuelve ÚNICAMENTE un JSON con este formato exacto, sin texto adicional ni markdown: {"items":[{"name":"nombre del producto","price":12500}]}. Reglas: incluye solo los productos/artículos comprados; NO incluyas NIT, IVA, subtotal, total, cambio, efectivo, fecha, ni datos del establecimiento. Los precios deben ser números enteros en pesos, sin puntos, comas ni símbolos. Si el nombre de un producto está cortado o poco claro, usa tu mejor interpretación razonable. Si una línea no tiene un precio claro, no la incluyas.';
 
 async function callGeminiForInvoice(base64Data, mimeType){
