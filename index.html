@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
 <style>
   :root{
     --bg:#F8F7FC; --card:#FFFFFF; --card-alt:#F1EEFA;
@@ -433,6 +434,22 @@
   .confirm-actions button{flex:1;border-radius:14px;padding:12px;font-size:13.5px;font-weight:700;}
   .confirm-cancel{background:var(--card-alt);}
   .confirm-ok{background:var(--expense);color:#fff;}
+
+  .item-edit-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .item-edit-row .item-name{flex:2;min-width:0;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);font-size:13.5px;color:var(--ink);outline:none;}
+  .item-edit-row .item-price{flex:1;min-width:0;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);font-size:13.5px;color:var(--ink);outline:none;text-align:right;}
+  .item-edit-row .item-name:focus, .item-edit-row .item-price:focus{border-color:var(--violet);}
+  .item-remove-btn{width:34px;height:34px;border-radius:10px;background:var(--expense-bg);color:var(--expense);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+  .invoice-item-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;}
+  .invoice-item-row:last-child{border-bottom:none;}
+  .invoice-item-row .iname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .invoice-item-row .iprice{font-weight:700;flex-shrink:0;}
+
+  .registered-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;background:var(--income-bg);color:var(--income);padding:6px 11px;border-radius:999px;font-weight:800;}
+
+  .spinner{width:32px;height:32px;border:3px solid var(--card-alt);border-top-color:var(--violet);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
@@ -493,15 +510,21 @@ function loadDB(){
           amount: Number(p.amount) || 0
         }))
       }));
+      const invoices = (parsed.invoices || []).map(inv => ({
+        ...inv,
+        total: Number(inv.total) || 0,
+        items: (inv.items || []).map(it => ({...it, price: Number(it.price) || 0}))
+      }));
       return {
         transactions: txs,
         categories: (parsed.categories && parsed.categories.length) ? parsed.categories : DEFAULT_CATEGORIES.slice(),
         credits: credits,
+        invoices: invoices,
         settings: parsed.settings || {currency:'COP'},
       };
     }
   } catch(e){}
-  return {transactions:[], categories:DEFAULT_CATEGORIES.slice(), credits:[], settings:{currency:'COP'}};
+  return {transactions:[], categories:DEFAULT_CATEGORIES.slice(), credits:[], invoices:[], settings:{currency:'COP'}};
 }
 
 function saveDB(){
@@ -516,6 +539,11 @@ function saveDB(){
         total: Number(c.total) || 0,
         payments: (c.payments || []).map(p => ({...p, amount: Number(p.amount) || 0}))
       })),
+      invoices: (DB.invoices || []).map(inv => ({
+        ...inv,
+        total: Number(inv.total) || 0,
+        items: (inv.items || []).map(it => ({...it, price: Number(it.price) || 0}))
+      })),
       settings: DB.settings
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
@@ -523,9 +551,10 @@ function saveDB(){
 }
 
 let DB = loadDB();
-let UI = {tab:'dashboard', txFilter:'all', creditFilter:'against', search:''};
+let UI = {tab:'dashboard', txFilter:'all', creditFilter:'against', search:'', openInvoiceId:null};
 let sheet = null;
 let confirmState = null;
+let scanningOverlay = null;
 let momSlideIndex = 0;
 let momInterval = null;
 
@@ -577,6 +606,8 @@ const ICONS = {
   tag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3h6a2 2 0 0 1 2 2v6a2 2 0 0 1-.6 1.4l-8 8a2 2 0 0 1-2.8 0l-6-6a2 2 0 0 1 0-2.8l8-8A2 2 0 0 1 12 3z"/><circle cx="15.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/></svg>',
   gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>',
   credit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
+  receipt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2v20l2-1.5L10 22l2-1.5L14 22l2-1.5L18 22V2l-2 1.5L14 2l-2 1.5L10 2 8 3.5 6 2z"/><line x1="8.5" y1="7.5" x2="15.5" y2="7.5"/><line x1="8.5" y1="11.5" x2="15.5" y2="11.5"/><line x1="8.5" y1="15.5" x2="13" y2="15.5"/></svg>',
+  camera:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h3l2-2h6l2 2h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="14" r="3.5"/></svg>',
 };
 const icon = (name, cls) => '<span class="icon ' + (cls||'') + '">' + ICONS[name] + '</span>';
 
@@ -871,6 +902,7 @@ function render(){
     (!storageOk ? '<div class="banner banner--warn">' + icon('alert') + ' Modo sin almacenamiento local activo.</div>' : '') +
     (UI.tab==='dashboard' ? renderDashboard() :
      UI.tab==='transactions' ? renderTransactions() :
+     UI.tab==='invoices' ? renderInvoices() :
      UI.tab==='credits' ? renderCredits() :
      UI.tab==='categories' ? renderCategories() :
      renderSettings());
@@ -878,11 +910,13 @@ function render(){
   document.getElementById('fab-slot').innerHTML =
     (UI.tab==='dashboard' || UI.tab==='transactions')
       ? '<button class="fab" data-action="new-tx">' + icon('plus') + '</button>'
-      : (UI.tab==='credits' ? '<button class="fab" data-action="new-credit">' + icon('plus') + '</button>' : '');
+      : (UI.tab==='credits' ? '<button class="fab" data-action="new-credit">' + icon('plus') + '</button>'
+      : (UI.tab==='invoices' ? '<button class="fab" data-action="scan-invoice">' + icon('camera') + '</button>' : ''));
 
   document.getElementById('tabbar').innerHTML = [
     ['dashboard','wallet','Resumen'],
     ['transactions','list','Movimientos'],
+    ['invoices','receipt','Facturas'],
     ['credits','credit','Créditos'],
     ['categories','tag','Categorías'],
     ['settings','gear','Ajustes'],
@@ -1094,8 +1128,321 @@ function renderTransactions(){
   return html;
 }
 
+// ===================== FACTURAS (escaneo con OCR local) =====================
+
+function parseInvoiceText(text){
+  const lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
+  // Busca un número al final de la línea (con separadores de miles, o de hasta 6 dígitos sin separador)
+  // que parezca un precio en COP. Se limita a 6 dígitos sin separador para no confundir NITs/teléfonos.
+  const priceRegex = /(\d{1,3}(?:[.,]\d{3})+|\d{3,6})\s*$/;
+  // Líneas que casi nunca son un ítem comprado (totales, impuestos, datos del establecimiento, etc.)
+  const excludeWords = /total|subtotal|\biva\b|\bnit\b|cufe|resoluci|cambio|efectivo|tarjeta|fecha|hora|\bcaja\b|vendedor|gracias|factura|cliente|\bcuenta\b|consecutivo|\bcufe\b/i;
+  const items = [];
+  lines.forEach(line => {
+    if (excludeWords.test(line)) return;
+    const m = line.match(priceRegex);
+    if (!m) return;
+    const rawPrice = m[1].replace(/[.,]/g, '');
+    const price = parseInt(rawPrice, 10);
+    if (!price || price < 100) return; // descarta cantidades/códigos pequeños
+    let name = line.slice(0, m.index).trim();
+    name = name.replace(/^[\-\*\d\s.xX]+/, '').trim(); // quita cantidades tipo "2 x " al inicio
+    if (!name) name = 'Ítem';
+    items.push({id: uid(), name: name.slice(0, 60), price});
+  });
+  return items;
+}
+
+function openInvoiceScan(){
+  const input = document.getElementById('invoice-camera-input');
+  if (input) input.click();
+}
+
+async function handleInvoiceImage(file){
+  scanningOverlay = {message:'Preparando imagen...'};
+  renderOverlays();
+  try {
+    const reader = new FileReader();
+    const dataUrl = await new Promise((res, rej) => {
+      reader.onload = () => res(reader.result);
+      reader.onerror = () => rej(new Error('No se pudo leer la imagen'));
+      reader.readAsDataURL(file);
+    });
+
+    if (typeof Tesseract === 'undefined'){
+      throw new Error('El motor de reconocimiento aún no ha cargado. Verifica tu conexión e inténtalo de nuevo.');
+    }
+
+    scanningOverlay = {message:'Reconociendo texto (0%)...'};
+    renderOverlays();
+
+    const result = await Tesseract.recognize(dataUrl, 'spa', {
+      logger: (m) => {
+        if (m.status === 'recognizing text'){
+          scanningOverlay = {message:'Reconociendo texto (' + Math.round((m.progress||0)*100) + '%)...'};
+          renderOverlays();
+        }
+      }
+    });
+
+    const text = (result && result.data && result.data.text) ? result.data.text : '';
+    const items = parseInvoiceText(text);
+    scanningOverlay = null;
+
+    sheet = {
+      kind:'invoice', mode:'new', id:null,
+      title:'Factura ' + todayStr(),
+      date: todayStr(),
+      items: items.length ? items : [{id:uid(), name:'', price:''}],
+      registered:false, categoryId:null, txId:null
+    };
+    renderOverlays();
+  } catch(err){
+    scanningOverlay = null;
+    renderOverlays();
+    alert((err && err.message) ? err.message : 'No se pudo procesar la imagen. Intenta con más luz o una foto más nítida.');
+  }
+}
+
+function renderInvoices(){
+  let html = '';
+  html += '<input type="file" id="invoice-camera-input" accept="image/*" capture="environment" style="display:none">';
+
+  const list = (DB.invoices || []).slice().sort((a,b) => (b.date+b.id).localeCompare(a.date+a.id));
+  if (!list.length){
+    return html + '<div class="empty-state">Aún no has escaneado ninguna factura.<br>Usa el botón de la cámara para tomar una foto.</div>';
+  }
+
+  list.forEach(inv => {
+    const isOpen = UI.openInvoiceId === inv.id;
+    html += '<div class="credit-card">';
+    html += '<div class="credit-head"><div>';
+    html += '<div class="credit-title">' + esc(inv.title) + '</div>';
+    html += '<div class="credit-sub">' + esc(inv.date) + ' · ' + inv.items.length + ' ítem' + (inv.items.length===1?'':'s') + '</div>';
+    html += '</div><button data-action="edit-invoice" data-id="' + inv.id + '">' + icon('pencil') + '</button></div>';
+
+    html += '<div class="credit-values"><span>Total:</span><span class="credit-pending against">' + fmtMoney(inv.total) + '</span></div>';
+
+    html += '<button class="add-pay-btn" data-action="toggle-invoice" data-id="' + inv.id + '">' + (isOpen ? 'Ocultar ítems' : 'Ver ítems') + '</button>';
+
+    if (isOpen){
+      html += '<div style="margin-top:10px;">';
+      inv.items.forEach(it => {
+        html += '<div class="invoice-item-row"><span class="iname">' + esc(it.name) + '</span><span class="iprice">' + fmtMoney(it.price) + '</span></div>';
+      });
+      html += '</div>';
+    }
+
+    html += '<div style="margin-top:10px;">';
+    if (inv.registered){
+      const cat = catById(inv.categoryId);
+      html += '<span class="registered-badge">' + icon('check') + ' Registrada' + (cat ? ' en ' + esc(cat.name) : '') + '</span>';
+    } else {
+      html += '<button class="add-pay-btn" data-action="register-invoice" data-id="' + inv.id + '">Elegir categoría y registrar</button>';
+    }
+    html += '</div>';
+
+    html += '</div>';
+  });
+
+  return html;
+}
+
+function renderInvoiceItemsHTML(){
+  return sheet.items.map((it, idx) => (
+    '<div class="item-edit-row">' +
+      '<input class="item-name" data-idx="' + idx + '" data-field="name" placeholder="Nombre del ítem" value="' + esc(it.name) + '">' +
+      '<input class="item-price" data-idx="' + idx + '" data-field="price" type="text" inputmode="numeric" placeholder="0" value="' + esc(formatThousandInput(it.price)) + '">' +
+      '<button class="item-remove-btn" data-action="remove-invoice-item" data-idx="' + idx + '">' + icon('trash') + '</button>' +
+    '</div>'
+  )).join('');
+}
+
+function renderInvoiceSheet(){
+  const total = sheet.items.reduce((s,it) => s + (Number(it.price)||0), 0);
+  const valid = sheet.items.some(it => it.name.trim() && Number(it.price) > 0);
+
+  let html = '<div class="overlay"><div class="sheet">';
+  html += '<div class="sheet-handle"></div>';
+  html += '<div class="sheet-head"><h3>' + (sheet.mode==='edit'?'Editar factura':'Revisar factura escaneada') + '</h3><button data-action="close-sheet">' + icon('close') + '</button></div>';
+
+  html += '<div class="field"><div class="field-label">Título</div><input id="inv-title" placeholder="Ej. Supermercado" value="' + esc(sheet.title) + '"></div>';
+  html += '<div class="field"><div class="field-label">Fecha</div><input id="inv-date" type="date" value="' + esc(sheet.date) + '"></div>';
+
+  html += '<div class="field-label" style="margin-bottom:8px;">Ítems detectados (corrige si el OCR se equivocó)</div>';
+  html += '<div id="inv-items-list">' + renderInvoiceItemsHTML() + '</div>';
+  html += '<button class="link-btn" data-action="add-invoice-item">+ Agregar ítem</button>';
+
+  html += '<div class="mom-single" style="margin-top:14px;"><div class="lbl">Total de la factura</div><div class="val" style="color:var(--violet)" id="inv-total-val">' + fmtMoney(total) + '</div></div>';
+
+  html += '<div class="sheet-actions" style="margin-top:14px;">';
+  if (sheet.mode==='edit') html += '<button class="del-btn" data-action="delete-invoice">' + icon('trash') + '</button>';
+  html += '<button class="save-btn" id="invoice-save-btn" data-action="save-invoice" ' + (valid?'':'disabled') + '>Guardar factura</button>';
+  html += '</div></div></div>';
+  return html;
+}
+
+function renderScanningOverlay(){
+  return '<div class="overlay overlay-center"><div class="confirm-box" style="text-align:center;">' +
+    '<div class="spinner" style="margin:0 auto 14px;"></div>' +
+    '<p>' + esc(scanningOverlay.message) + '</p>' +
+    '</div></div>';
+}
+
+function refreshInvoiceItemsUI(){
+  const container = document.getElementById('inv-items-list');
+  if (container) container.innerHTML = renderInvoiceItemsHTML();
+  const totalEl = document.getElementById('inv-total-val');
+  if (totalEl) totalEl.textContent = fmtMoney(sheet.items.reduce((s,it)=>s+(Number(it.price)||0),0));
+  refreshInvoiceSaveState();
+}
+function refreshInvoiceSaveState(){
+  const btn = document.getElementById('invoice-save-btn');
+  if (btn) btn.disabled = !sheet.items.some(it => it.name.trim() && Number(it.price) > 0);
+}
+
+function openEditInvoice(id){
+  const inv = (DB.invoices||[]).find(i => i.id===id);
+  if (!inv) return;
+  sheet = {
+    kind:'invoice', mode:'edit', id:inv.id, title:inv.title, date:inv.date,
+    items: inv.items.map(it => ({...it, price:String(it.price)})),
+    registered: !!inv.registered, categoryId: inv.categoryId || null, txId: inv.txId || null
+  };
+  renderOverlays();
+}
+
+function saveInvoiceSheet(){
+  const items = sheet.items
+    .filter(it => it.name.trim() && Number(it.price) > 0)
+    .map(it => ({id: it.id || uid(), name: it.name.trim().slice(0,60), price: Number(it.price)}));
+  if (!items.length) return;
+  const total = items.reduce((s,it) => s + it.price, 0);
+  const invoice = {
+    id: sheet.id || uid(),
+    title: (sheet.title||'').trim() || ('Factura ' + (sheet.date||todayStr())),
+    date: sheet.date || todayStr(),
+    items,
+    total,
+    registered: !!sheet.registered,
+    categoryId: sheet.categoryId || null,
+    txId: sheet.txId || null
+  };
+  if (!DB.invoices) DB.invoices = [];
+  const exists = DB.invoices.some(i => i.id === invoice.id);
+  DB.invoices = exists ? DB.invoices.map(i => i.id===invoice.id?invoice:i) : DB.invoices.concat([invoice]);
+  saveDB(); sheet = null; render();
+}
+
+function deleteInvoice(id){
+  DB.invoices = (DB.invoices||[]).filter(i => i.id !== id);
+  saveDB(); sheet = null; confirmState = null; render();
+}
+
+function openRegisterInvoice(invoiceId){
+  const inv = (DB.invoices||[]).find(i => i.id===invoiceId);
+  if (!inv) return;
+  const firstExpense = DB.categories.find(c => c.type==='expense');
+  sheet = {
+    kind:'tx', mode:'new', id:null, type:'expense',
+    categoryId: firstExpense ? firstExpense.id : '',
+    amount: String(inv.total), date: inv.date || todayStr(), note: inv.title || '',
+    sourceInvoiceId: inv.id
+  };
+  renderOverlays();
+}
+
+function computeCreditsSummary(){
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+
+  let againstTotal = 0, againstPaidTotal = 0, againstPaidThisMonth = 0, againstPaidPrevMonth = 0, againstCount = 0;
+  let favorTotal = 0, favorPaidTotal = 0, favorPaidThisMonth = 0, favorPaidPrevMonth = 0, favorCount = 0;
+
+  (DB.credits || []).forEach(c => {
+    const total = Number(c.total) || 0;
+    const payments = c.payments || [];
+    const paidTotal = payments.reduce((s,p) => s + (Number(p.amount)||0), 0);
+    const paidThisMonth = payments
+      .filter(p => p.date && typeof p.date === 'string' && p.date.substring(0,7) === currentMonthKey)
+      .reduce((s,p) => s + (Number(p.amount)||0), 0);
+    const paidPrevMonth = payments
+      .filter(p => p.date && typeof p.date === 'string' && p.date.substring(0,7) === prevMonthKey)
+      .reduce((s,p) => s + (Number(p.amount)||0), 0);
+
+    if (c.type === 'against'){
+      againstTotal += total;
+      againstPaidTotal += paidTotal;
+      againstPaidThisMonth += paidThisMonth;
+      againstPaidPrevMonth += paidPrevMonth;
+      againstCount += 1;
+    } else if (c.type === 'favor'){
+      favorTotal += total;
+      favorPaidTotal += paidTotal;
+      favorPaidThisMonth += paidThisMonth;
+      favorPaidPrevMonth += paidPrevMonth;
+      favorCount += 1;
+    }
+  });
+
+  const againstPending = Math.max(0, againstTotal - againstPaidTotal);
+  const favorPending = Math.max(0, favorTotal - favorPaidTotal);
+  const againstProgressPct = againstTotal > 0 ? Math.min(100, Math.round((againstPaidTotal / againstTotal) * 100)) : 0;
+  const favorProgressPct = favorTotal > 0 ? Math.min(100, Math.round((favorPaidTotal / favorTotal) * 100)) : 0;
+
+  let paymentChangePct = 0;
+  if (againstPaidPrevMonth > 0) paymentChangePct = Math.round(((againstPaidThisMonth - againstPaidPrevMonth) / againstPaidPrevMonth) * 100);
+  else if (againstPaidThisMonth > 0) paymentChangePct = 100;
+
+  return {
+    againstTotal, againstPaidTotal, againstPending, againstProgressPct, againstCount,
+    againstPaidThisMonth, againstPaidPrevMonth, paymentChangePct,
+    favorTotal, favorPaidTotal, favorPending, favorProgressPct, favorCount,
+    favorPaidThisMonth, favorPaidPrevMonth
+  };
+}
+
 function renderCredits(){
   let html = '';
+  const summary = computeCreditsSummary();
+
+  if (summary.againstCount > 0 || summary.favorCount > 0){
+    html += '<div class="balance-card">';
+
+    if (summary.againstCount > 0){
+      html += '<div class="balance-label">Total que debo</div>';
+      html += '<div class="balance-amount" style="color:var(--expense)">' + fmtMoney(summary.againstPending) + '</div>';
+      html += '<div class="balance-month">de ' + fmtMoney(summary.againstTotal) + ' en ' + summary.againstCount + ' crédito' + (summary.againstCount===1?'':'s') + '</div>';
+      html += '<div class="bar-track" style="margin-top:10px;"><div class="bar-fill" style="width:' + summary.againstProgressPct + '%;background:var(--income)"></div></div>';
+      html += '<div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">Has pagado el ' + summary.againstProgressPct + '% del total de tus deudas</div>';
+    }
+
+    if (summary.favorCount > 0){
+      html += '<div style="margin-top:' + (summary.againstCount>0?'16px':'0') + ';padding-top:' + (summary.againstCount>0?'14px':'0') + ';border-top:' + (summary.againstCount>0?'1px solid var(--line)':'none') + ';">';
+      html += '<div class="balance-label">Total que me deben</div>';
+      html += '<div class="balance-amount" style="font-size:26px;color:var(--income)">' + fmtMoney(summary.favorPending) + '</div>';
+      html += '<div class="balance-month">de ' + fmtMoney(summary.favorTotal) + ' en ' + summary.favorCount + ' cobro' + (summary.favorCount===1?'':'s') + '</div>';
+      html += '</div>';
+    }
+
+    if (summary.againstCount > 0){
+      const changeUp = summary.paymentChangePct > 0;
+      const changeDown = summary.paymentChangePct < 0;
+      const arrow = changeUp ? '▲' : (changeDown ? '▼' : '—');
+      const deltaColor = changeUp ? 'var(--income)' : (changeDown ? 'var(--amber)' : 'var(--ink-muted)');
+      html += '<div class="balance-metrics">';
+      html += '<div class="b-metric"><span class="lbl">Abonado este mes</span><span class="val inc">' + fmtMoney(summary.againstPaidThisMonth) + '</span></div>';
+      html += '<div class="b-metric"><span class="lbl">Abonado mes pasado</span><span class="val">' + fmtMoney(summary.againstPaidPrevMonth) + '</span></div>';
+      html += '<div class="b-metric"><span class="lbl">Variación en abonos</span><span class="val" style="color:' + deltaColor + '">' + arrow + ' ' + Math.abs(summary.paymentChangePct) + '%</span></div>';
+      html += '<div class="b-metric"><span class="lbl">Créditos activos (deudas)</span><span class="val sav">' + summary.againstCount + '</span></div>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+  }
+
   html += '<div class="filter-row" style="margin-bottom:14px;">';
   [['against','En contra (Deudas)'],['favor','A favor (Cobros)']].forEach(([val,label]) => {
     html += '<button class="chip ' + (UI.creditFilter===val?'selected':'') + '" data-action="set-credit-filter" data-filter="' + val + '">' + label + '</button>';
@@ -1182,7 +1529,8 @@ function renderSettings(){
   html += '<div class="section-title" style="margin-top:18px">Tus datos</div>';
   html += '<div class="data-box"><div class="row"><span class="muted">Movimientos guardados</span><span>' + DB.transactions.length + '</span></div>' +
     '<div class="row"><span class="muted">Categorías</span><span>' + DB.categories.length + '</span></div>' +
-    '<div class="row"><span class="muted">Créditos registrados</span><span>' + (DB.credits||[]).length + '</span></div></div>';
+    '<div class="row"><span class="muted">Créditos registrados</span><span>' + (DB.credits||[]).length + '</span></div>' +
+    '<div class="row"><span class="muted">Facturas escaneadas</span><span>' + (DB.invoices||[]).length + '</span></div></div>';
 
   html += '<div class="section-title" style="margin-top:18px">Copia de seguridad</div>';
   html += '<button class="secondary-btn" data-action="export-backup">Exportar copia de seguridad</button>';
@@ -1201,7 +1549,9 @@ function renderOverlays(){
   if (sheet && sheet.kind === 'cat') html += renderCatSheet();
   if (sheet && sheet.kind === 'credit') html += renderCreditSheet();
   if (sheet && sheet.kind === 'payment') html += renderPaymentSheet();
+  if (sheet && sheet.kind === 'invoice') html += renderInvoiceSheet();
   if (confirmState) html += renderConfirmDialog();
+  if (scanningOverlay) html += renderScanningOverlay();
   el.innerHTML = html;
   if (sheet) attachSheetFieldSync();
   if (sheet && sheet.kind === 'quick'){
@@ -1395,6 +1745,26 @@ function attachSheetFieldSync(){
     });
     if (d) d.addEventListener('input', () => { sheet.date = d.value; });
     if (n) n.addEventListener('input', () => { sheet.note = n.value; });
+  } else if (sheet.kind === 'invoice'){
+    const ti = document.getElementById('inv-title'), da = document.getElementById('inv-date');
+    if (ti) ti.addEventListener('input', () => { sheet.title = ti.value; });
+    if (da) da.addEventListener('input', () => { sheet.date = da.value; });
+
+    const list = document.getElementById('inv-items-list');
+    if (list) list.addEventListener('input', (e) => {
+      const idx = e.target.dataset.idx, field = e.target.dataset.field;
+      if (idx === undefined || !field) return;
+      if (field === 'price'){
+        const raw = parseFormattedNumber(e.target.value);
+        sheet.items[idx].price = raw;
+        e.target.value = formatThousandInput(raw);
+      } else {
+        sheet.items[idx][field] = e.target.value;
+      }
+      const totalEl = document.getElementById('inv-total-val');
+      if (totalEl) totalEl.textContent = fmtMoney(sheet.items.reduce((s,it)=>s+(Number(it.price)||0),0));
+      refreshInvoiceSaveState();
+    });
   }
 }
 
@@ -1438,6 +1808,13 @@ function saveTxSheet(){
   const tx = {id:sheet.id||uid(), type:sheet.type, amount: amount, categoryId:sheet.categoryId, date:sheet.date||todayStr(), note:(sheet.note||'').trim()};
   const exists = DB.transactions.some(t => t.id === tx.id);
   DB.transactions = exists ? DB.transactions.map(t => t.id===tx.id?tx:t) : DB.transactions.concat([tx]);
+
+  if (sheet.sourceInvoiceId){
+    DB.invoices = (DB.invoices||[]).map(inv => inv.id === sheet.sourceInvoiceId
+      ? Object.assign({}, inv, {registered:true, categoryId:tx.categoryId, txId:tx.id})
+      : inv);
+  }
+
   saveDB(); sheet=null; render();
 }
 function saveQuickSheet(){
@@ -1567,6 +1944,11 @@ function importBackupFile(file){
           total: Number(c.total)||0,
           payments: (c.payments||[]).map(p => ({...p, amount: Number(p.amount)||0}))
         })),
+        invoices: (parsed.invoices||[]).map(inv => ({
+          ...inv,
+          total: Number(inv.total)||0,
+          items: (inv.items||[]).map(it => ({...it, price: Number(it.price)||0}))
+        })),
         settings: parsed.settings||{currency:'COP'}
       };
       saveDB(); render();
@@ -1659,6 +2041,21 @@ document.addEventListener('click',(e)=>{
   if(action==='save-payment'){savePaymentSheet();return;}
   if(action==='delete-payment'){confirmState={message:'Eliminar este aporte.',onConfirm:()=>deletePayment(sheet.creditId, sheet.paymentId)};renderOverlays();return;}
 
+  if(action==='scan-invoice'){openInvoiceScan();return;}
+  if(action==='toggle-invoice'){UI.openInvoiceId = (UI.openInvoiceId===t.dataset.id)?null:t.dataset.id;render();return;}
+  if(action==='edit-invoice'){openEditInvoice(t.dataset.id);return;}
+  if(action==='register-invoice'){openRegisterInvoice(t.dataset.id);return;}
+  if(action==='add-invoice-item'){sheet.items.push({id:uid(), name:'', price:''});refreshInvoiceItemsUI();return;}
+  if(action==='remove-invoice-item'){
+    const idx=Number(t.dataset.idx);
+    sheet.items.splice(idx,1);
+    if(!sheet.items.length) sheet.items.push({id:uid(), name:'', price:''});
+    refreshInvoiceItemsUI();
+    return;
+  }
+  if(action==='save-invoice'){saveInvoiceSheet();return;}
+  if(action==='delete-invoice'){confirmState={message:'Eliminar esta factura.',onConfirm:()=>deleteInvoice(sheet.id)};renderOverlays();return;}
+
   if(action==='close-sheet'){sheet=null;renderOverlays();return;}
   if(action==='cancel-confirm'){confirmState=null;renderOverlays();return;}
   if(action==='confirm-ok'){const fn=confirmState.onConfirm;confirmState=null;fn();return;}
@@ -1668,7 +2065,7 @@ document.addEventListener('click',(e)=>{
   if(action==='import-backup'){document.getElementById('import-file').click();return;}
   if(action==='reset-data'){
     confirmState={message:'Borrar todos los movimientos.',onConfirm:()=>{
-      DB={transactions:[],categories:DEFAULT_CATEGORIES.slice(),credits:[],settings:{currency:DB.settings.currency}};
+      DB={transactions:[],categories:DEFAULT_CATEGORIES.slice(),credits:[],invoices:[],settings:{currency:DB.settings.currency}};
       saveDB();confirmState=null;render();
     }};
     renderOverlays();
@@ -1678,6 +2075,7 @@ document.addEventListener('click',(e)=>{
 
 document.addEventListener('change',(e)=>{
   if(e.target.id==='import-file'&&e.target.files[0])importBackupFile(e.target.files[0]);
+  if(e.target.id==='invoice-camera-input'&&e.target.files[0])handleInvoiceImage(e.target.files[0]);
 });
 
 render();
