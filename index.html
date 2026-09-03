@@ -1131,7 +1131,7 @@ function renderTransactions(){
 // ===================== FACTURAS (escaneo con IA - Gemini) =====================
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
+const GEMINI_MODELS_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 const GEMINI_INVOICE_PROMPT = 'Analiza esta foto de una factura o recibo de compra. Devuelve ÚNICAMENTE un JSON con este formato exacto, sin texto adicional ni markdown: {"items":[{"name":"nombre del producto","price":12500}]}. Reglas: incluye solo los productos/artículos comprados; NO incluyas NIT, IVA, subtotal, total, cambio, efectivo, fecha, ni datos del establecimiento. Los precios deben ser números enteros en pesos, sin puntos, comas ni símbolos. Si el nombre de un producto está cortado o poco claro, usa tu mejor interpretación razonable. Si una línea no tiene un precio claro, no la incluyas.';
 
 async function callGeminiForInvoice(base64Data, mimeType){
@@ -1140,23 +1140,68 @@ async function callGeminiForInvoice(base64Data, mimeType){
     throw new Error('Primero agrega tu clave de Gemini en Ajustes (sección "Reconocimiento de facturas").');
   }
 
-  const schema = {
-    type: 'OBJECT',
-    properties: {
-      items: {
-        type: 'ARRAY',
-        items: {
-          type: 'OBJECT',
-          properties: {
-            name: { type: 'STRING' },
-            price: { type: 'INTEGER' }
-          },
-          required: ['name', 'price']
-        }
+  // Primero consultamos los modelos que Google realmente expone para ESTA API key.
+  // Así no se fuerza un modelo que la clave no tenga habilitado.
+  let modelsData;
+  try {
+    const modelsResp = await fetch(GEMINI_MODELS_ENDPOINT + '?key=' + encodeURIComponent(apiKey), {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    try { modelsData = await modelsResp.json(); } catch(e) { modelsData = null; }
+
+    if (!modelsResp.ok){
+      const msg = modelsData && modelsData.error && modelsData.error.message ? modelsData.error.message : '';
+      if (modelsResp.status === 400 || modelsResp.status === 401 || modelsResp.status === 403){
+        throw new Error('Tu clave de Gemini no es válida o no tiene acceso a la Gemini API. Revísala en Google AI Studio.');
       }
-    },
-    required: ['items']
-  };
+      throw new Error('No se pudo consultar los modelos disponibles de Gemini (error ' + modelsResp.status + ').' + (msg ? ' ' + msg : ''));
+    }
+  } catch(err){
+    if (err && err.message && !/Failed to fetch|NetworkError|Load failed/i.test(err.message)) throw err;
+    throw new Error('No se pudo conectar con Gemini. Revisa tu conexión a internet.');
+  }
+
+  const available = Array.isArray(modelsData && modelsData.models) ? modelsData.models : [];
+  const supported = available.filter(m => {
+    const name = String(m && (m.baseModelId || m.name || '')).replace(/^models\//, '');
+    const methods = Array.isArray(m && m.supportedGenerationMethods) ? m.supportedGenerationMethods : [];
+    if (!name || !methods.includes('generateContent')) return false;
+    return !/(image|tts|live|audio|embedding|robotics|transcribe|veo)/i.test(name);
+  });
+
+  const preferred = [
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-pro',
+    'gemini-3.7-flash',
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-3-flash-preview',
+    'gemini-flash-latest'
+  ];
+
+  let modelName = null;
+  for (const wanted of preferred){
+    const found = supported.find(m => {
+      const n = String(m.baseModelId || m.name || '').replace(/^models\//, '');
+      return n === wanted;
+    });
+    if (found){
+      modelName = String(found.baseModelId || found.name).replace(/^models\//, '');
+      break;
+    }
+  }
+
+  // Último recurso: cualquier modelo generativo multimodal no especializado.
+  if (!modelName && supported.length){
+    modelName = String(supported[0].baseModelId || supported[0].name).replace(/^models\//, '');
+  }
+
+  if (!modelName){
+    throw new Error('Esta API key no tiene ningún modelo Gemini disponible para analizar imágenes. Crea una API key nueva en Google AI Studio y vuelve a intentarlo.');
+  }
 
   const body = {
     contents: [{
@@ -1167,16 +1212,14 @@ async function callGeminiForInvoice(base64Data, mimeType){
       ]
     }],
     generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema: schema
+      responseMimeType: 'application/json'
     }
   };
 
+  const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelName) + ':generateContent';
   let resp;
   try {
-    // generateContent es el endpoint REST directo para modelos Gemini y evita
-    // depender de Interactions API para esta función concreta.
-    resp = await fetch(GEMINI_ENDPOINT + '?key=' + encodeURIComponent(apiKey), {
+    resp = await fetch(endpoint + '?key=' + encodeURIComponent(apiKey), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -1189,16 +1232,12 @@ async function callGeminiForInvoice(base64Data, mimeType){
   try { data = await resp.json(); } catch(e) {}
 
   if (!resp.ok){
-    if (resp.status === 400) {
-      const msg = data && data.error && data.error.message ? data.error.message : '';
-      if (/api.?key|authentication|credential/i.test(msg)) throw new Error('Tu clave de Gemini no es válida. Revísala en Ajustes.');
-      throw new Error('Gemini rechazó la imagen o la solicitud. Intenta con una foto JPG o PNG más clara.');
-    }
-    if (resp.status === 401 || resp.status === 403) throw new Error('Tu clave de Gemini no es válida. Revísala en Ajustes.');
-    if (resp.status === 404) throw new Error('El modelo de Gemini no está disponible para esta clave. Verifica la API key de Google AI Studio.');
+    const msg = data && data.error && data.error.message ? data.error.message : '';
+    if (resp.status === 400) throw new Error('Gemini rechazó la solicitud. ' + (msg || 'Intenta con una foto JPG o PNG más clara.'));
+    if (resp.status === 401 || resp.status === 403) throw new Error('Tu clave de Gemini no es válida o no tiene permisos para usar la Gemini API. Revísala en Google AI Studio.');
+    if (resp.status === 404) throw new Error('Gemini no encontró el modelo seleccionado para esta clave. La app intentó usar un modelo disponible para tu API key y no pudo completar la solicitud.');
     if (resp.status === 429) throw new Error('Alcanzaste el límite gratuito de Gemini por ahora. Intenta de nuevo en unos minutos.');
-    const detail = data && data.error && data.error.message ? ' ' + data.error.message : '';
-    throw new Error('No se pudo contactar a Gemini (error ' + resp.status + ').' + detail);
+    throw new Error('No se pudo contactar a Gemini (error ' + resp.status + ').' + (msg ? ' ' + msg : ''));
   }
 
   const text = data && data.candidates && data.candidates[0] && data.candidates[0].content && Array.isArray(data.candidates[0].content.parts)
