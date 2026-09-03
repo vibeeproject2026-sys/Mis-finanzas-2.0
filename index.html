@@ -736,6 +736,8 @@ function computeCategoryTotals(){
 
 function computeBurnMetrics(){
   const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const currentDay = today.getDate();
   const daysRemaining = Math.max(1, daysInMonth - currentDay + 1);
@@ -744,28 +746,77 @@ function computeBurnMetrics(){
   const totals = computeTotals();
   const monthStats = computeMonthStats();
 
-  const availableFunds = totals.balance > 0 ? totals.balance : Math.max(0, monthStats.income - monthStats.expense);
+  // Dinero disponible para repartir entre los días que quedan del mes.
+  const availableFunds = totals.balance > 0
+    ? totals.balance
+    : Math.max(0, monthStats.income - monthStats.expense);
+
   const remainingMonthMoney = Math.max(0, availableFunds);
   const dailyAvailable = remainingMonthMoney / daysRemaining;
 
+  // Categorías que NO forman parte del gasto cotidiano.
   const fixedCatIds = DB.categories
-    .filter(c => c.isFixed || c.icon === 'home' || c.icon === 'zap' || (c.name||'').toLowerCase().includes('arriendo') || (c.name||'').toLowerCase().includes('servicio'))
+    .filter(c =>
+      c.isFixed ||
+      c.icon === 'home' ||
+      c.icon === 'zap' ||
+      (c.name||'').toLowerCase().includes('arriendo') ||
+      (c.name||'').toLowerCase().includes('servicio')
+    )
     .map(c => c.id);
 
-  const thirtyDaysAgoTime = today.getTime() - (30 * 24 * 60 * 60 * 1000);
+  // ===== Ritmo de gasto: opción A =====
+  // Tomamos los últimos 30 días y los dividimos en 3 períodos de 10 días:
+  // período 1 = hoy y los 9 días anteriores
+  // período 2 = días 10 a 19 atrás
+  // período 3 = días 20 a 29 atrás.
+  const TEN_DAY_PERIODS = 3;
+  const DAYS_PER_PERIOD = 10;
+  const LOOKBACK_DAYS = TEN_DAY_PERIODS * DAYS_PER_PERIOD;
 
-  const past30VariableExpense = DB.transactions
-    .filter(t => {
-      if (t.type !== 'expense' || fixedCatIds.includes(t.categoryId) || !t.date) return false;
-      const tDate = new Date(t.date + 'T00:00:00');
-      return tDate.getTime() >= thirtyDaysAgoTime;
-    })
-    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const tenDayExpenses = [0, 0, 0];
 
-  const avgDailyBurn = past30VariableExpense > 0 ? (past30VariableExpense / 30) : 1;
-  const runwayDays = (avgDailyBurn > 0 && totals.balance > 0) ? Math.floor(totals.balance / avgDailyBurn) : 0;
+  DB.transactions.forEach(t => {
+    if (t.type !== 'expense' || fixedCatIds.includes(t.categoryId) || !t.date) return;
 
-  return { daysRemaining, daysInMonth, currentDay, monthPctPassed, dailyAvailable, avgDailyBurn, runwayDays };
+    const tDate = new Date(t.date + 'T00:00:00');
+    if (Number.isNaN(tDate.getTime())) return;
+
+    const diffMs = todayStart.getTime() - tDate.getTime();
+    const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+
+    // Solo gastos desde hoy hasta 29 días atrás.
+    if (diffDays < 0 || diffDays >= LOOKBACK_DAYS) return;
+
+    const periodIndex = Math.floor(diffDays / DAYS_PER_PERIOD);
+    tenDayExpenses[periodIndex] += Number(t.amount) || 0;
+  });
+
+  // Promedio de dinero gastado por cada período de 10 días.
+  const totalVariableExpense30 = tenDayExpenses.reduce((sum, value) => sum + value, 0);
+  const avgTenDayBurn = totalVariableExpense30 / TEN_DAY_PERIODS;
+
+  // Equivalente diario del promedio de 10 días.
+  // Se usa también para calcular la autonomía y el estado "En ritmo".
+  const avgDailyBurn = avgTenDayBurn / DAYS_PER_PERIOD;
+
+  // Cuántos días alcanzaría el balance actual si mantienes el ritmo promedio.
+  const runwayDays = (avgDailyBurn > 0 && totals.balance > 0)
+    ? Math.floor(totals.balance / avgDailyBurn)
+    : 0;
+
+  return {
+    daysRemaining,
+    daysInMonth,
+    currentDay,
+    monthPctPassed,
+    dailyAvailable,
+    avgDailyBurn,
+    avgTenDayBurn,
+    tenDayExpenses,
+    totalVariableExpense30,
+    runwayDays
+  };
 }
 
 function computeBudgetRows(){
@@ -962,6 +1013,7 @@ function renderDashboard(){
   html += '<span class="burn-val" style="color:var(--violet)">' + fmtMoney(burn.dailyAvailable) + ' / día</span>';
   html += '</div>';
 
+  // El estado compara el presupuesto diario disponible con el gasto diario promedio calculado a partir de los 3 períodos de 10 días.
   const statusClass = burn.dailyAvailable > burn.avgDailyBurn ? 'ok' : (burn.dailyAvailable > 0 ? 'warn' : 'alert');
   const statusText = burn.dailyAvailable > burn.avgDailyBurn ? 'En ritmo' : (burn.dailyAvailable > 0 ? 'Ajustar' : 'Sin saldo');
   html += '<span class="burn-status ' + statusClass + '">' + statusText + '</span>';
@@ -970,8 +1022,10 @@ function renderDashboard(){
   html += '<div class="runway-card">';
   html += '<div class="runway-icon">⏳</div>';
   html += '<div class="runway-main">';
-  html += '<div class="runway-lbl">Días de Autonomía Diario</div>';
-  html += '<div class="runway-val">Cubres <span>' + burn.runwayDays + ' días</span> de gasto cotidiano</div>';
+  html += '<div class="runway-lbl">Ritmo de gasto</div>';
+  html += '<div class="runway-val">Promedio <span>' + fmtMoney(burn.avgTenDayBurn) + ' / 10 días</span></div>';
+  html += '<div style="font-size:11px;opacity:.82;margin-top:4px">≈ ' + fmtMoney(burn.avgDailyBurn) + ' / día</div>';
+  html += '<div style="font-size:10.5px;opacity:.72;margin-top:5px">Con tu saldo actual cubres aproximadamente <b>' + burn.runwayDays + ' días</b> a este ritmo.</div>';
   html += '</div></div>';
   html += '</div>';
 
