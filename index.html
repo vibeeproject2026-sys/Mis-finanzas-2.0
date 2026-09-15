@@ -291,21 +291,39 @@
     box-shadow: 0 0 45px rgba(6, 182, 212, 0.4); display: flex; flex-direction: column; gap: 10px;
     backdrop-filter: blur(25px); animation: slideUpMenu 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
+  
+  /* Animación de cierre suave */
+  .fab-menu-backdrop.closing { animation: fadeOutMenu 0.2s ease forwards; }
+  .fab-menu-backdrop.closing .fab-menu-sheet { animation: slideDownMenu 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+  /* Animación táctil de las opciones del menú */
   .fab-menu-item {
     display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border-radius: 18px;
     background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(56, 189, 248, 0.3);
     color: #FFFFFF; font-size: 14px; font-weight: 700; cursor: pointer; text-align: left;
+    transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease, box-shadow 0.2s ease;
+    transform: scale(1);
   }
-  .fab-menu-item:active { transform: scale(0.97); background: rgba(6, 182, 212, 0.25); }
+  /* Escala, fondo azulado sutil y un brillo extra al tocar */
+  .fab-menu-item:active { 
+    transform: scale(0.94); 
+    background: rgba(6, 182, 212, 0.25); 
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.2); 
+    border-color: rgba(56, 189, 248, 0.6);
+  }
+  
   .fab-menu-item * { pointer-events: none; }
   .fab-menu-item .icon-box {
     width: 36px; height: 36px; border-radius: 12px; background: rgba(6, 182, 212, 0.2);
     display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--pink);
-    border: 1px solid rgba(56, 189, 248, 0.3); flex-shrink: 0;
+    border: 1px solid rgba(56, 189, 248, 0.3); flex-shrink: 0; transition: transform 0.2s;
   }
+  .fab-menu-item:active .icon-box { transform: scale(1.1); background: rgba(6, 182, 212, 0.4); color:#fff; }
 
   @keyframes fadeInMenu { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeOutMenu { from { opacity: 1; } to { opacity: 0; } }
   @keyframes slideUpMenu { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes slideDownMenu { from { transform: translateY(0); opacity: 1; } to { transform: translateY(20px); opacity: 0; } }
 
   .overlay{position:fixed;inset:0;z-index:300;display:flex;align-items:flex-end;justify-content:center;background:rgba(2, 4, 8, 0.85);backdrop-filter:blur(10px); animation: fadeInMenu 0.15s ease;}
   .overlay-center{align-items:center;padding:1.5rem;}
@@ -506,24 +524,6 @@ function fmtMoney(amount){
 function monthLabelStr(date){ return new Intl.DateTimeFormat('es-CO', {month:'long', year:'numeric'}).format(date); }
 function catById(id){ return DB.categories.find(c => c.id === id); }
 function getPrimaryIncomeCat(){ return DB.categories.find(c => c.type==='income' && c.primary) || null; }
-
-const ICONS = {
-  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
-  close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>',
-  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>',
-  pencil:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20l4-1 11-11-3-3L5 16l-1 4z"/></svg>',
-  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="4 12 9 17 20 6"/></svg>',
-  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6"/><line x1="16" y1="16" x2="21" y2="21"/></svg>',
-  alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 2 20h20L12 3z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="0.8" fill="currentColor" stroke="none"/></svg>',
-  wallet:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="17" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg>',
-  list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg>',
-  tag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3h6a2 2 0 0 1 2 2v6a2 2 0 0 1-.6 1.4l-8 8a2 2 0 0 1-2.8 0l-6-6a2 2 0 0 1 0-2.8l8-8A2 2 0 0 1 12 3z"/><circle cx="15.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/></svg>',
-  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>',
-  credit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
-  receipt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2v20l2-1.5L10 22l2-1.5L14 22l2-1.5L18 22V2l-2 1.5L14 2l-2 1.5L10 2 8 3.5 6 2z"/><line x1="8.5" y1="7.5" x2="15.5" y2="7.5"/><line x1="8.5" y1="11.5" x2="15.5" y2="11.5"/><line x1="8.5" y1="15.5" x2="13" y2="15.5"/></svg>',
-  camera:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h3l2-2h6l2 2h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="14" r="3.5"/></svg>',
-};
-const icon = (name, cls) => '<span class="icon ' + (cls||'') + '">' + ICONS[name] + '</span>';
 
 function computeTotals(){
   let income=0, expense=0;
@@ -757,7 +757,6 @@ function render(){
   }).join('');
 
   if (UI.fabMenuOpen){
-    // ¡AQUÍ ESTABA EL ERROR! Eliminamos el stopPropagation y añadimos el id "fab-backdrop"
     tabbarHTML += '<div class="fab-menu-backdrop" id="fab-backdrop">' +
       '<div class="fab-menu-sheet">' +
         '<button class="fab-menu-item" data-action="fab-new-tx"><div class="icon-box">' + icon('plus') + '</div><span>Registrar movimiento</span></button>' +
@@ -1484,11 +1483,27 @@ function importBackupFile(file){
   reader.readAsText(file);
 }
 
-document.addEventListener('click',(e)=>{
-  // AQUÍ ESTÁ LA MAGIA PARA QUE CIERRE CORRECTAMENTE
-  if (e.target.id === 'fab-backdrop') {
+// LÓGICA DE CIERRE ANIMADO
+function closeFabMenu(callback) {
+  const backdrop = document.getElementById('fab-backdrop');
+  if (backdrop) {
+    backdrop.classList.add('closing'); // Dispara la animación de salida
+    setTimeout(() => {
+      UI.fabMenuOpen = false;
+      render();
+      if (callback) callback(); // Ejecuta la acción después de cerrar
+    }, 200); // 200ms para coincidir con el tiempo del keyframe de salida en CSS
+  } else {
     UI.fabMenuOpen = false;
     render();
+    if (callback) callback();
+  }
+}
+
+document.addEventListener('click',(e)=>{
+  
+  if (e.target.id === 'fab-backdrop') {
+    closeFabMenu();
     return;
   }
 
@@ -1500,13 +1515,17 @@ document.addEventListener('click',(e)=>{
   if(action==='set-filter'){UI.txFilter=t.dataset.filter;refreshTxList();return;}
   if(action==='set-credit-filter'){UI.creditFilter=t.dataset.filter;render();return;}
 
-  if(action==='toggle-fab-menu'){UI.fabMenuOpen=!UI.fabMenuOpen;render();return;}
+  if (action === 'toggle-fab-menu') {
+    if (UI.fabMenuOpen) closeFabMenu();
+    else { UI.fabMenuOpen = true; render(); }
+    return;
+  }
 
-  // ESTOS SON LOS BOTONES DEL MENÚ QUE AHORA SÍ SERÁN ESCUCHADOS
-  if(action==='fab-new-tx'){UI.fabMenuOpen=false;openNewTx();return;}
-  if(action==='fab-scan-invoice'){UI.fabMenuOpen=false;openInvoiceScan();return;}
-  if(action==='fab-invoices'){UI.fabMenuOpen=false;UI.tab='invoices';render();return;}
-  if(action==='fab-settings'){UI.fabMenuOpen=false;UI.tab='settings';render();return;}
+  // Ahora, las opciones del menú flotante esperan a que se complete la animación antes de abrir el overlay
+  if(action==='fab-new-tx'){ closeFabMenu(() => openNewTx()); return; }
+  if(action==='fab-scan-invoice'){ closeFabMenu(() => openInvoiceScan()); return; }
+  if(action==='fab-invoices'){ closeFabMenu(() => { UI.tab='invoices'; render(); }); return; }
+  if(action==='fab-settings'){ closeFabMenu(() => { UI.tab='settings'; render(); }); return; }
 
   if(action==='edit-tx'){openEditTx(t.dataset.id);return;}
   if(action==='quick-cat'){openQuickAdd(t.dataset.id);return;}
