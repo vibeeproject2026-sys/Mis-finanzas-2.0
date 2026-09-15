@@ -282,47 +282,44 @@
   /* ===== Menú Flotante Liquid Glass y Animado ===== */
   .fab-menu-backdrop {
     position: fixed; inset: 0; 
-    background: rgba(2, 4, 8, 0.6); 
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); 
-    z-index: 250; 
-    display: flex; justify-content: center;
-    /* Inicio de la animación de fondo */
+    background: rgba(2, 4, 8, 0.75); /* Fondo oscuro más robusto */
+    backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); 
+    z-index: 9999; /* Asegurado por encima de TODO */
+    display: flex; 
+    flex-direction: column;
+    justify-content: flex-end; /* Lo empuja hacia abajo */
+    align-items: center;       /* Lo centra horizontalmente */
+    padding-bottom: 100px;     /* Lo despega de la barra inferior */
     opacity: 0; animation: fadeInMenu 0.25s ease forwards;
   }
 
   .fab-menu-sheet {
-    position: absolute;
-    bottom: 95px; /* Despegado del tabbar, flotando libremente */
     width: 90%; max-width: 340px; 
     padding: 16px;
-    /* Efecto Liquid Glass */
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(11, 19, 38, 0.45));
-    backdrop-filter: blur(35px) saturate(200%); -webkit-backdrop-filter: blur(35px) saturate(200%);
-    border: 1px solid rgba(255, 255, 255, 0.15); 
+    /* Efecto Liquid Glass con contraste fuerte para legibilidad */
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
+    backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%);
+    border: 1px solid rgba(56, 189, 248, 0.4); 
     border-radius: 32px; 
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2); 
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.2); 
     display: flex; flex-direction: column; gap: 12px; 
-    /* Inicio animación de la ventana modal */
     opacity: 0; transform: translateY(20px) scale(0.95);
     animation: popInMenu 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
   
-  /* Animación de cierre suave */
   .fab-menu-backdrop.closing { animation: fadeOutMenu 0.25s ease forwards; }
   .fab-menu-backdrop.closing .fab-menu-sheet { animation: popOutMenu 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 
-  /* Opciones internas del menú */
   .fab-menu-item {
     display: flex; align-items: center; gap: 16px; width: 100%; 
-    padding: 16px 20px; border-radius: 20px;
-    background: rgba(15, 23, 42, 0.4); 
-    border: 1px solid transparent;
+    padding: 14px 18px; border-radius: 20px;
+    background: rgba(2, 6, 23, 0.6); /* Fondo interior para aislar el texto */
+    border: 1px solid rgba(255, 255, 255, 0.05);
     color: #FFFFFF; font-size: 15px; font-weight: 700; cursor: pointer; text-align: left;
     transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
     transform: scale(1);
   }
 
-  /* Animación táctil suave e interactiva */
   .fab-menu-item:active { 
     transform: scale(0.94); 
     background: rgba(6, 182, 212, 0.3); 
@@ -340,7 +337,6 @@
   }
   .fab-menu-item:active .icon-box { transform: scale(1.15); background: rgba(6, 182, 212, 0.5); color:#fff; }
 
-  /* Keyframes perfeccionados para fluidez */
   @keyframes fadeInMenu { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fadeOutMenu { from { opacity: 1; } to { opacity: 0; } }
   @keyframes popInMenu { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -799,17 +795,6 @@ function render(){
       icon(ic) + '<span>' + label + '</span></button>';
   }).join('');
 
-  if (UI.fabMenuOpen){
-    tabbarHTML += '<div class="fab-menu-backdrop" id="fab-backdrop">' +
-      '<div class="fab-menu-sheet">' +
-        '<button class="fab-menu-item" data-action="fab-new-tx"><div class="icon-box">' + icon('plus') + '</div><span>Registrar movimiento</span></button>' +
-        '<button class="fab-menu-item" data-action="fab-scan-invoice"><div class="icon-box">' + icon('camera') + '</div><span>Escanear factura con IA</span></button>' +
-        '<button class="fab-menu-item" data-action="fab-invoices"><div class="icon-box">' + icon('receipt') + '</div><span>Ver facturas escaneadas</span></button>' +
-        '<button class="fab-menu-item" data-action="fab-settings"><div class="icon-box">' + icon('gear') + '</div><span>Ajustes y Moneda</span></button>' +
-      '</div>' +
-    '</div>';
-  }
-
   document.getElementById('tabbar').innerHTML = tabbarHTML;
 
   if (UI.tab==='transactions') attachSearchListener();
@@ -1252,9 +1237,21 @@ function renderSettings(){
   return html;
 }
 
+function renderFabMenu() {
+  return '<div class="fab-menu-backdrop" id="fab-backdrop">' +
+    '<div class="fab-menu-sheet">' +
+      '<button class="fab-menu-item" data-action="fab-new-tx"><div class="icon-box">' + icon('plus') + '</div><span>Registrar movimiento</span></button>' +
+      '<button class="fab-menu-item" data-action="fab-scan-invoice"><div class="icon-box">' + icon('camera') + '</div><span>Escanear factura con IA</span></button>' +
+      '<button class="fab-menu-item" data-action="fab-invoices"><div class="icon-box">' + icon('receipt') + '</div><span>Ver facturas escaneadas</span></button>' +
+      '<button class="fab-menu-item" data-action="fab-settings"><div class="icon-box">' + icon('gear') + '</div><span>Ajustes y Moneda</span></button>' +
+    '</div>' +
+  '</div>';
+}
+
 function renderOverlays(){
   const el = document.getElementById('overlays');
   let html = '';
+  if (UI.fabMenuOpen) html += renderFabMenu();
   if (sheet && sheet.kind === 'tx') html += renderTxSheet();
   if (sheet && sheet.kind === 'quick') html += renderQuickSheet();
   if (sheet && sheet.kind === 'cat') html += renderCatSheet();
@@ -1263,7 +1260,9 @@ function renderOverlays(){
   if (sheet && sheet.kind === 'invoice') html += renderInvoiceSheet();
   if (confirmState) html += renderConfirmDialog();
   if (scanningOverlay) html += renderScanningOverlay();
+  
   el.innerHTML = html;
+  
   if (sheet) attachSheetFieldSync();
   if (sheet && sheet.kind === 'quick'){
     const a = document.getElementById('q-amount');
@@ -1535,7 +1534,7 @@ function closeFabMenu(callback) {
       UI.fabMenuOpen = false;
       render();
       if (callback) callback(); 
-    }, 250); // Sincronizado a 250ms con el keyframe de CSS
+    }, 250); 
   } else {
     UI.fabMenuOpen = false;
     render();
@@ -1564,7 +1563,6 @@ document.addEventListener('click',(e)=>{
     return;
   }
 
-  // Las opciones se cierran suavemente y luego abren sus vistas correspondientes
   if(action==='fab-new-tx'){ closeFabMenu(() => openNewTx()); return; }
   if(action==='fab-scan-invoice'){ closeFabMenu(() => openInvoiceScan()); return; }
   if(action==='fab-invoices'){ closeFabMenu(() => { UI.tab='invoices'; render(); }); return; }
