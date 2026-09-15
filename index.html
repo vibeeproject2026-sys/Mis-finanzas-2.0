@@ -757,8 +757,9 @@ function render(){
   }).join('');
 
   if (UI.fabMenuOpen){
-    tabbarHTML += '<div class="fab-menu-backdrop" data-action="close-fab-menu">' +
-      '<div class="fab-menu-sheet" onclick="event.stopPropagation()">' +
+    // ¡AQUÍ ESTABA EL ERROR! Eliminamos el stopPropagation y añadimos el id "fab-backdrop"
+    tabbarHTML += '<div class="fab-menu-backdrop" id="fab-backdrop">' +
+      '<div class="fab-menu-sheet">' +
         '<button class="fab-menu-item" data-action="fab-new-tx"><div class="icon-box">' + icon('plus') + '</div><span>Registrar movimiento</span></button>' +
         '<button class="fab-menu-item" data-action="fab-scan-invoice"><div class="icon-box">' + icon('camera') + '</div><span>Escanear factura con IA</span></button>' +
         '<button class="fab-menu-item" data-action="fab-invoices"><div class="icon-box">' + icon('receipt') + '</div><span>Ver facturas escaneadas</span></button>' +
@@ -1484,6 +1485,13 @@ function importBackupFile(file){
 }
 
 document.addEventListener('click',(e)=>{
+  // AQUÍ ESTÁ LA MAGIA PARA QUE CIERRE CORRECTAMENTE
+  if (e.target.id === 'fab-backdrop') {
+    UI.fabMenuOpen = false;
+    render();
+    return;
+  }
+
   const t=e.target.closest('[data-action]');
   if(!t)return;
   const action=t.dataset.action;
@@ -1493,8 +1501,8 @@ document.addEventListener('click',(e)=>{
   if(action==='set-credit-filter'){UI.creditFilter=t.dataset.filter;render();return;}
 
   if(action==='toggle-fab-menu'){UI.fabMenuOpen=!UI.fabMenuOpen;render();return;}
-  if(action==='close-fab-menu'){UI.fabMenuOpen=false;render();return;}
 
+  // ESTOS SON LOS BOTONES DEL MENÚ QUE AHORA SÍ SERÁN ESCUCHADOS
   if(action==='fab-new-tx'){UI.fabMenuOpen=false;openNewTx();return;}
   if(action==='fab-scan-invoice'){UI.fabMenuOpen=false;openInvoiceScan();return;}
   if(action==='fab-invoices'){UI.fabMenuOpen=false;UI.tab='invoices';render();return;}
