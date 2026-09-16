@@ -20,8 +20,32 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8
 
 const safeSync = () => {
   try {
-    if (API.syncWithSupabase) API.syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id'));
-  } catch(e) {}
+    const token = localStorage.getItem('supabase_token');
+    const userId = localStorage.getItem('supabase_user_id');
+
+    if (
+      API.syncWithSupabase &&
+      token &&
+      userId
+    ) {
+      return API.syncWithSupabase(
+        token,
+        userId,
+        DB
+      );
+    }
+
+  } catch (e) {
+    console.error(
+      'Error preparando sincronización:',
+      e
+    );
+  }
+
+  return Promise.resolve({
+    ok: false,
+    skipped: true
+  });
 };
 
 export function render(){
@@ -559,7 +583,7 @@ document.addEventListener('change',(e)=>{
         scanningOverlay = null;
         sheet = {kind:'invoice', mode:'new', id:null, title:'Factura '+todayStr(), date:todayStr(), items:items.length?items:[{id:uid(), name:'', price:''}], registered:false};
         renderOverlays();
-      } catch(err){
+      } catch(err) {
         scanningOverlay = null; renderOverlays(); alert(err.message || 'Error al procesar la factura.');
       }
     });
