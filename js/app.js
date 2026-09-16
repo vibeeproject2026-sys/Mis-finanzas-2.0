@@ -1,13 +1,18 @@
 window.onerror = function(msg, url, line) {
   document.body.innerHTML =
-    '<div style="padding:40px; color:#ff4444; background:#111; height:100vh; text-align:center;">' +
+    '<div style="padding:40px;color:#ff4444;background:#111;height:100vh;text-align:center;">' +
     '<h2>⚠️ Error de Código</h2>' +
     '<p>' + msg + '</p>' +
     '<p>Línea: ' + line + '</p>' +
     '</div>';
 };
 
-import { DB, saveDB, todayStr, DEFAULT_CATEGORIES } from './state.js';
+import {
+  DB,
+  saveDB,
+  todayStr,
+  DEFAULT_CATEGORIES
+} from './state.js';
 
 import {
   renderDashboard,
@@ -35,13 +40,18 @@ import {
 
 import * as API from './api.js';
 
+/* ==========================================================
+   ESTADO DE LA INTERFAZ
+   ========================================================== */
+
 let UI = {
-  tab: 'dashboard',
-  txFilter: 'all',
-  creditFilter: 'against',
-  search: '',
-  openInvoiceId: null,
-  fabMenuOpen: false
+  tab:'dashboard',
+  txFilter:'all',
+  creditFilter:'against',
+  search:'',
+  openInvoiceId:null,
+  openCreditId:null,
+  fabMenuOpen:false
 };
 
 let sheet = null;
@@ -50,30 +60,43 @@ let scanningOverlay = null;
 
 const uid = () =>
   Date.now().toString(36) +
-  Math.random().toString(36).slice(2, 8);
-
+  Math.random()
+    .toString(36)
+    .slice(2,8);
 
 /* ==========================================================
-   SINCRONIZACIÓN SEGURA
+   SINCRONIZACIÓN
    ========================================================== */
 
 const safeSync = () => {
+
   try {
-    const token = localStorage.getItem('supabase_token');
-    const userId = localStorage.getItem('supabase_user_id');
+
+    const token =
+      localStorage.getItem(
+        'supabase_token'
+      );
+
+    const userId =
+      localStorage.getItem(
+        'supabase_user_id'
+      );
 
     if (
       API.syncWithSupabase &&
       token &&
       userId
-    ) {
+    ){
+
       return API.syncWithSupabase(
         token,
         userId,
         DB
       );
     }
-  } catch (e) {
+
+  } catch(e) {
+
     console.error(
       'Error preparando sincronización:',
       e
@@ -81,57 +104,65 @@ const safeSync = () => {
   }
 
   return Promise.resolve({
-    ok: false,
-    skipped: true
+    ok:false,
+    skipped:true
   });
 };
-
 
 /* ==========================================================
    RENDER PRINCIPAL
    ========================================================== */
 
-export function render() {
+export function render(){
+
   try {
+
     let token = null;
     let userId = null;
 
     try {
-      token = localStorage.getItem(
-        'supabase_token'
-      );
 
-      userId = localStorage.getItem(
-        'supabase_user_id'
-      );
-    } catch (e) {
+      token =
+        localStorage.getItem(
+          'supabase_token'
+        );
+
+      userId =
+        localStorage.getItem(
+          'supabase_user_id'
+        );
+
+    } catch(e) {
+
       console.warn(
         'Modo privado estricto'
       );
     }
 
     const viewEl =
-      document.getElementById('view');
+      document.getElementById(
+        'view'
+      );
 
     const tabbarEl =
-      document.getElementById('tabbar');
+      document.getElementById(
+        'tabbar'
+      );
 
+    if (
+      !token ||
+      !userId
+    ){
 
-    /* --------------------------------------------------------
-       AUTENTICACIÓN
-       -------------------------------------------------------- */
-
-    if (!token || !userId) {
-
-      if (viewEl) {
+      if (
+        viewEl
+      ){
 
         viewEl.innerHTML = `
           <div style="display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:75vh;">
             <div class="card" style="width:100%;max-width:380px;padding:32px 24px;text-align:center;">
 
-              <div style="font-size:36px;margin-bottom:12px;">
-                ☁️
-              </div>
+              <div style="font-size:36px;margin-bottom:12px;">☁️</div>
 
               <h2 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;">
                 Terminal Cloud
@@ -193,7 +224,9 @@ export function render() {
         `;
       }
 
-      if (tabbarEl) {
+      if (
+        tabbarEl
+      ){
         tabbarEl.innerHTML = '';
       }
 
@@ -205,119 +238,115 @@ export function render() {
       return;
     }
 
+    if (
+      !window.hasLoadedCloudData
+    ){
 
-    /* --------------------------------------------------------
-       CARGA DE DATOS DE LA NUBE
-       -------------------------------------------------------- */
+      window.hasLoadedCloudData =
+        true;
 
-    if (!window.hasLoadedCloudData) {
-
-      window.hasLoadedCloudData = true;
-
-      if (API.fetchUserData) {
+      if (
+        API.fetchUserData
+      ){
 
         API.fetchUserData(
           token,
           userId
         )
-        .then(cloudDB => {
+        .then(
+          cloudDB => {
 
-          if (
-            !cloudDB ||
-            typeof cloudDB !== 'object'
-          ) {
-            return;
+            if (
+              !cloudDB ||
+              typeof cloudDB !== 'object'
+            ){
+              return;
+            }
+
+            if (
+              Array.isArray(
+                cloudDB.transactions
+              )
+            ){
+
+              DB.transactions =
+                cloudDB.transactions;
+            }
+
+            if (
+              Array.isArray(
+                cloudDB.categories
+              )
+            ){
+
+              DB.categories =
+                cloudDB.categories;
+            }
+
+            if (
+              Array.isArray(
+                cloudDB.credits
+              )
+            ){
+
+              DB.credits =
+                cloudDB.credits;
+            }
+
+            if (
+              Array.isArray(
+                cloudDB.invoices
+              )
+            ){
+
+              DB.invoices =
+                cloudDB.invoices;
+            }
+
+            if (
+              cloudDB.settings &&
+              typeof cloudDB.settings === 'object'
+            ){
+
+              DB.settings = {
+                ...DB.settings,
+                ...cloudDB.settings
+              };
+            }
+
+            saveDB();
+
+            renderAppContent();
           }
-
-          /*
-           * Solo sustituimos colecciones que realmente
-           * existan en la respuesta.
-           * Esto evita dejar DB incompleta.
-           */
-
-          if (
-            Array.isArray(
-              cloudDB.transactions
+        )
+        .catch(
+          err =>
+            console.error(
+              'Error cargando datos de la nube:',
+              err
             )
-          ) {
-            DB.transactions =
-              cloudDB.transactions;
-          }
-
-          if (
-            Array.isArray(
-              cloudDB.categories
-            )
-          ) {
-            DB.categories =
-              cloudDB.categories;
-          }
-
-          if (
-            Array.isArray(
-              cloudDB.credits
-            )
-          ) {
-            DB.credits =
-              cloudDB.credits;
-          }
-
-          if (
-            Array.isArray(
-              cloudDB.invoices
-            )
-          ) {
-            DB.invoices =
-              cloudDB.invoices;
-          }
-
-          if (
-            cloudDB.settings &&
-            typeof cloudDB.settings === 'object'
-          ) {
-            DB.settings = {
-              ...DB.settings,
-              ...cloudDB.settings
-            };
-          }
-
-          saveDB();
-
-          renderAppContent();
-
-        })
-        .catch(err => {
-
-          console.error(
-            'Error cargando datos de la nube:',
-            err
-          );
-
-        });
+        );
       }
     }
 
-
     renderAppContent();
 
-  } catch (err) {
+  } catch(err) {
 
     document.body.innerHTML =
       '<div style="padding:40px;color:#ff4444;background:#111;height:100vh;">' +
       '<h2>Error visual</h2>' +
       '<p>' +
       err.message +
-      '</p>' +
-      '</div>';
+      '</p></div>';
   }
 }
-
 
 /* ==========================================================
    AUTENTICACIÓN
    ========================================================== */
 
-function attachAuthEvents() {
+function attachAuthEvents(){
 
   const emailInput =
     document.getElementById(
@@ -334,19 +363,18 @@ function attachAuthEvents() {
       'auth-error'
     );
 
+  const getCreds =
+    () => ({
+      email:
+        emailInput
+          ? emailInput.value.trim()
+          : '',
 
-  const getCreds = () => ({
-    email:
-      emailInput
-        ? emailInput.value.trim()
-        : '',
-
-    password:
-      passInput
-        ? passInput.value.trim()
-        : ''
-  });
-
+      password:
+        passInput
+          ? passInput.value.trim()
+          : ''
+    });
 
   document
     .getElementById(
@@ -359,14 +387,18 @@ function attachAuthEvents() {
         const {
           email,
           password
-        } = getCreds();
+        } =
+          getCreds();
 
         if (
           !email ||
           !password
-        ) {
+        ){
 
-          if (errorDiv) {
+          if (
+            errorDiv
+          ){
+
             errorDiv.textContent =
               'Completa todos los campos.';
           }
@@ -374,7 +406,10 @@ function attachAuthEvents() {
           return;
         }
 
-        if (errorDiv) {
+        if (
+          errorDiv
+        ){
+
           errorDiv.textContent =
             'Iniciando sesión...';
         }
@@ -383,7 +418,8 @@ function attachAuthEvents() {
 
           if (
             !API.signInUser
-          ) {
+          ){
+
             throw new Error(
               'Faltan funciones de API.'
             );
@@ -410,16 +446,18 @@ function attachAuthEvents() {
 
           render();
 
-        } catch (err) {
+        } catch(err) {
 
-          if (errorDiv) {
+          if (
+            errorDiv
+          ){
+
             errorDiv.textContent =
               err.message;
           }
         }
       }
     );
-
 
   document
     .getElementById(
@@ -432,14 +470,18 @@ function attachAuthEvents() {
         const {
           email,
           password
-        } = getCreds();
+        } =
+          getCreds();
 
         if (
           !email ||
           !password
-        ) {
+        ){
 
-          if (errorDiv) {
+          if (
+            errorDiv
+          ){
+
             errorDiv.textContent =
               'Completa todos los campos.';
           }
@@ -447,7 +489,10 @@ function attachAuthEvents() {
           return;
         }
 
-        if (errorDiv) {
+        if (
+          errorDiv
+        ){
+
           errorDiv.textContent =
             'Registrando cuenta...';
         }
@@ -456,7 +501,8 @@ function attachAuthEvents() {
 
           if (
             !API.signUpUser
-          ) {
+          ){
+
             throw new Error(
               'Faltan funciones de API.'
             );
@@ -470,7 +516,7 @@ function attachAuthEvents() {
 
           if (
             data.access_token
-          ) {
+          ){
 
             localStorage.setItem(
               'supabase_token',
@@ -489,15 +535,21 @@ function attachAuthEvents() {
 
           } else {
 
-            if (errorDiv) {
+            if (
+              errorDiv
+            ){
+
               errorDiv.textContent =
                 '¡Cuenta creada con éxito! Inicia sesión ahora.';
             }
           }
 
-        } catch (err) {
+        } catch(err) {
 
-          if (errorDiv) {
+          if (
+            errorDiv
+          ){
+
             errorDiv.textContent =
               err.message;
           }
@@ -506,44 +558,28 @@ function attachAuthEvents() {
     );
 }
 
-
 /* ==========================================================
-   CONTENIDO PRINCIPAL
+   CONTENIDO
    ========================================================== */
 
-function renderAppContent() {
+function renderAppContent(){
 
   const viewEl =
     document.getElementById(
       'view'
     );
 
-  if (viewEl) {
+  if (
+    viewEl
+  ){
 
     try {
 
       viewEl.innerHTML =
-        '<div class="hero">' +
-          '<div class="hero-content">' +
-
-            '<div class="hero-badge">' +
-              '<span class="hero-dot"></span>' +
-              '<span>Terminal Cloud Active</span>' +
-            '</div>' +
-
-            '<div class="hero-main">' +
-
-              '<div>' +
-                '<h1>Mis Finanzas</h1>' +
-                '<p>Control y analítica en tiempo real</p>' +
-              '</div>' +
-
-              '<div class="hero-avatar">⚡</div>' +
-
-            '</div>' +
-
-          '</div>' +
-        '</div>' +
+        '<div class="hero"><div class="hero-content">' +
+        '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
+        '<div class="hero-main"><div><h1>Mis Finanzas</h1><p>Control y analítica en tiempo real</p></div><div class="hero-avatar">⚡</div></div>' +
+        '</div></div>' +
 
         (
           UI.tab === 'dashboard'
@@ -562,7 +598,8 @@ function renderAppContent() {
 
                 : UI.tab === 'credits'
                   ? renderCredits(
-                      UI.creditFilter
+                      UI.creditFilter,
+                      UI.openCreditId
                     )
 
                   : UI.tab === 'categories'
@@ -570,32 +607,20 @@ function renderAppContent() {
 
                     : (
                         renderSettings() +
-
-                        '<div style="padding:16px 0;">' +
-
-                          '<button ' +
-                            'class="save-btn" ' +
-                            'data-action="logout" ' +
-                            'style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;"' +
-                          '>' +
-                            'Cerrar Sesión' +
-                          '</button>' +
-
-                        '</div>'
+                        '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'
                       )
         );
 
-
       if (
         UI.tab === 'settings'
-      ) {
+      ){
 
         setTimeout(
           () => {
 
             const headers =
               document.querySelectorAll(
-                'h2, h3, .section-title'
+                'h2,h3,.section-title'
               );
 
             headers.forEach(
@@ -608,19 +633,19 @@ function renderAppContent() {
                   h.textContent.includes(
                     'Configuración'
                   )
-                ) {
+                ){
+
                   h.textContent =
                     'Ajustes';
                 }
               }
             );
-
           },
           10
         );
       }
 
-    } catch (err) {
+    } catch(err) {
 
       console.error(
         'Error renderizando la aplicación:',
@@ -628,272 +653,279 @@ function renderAppContent() {
       );
 
       viewEl.innerHTML =
-        '<div class="empty-state" style="padding:48px 20px;">' +
-          '<b>No se pudo cargar la vista.</b>' +
-          '<br>' +
-          '<span style="font-size:12px;">' +
-            (err?.message || 'Error inesperado') +
-          '</span>' +
-        '</div>';
+        '<div class="empty-state" style="padding:48px 20px;"><b>No se pudo cargar la vista.</b><br><span style="font-size:12px;">' +
+        (
+          err?.message ||
+          'Error inesperado'
+        ) +
+        '</span></div>';
     }
   }
 
+  const tabbarHTML =
+    [
+      [
+        'dashboard',
+        'wallet',
+        'Resumen'
+      ],
+      [
+        'transactions',
+        'list',
+        'Movimientos'
+      ],
+      [
+        'center',
+        'plus',
+        ''
+      ],
+      [
+        'credits',
+        'credit',
+        'Créditos'
+      ],
+      [
+        'categories',
+        'tag',
+        'Categorías'
+      ]
+    ]
+    .map(
+      (
+        [
+          id,
+          ic,
+          label
+        ]
+      ) => {
 
-  /* --------------------------------------------------------
-     BARRA INFERIOR
-     -------------------------------------------------------- */
+        if (
+          id === 'center'
+        ){
 
-  const tabbarHTML = [
-
-    ['dashboard','wallet','Resumen'],
-
-    ['transactions','list','Movimientos'],
-
-    ['center','plus',''],
-
-    ['credits','credit','Créditos'],
-
-    ['categories','tag','Categorías']
-
-  ]
-  .map(
-    ([id, ic, label]) => {
-
-      if (
-        id === 'center'
-      ) {
+          return (
+            '<div class="center-fab-container"><button class="fab-center" data-action="toggle-fab-menu"><span class="icon" style="stroke-linecap:round;stroke-linejoin:round"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></span></button></div>'
+          );
+        }
 
         return (
-          '<div class="center-fab-container">' +
-
-            '<button ' +
-              'class="fab-center" ' +
-              'data-action="toggle-fab-menu"' +
-            '>' +
-
-              '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' +
-
-                '<svg ' +
-                  'fill="none" ' +
-                  'stroke="currentColor" ' +
-                  'viewBox="0 0 24 24" ' +
-                  'stroke-width="2.5"' +
-                '>' +
-
-                  '<path d="M12 5v14M5 12h14"/>' +
-
-                '</svg>' +
-
-              '</span>' +
-
-            '</button>' +
-
-          '</div>'
-        );
-      }
-
-      return (
-        '<button ' +
-          'class="tab-btn ' +
+          '<button class="tab-btn ' +
           (
             UI.tab === id
               ? 'active'
               : ''
           ) +
-          '"' +
-          ' data-action="set-tab"' +
-          ' data-tab="' +
+          '" data-action="set-tab" data-tab="' +
           id +
-        '">' +
+          '">' +
 
           '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' +
-            getIconSvg(ic) +
+          getIconSvg(
+            ic
+          ) +
           '</span>' +
 
           '<span>' +
-            label +
+          label +
           '</span>' +
 
-        '</button>'
-      );
-    }
-  )
-  .join('');
-
+          '</button>'
+        );
+      }
+    )
+    .join('');
 
   const tabbarEl =
     document.getElementById(
       'tabbar'
     );
 
-  if (tabbarEl) {
+  if (
+    tabbarEl
+  ){
+
     tabbarEl.innerHTML =
       tabbarHTML;
   }
 
-
   if (
     UI.tab === 'transactions'
-  ) {
+  ){
+
     attachSearchListener();
   }
-
 
   renderOverlays();
 }
 
-
 /* ==========================================================
-   ICONOS DE LA BARRA
+   ICONOS DEL TABBAR
    ========================================================== */
 
-function getIconSvg(name) {
+function getIconSvg(name){
 
   const svgs = {
 
     wallet:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-        '<path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/>' +
-        '<path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/>' +
-        '<path d="M16 14h.01"/>' +
-      '</svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
 
     list:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-        '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>' +
-      '</svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
 
     credit:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-        '<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/>' +
-      '</svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
 
     tag:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-        '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/>' +
-      '</svg>'
-
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>'
   };
 
-  return svgs[name] || '';
+  return (
+    svgs[name] ||
+    ''
+  );
 }
-
 
 /* ==========================================================
    OVERLAYS
    ========================================================== */
 
-function renderOverlays() {
+function renderOverlays(){
 
   const el =
     document.getElementById(
       'overlays'
     );
 
-  if (!el) {
+  if (
+    !el
+  ){
     return;
   }
 
   let html = '';
 
-
   if (
     UI.fabMenuOpen
-  ) {
-    html += renderFabMenu();
-  }
+  ){
 
+    html +=
+      renderFabMenu();
+  }
 
   if (
     sheet &&
     sheet.kind === 'tx'
-  ) {
-    html += renderTxSheet(sheet);
-  }
+  ){
 
+    html +=
+      renderTxSheet(
+        sheet
+      );
+  }
 
   if (
     sheet &&
     sheet.kind === 'quick'
-  ) {
-    html += renderQuickSheet(sheet);
-  }
+  ){
 
+    html +=
+      renderQuickSheet(
+        sheet
+      );
+  }
 
   if (
     sheet &&
     sheet.kind === 'cat'
-  ) {
-    html += renderCatSheet(sheet);
-  }
+  ){
 
+    html +=
+      renderCatSheet(
+        sheet
+      );
+  }
 
   if (
     sheet &&
     sheet.kind === 'credit'
-  ) {
-    html += renderCreditSheet(sheet);
-  }
+  ){
 
+    html +=
+      renderCreditSheet(
+        sheet
+      );
+  }
 
   if (
     sheet &&
     sheet.kind === 'payment'
-  ) {
-    html += renderPaymentSheet(sheet);
-  }
+  ){
 
+    html +=
+      renderPaymentSheet(
+        sheet
+      );
+  }
 
   if (
     sheet &&
     sheet.kind === 'invoice'
-  ) {
-    html += renderInvoiceSheet(sheet);
-  }
+  ){
 
+    html +=
+      renderInvoiceSheet(
+        sheet
+      );
+  }
 
   if (
     confirmState
-  ) {
-    html += renderConfirmDialog(
-      confirmState
-    );
-  }
+  ){
 
+    html +=
+      renderConfirmDialog(
+        confirmState
+      );
+  }
 
   if (
     scanningOverlay
-  ) {
-    html += renderScanningOverlay(
-      scanningOverlay
-    );
+  ){
+
+    html +=
+      renderScanningOverlay(
+        scanningOverlay
+      );
   }
 
+  el.innerHTML =
+    html;
 
-  el.innerHTML = html;
+  if (
+    sheet
+  ){
 
-
-  if (sheet) {
     attachSheetFieldSync();
   }
 
-
   const saveBtn =
     document.querySelector(
-      'button[data-action="save-tx"], button[data-action="save-quick"]'
+      'button[data-action="save-tx"],button[data-action="save-quick"]'
     );
 
   if (
     saveBtn &&
     sheet
-  ) {
+  ){
 
     const amt =
-      Number(sheet.amount);
+      Number(
+        sheet.amount
+      );
 
     if (
       amt > 0
-    ) {
+    ){
 
       saveBtn.removeAttribute(
         'disabled'
@@ -908,12 +940,11 @@ function renderOverlays() {
   }
 }
 
-
 /* ==========================================================
    MOVIMIENTOS
    ========================================================== */
 
-function refreshTxList() {
+function refreshTxList(){
 
   const list =
     filteredTx(
@@ -926,30 +957,31 @@ function refreshTxList() {
       'tx-list'
     );
 
-  if (container) {
+  if (
+    container
+  ){
 
     container.innerHTML =
       list.length
-
         ? list
             .map(
               renderTxRow
             )
             .join('')
-
         : '<div class="empty-state">No hay movimientos registrados.</div>';
   }
 }
 
-
-function attachSearchListener() {
+function attachSearchListener(){
 
   const input =
     document.getElementById(
       'search-input'
     );
 
-  if (input) {
+  if (
+    input
+  ){
 
     input.addEventListener(
       'input',
@@ -964,22 +996,22 @@ function attachSearchListener() {
   }
 }
 
-
 /* ==========================================================
-   MENÚ DEL +
+   FAB
    ========================================================== */
 
 function closeFabMenu(
   callback
-) {
+){
 
   const backdrop =
     document.getElementById(
       'fab-backdrop'
     );
 
-
-  if (backdrop) {
+  if (
+    backdrop
+  ){
 
     backdrop.classList.add(
       'closing'
@@ -993,7 +1025,9 @@ function closeFabMenu(
 
         renderAppContent();
 
-        if (callback) {
+        if (
+          callback
+        ){
           callback();
         }
 
@@ -1008,15 +1042,16 @@ function closeFabMenu(
 
     renderAppContent();
 
-    if (callback) {
+    if (
+      callback
+    ){
       callback();
     }
   }
 }
 
-
 /* ==========================================================
-   EVENTOS PRINCIPALES
+   EVENTOS
    ========================================================== */
 
 document.addEventListener(
@@ -1026,78 +1061,78 @@ document.addEventListener(
     if (
       e.target.id ===
       'fab-backdrop'
-    ) {
+    ){
 
       closeFabMenu();
 
       return;
     }
 
-
     const t =
       e.target.closest(
         '[data-action]'
       );
 
-    if (!t) {
+    if (
+      !t
+    ){
       return;
     }
 
-
     const action =
       t.dataset.action;
-
 
     /* ======================================================
        LOGOUT
        ====================================================== */
 
     if (
-      action === 'logout'
-    ) {
+      action ===
+      'logout'
+    ){
 
       confirmState = {
-
         message:
           '¿Seguro que quieres cerrar sesión?',
 
-        onConfirm: () => {
+        onConfirm:
+          () => {
 
-          localStorage.removeItem(
-            'supabase_token'
-          );
+            localStorage.removeItem(
+              'supabase_token'
+            );
 
-          localStorage.removeItem(
-            'supabase_user_id'
-          );
+            localStorage.removeItem(
+              'supabase_user_id'
+            );
 
-          window.hasLoadedCloudData =
-            false;
+            window.hasLoadedCloudData =
+              false;
 
-          Object.assign(
-            DB,
-            {
-              transactions: [],
-              categories:
-                DEFAULT_CATEGORIES.slice(),
-              credits: [],
-              invoices: [],
-              settings: {
-                currency: 'COP'
+            Object.assign(
+              DB,
+              {
+                transactions:[],
+                categories:
+                  DEFAULT_CATEGORIES.slice(),
+                credits:[],
+                invoices:[],
+                settings:{
+                  currency:'COP'
+                }
               }
-            }
-          );
+            );
 
-          saveDB();
+            saveDB();
 
-          UI.tab =
-            'dashboard';
+            UI.tab =
+              'dashboard';
 
-          confirmState =
-            null;
+            confirmState =
+              null;
 
-          render();
-        }
+            render();
+          }
       };
 
       renderOverlays();
@@ -1105,14 +1140,14 @@ document.addEventListener(
       return;
     }
 
-
     /* ======================================================
-       NAVEGACIÓN
+       TABS
        ====================================================== */
 
     if (
-      action === 'set-tab'
-    ) {
+      action ===
+      'set-tab'
+    ){
 
       UI.tab =
         t.dataset.tab;
@@ -1125,10 +1160,10 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'set-filter'
-    ) {
+      action ===
+      'set-filter'
+    ){
 
       UI.txFilter =
         t.dataset.filter;
@@ -1138,32 +1173,50 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'set-credit-filter'
-    ) {
+      action ===
+      'set-credit-filter'
+    ){
 
       UI.creditFilter =
         t.dataset.filter;
+
+      UI.openCreditId =
+        null;
 
       renderAppContent();
 
       return;
     }
 
+    if (
+      action ===
+      'toggle-credit-detail'
+    ){
+
+      UI.openCreditId =
+        UI.openCreditId ===
+        t.dataset.id
+          ? null
+          : t.dataset.id;
+
+      renderAppContent();
+
+      return;
+    }
 
     /* ======================================================
-       ABRIR / CERRAR MENÚ +
+       FAB
        ====================================================== */
 
     if (
       action ===
       'toggle-fab-menu'
-    ) {
+    ){
 
       if (
         UI.fabMenuOpen
-      ) {
+      ){
 
         closeFabMenu();
 
@@ -1193,16 +1246,11 @@ document.addEventListener(
       return;
     }
 
-
-    /* ======================================================
-       ACCIONES DEL MENÚ +
-       ====================================================== */
-
     if (
       action.startsWith(
         'fab-'
       )
-    ) {
+    ){
 
       t.classList.add(
         'selected-pulse'
@@ -1214,17 +1262,16 @@ document.addEventListener(
           if (
             action ===
             'fab-new-tx'
-          ) {
+          ){
 
             closeFabMenu(
               () => {
 
                 sheet = {
-                  kind: 'tx',
-                  mode: 'new',
-                  id: null,
-                  type: 'expense',
-
+                  kind:'tx',
+                  mode:'new',
+                  id:null,
+                  type:'expense',
                   categoryId:
                     (
                       DB.categories.find(
@@ -1233,48 +1280,47 @@ document.addEventListener(
                           'expense'
                       ) || {}
                     ).id || '',
-
-                  amount: '',
-                  date:
-                    todayStr(),
-                  note: ''
+                  amount:'',
+                  date:todayStr(),
+                  note:''
                 };
 
                 renderOverlays();
               }
             );
 
-          }
-
-          else if (
+          } else if (
             action ===
             'fab-new-credit'
-          ) {
+          ){
 
             closeFabMenu(
               () => {
 
                 sheet = {
-                  kind: 'credit',
-                  mode: 'new',
-                  id: null,
-                  title: '',
+                  kind:'credit',
+                  mode:'new',
+                  id:null,
+                  title:'',
                   type:
                     UI.creditFilter ||
                     'against',
-                  total: ''
+                  total:'',
+                  hasInterest:false,
+                  interestRate:'',
+                  interestPeriod:'monthly',
+                  termMonths:'',
+                  startDate:todayStr()
                 };
 
                 renderOverlays();
               }
             );
 
-          }
-
-          else if (
+          } else if (
             action ===
             'fab-scan-invoice'
-          ) {
+          ){
 
             closeFabMenu(
               () => {
@@ -1287,12 +1333,10 @@ document.addEventListener(
               }
             );
 
-          }
-
-          else if (
+          } else if (
             action ===
             'fab-invoices'
-          ) {
+          ){
 
             closeFabMenu(
               () => {
@@ -1304,12 +1348,10 @@ document.addEventListener(
               }
             );
 
-          }
-
-          else if (
+          } else if (
             action ===
             'fab-settings'
-          ) {
+          ){
 
             closeFabMenu(
               () => {
@@ -1329,14 +1371,14 @@ document.addEventListener(
       return;
     }
 
-
     /* ======================================================
        MOVIMIENTOS
        ====================================================== */
 
     if (
-      action === 'edit-tx'
-    ) {
+      action ===
+      'edit-tx'
+    ){
 
       const tx =
         DB.transactions.find(
@@ -1345,18 +1387,23 @@ document.addEventListener(
             t.dataset.id
         );
 
-      if (tx) {
+      if (
+        tx
+      ){
 
         sheet = {
-          kind: 'tx',
-          mode: 'edit',
-          id: tx.id,
-          type: tx.type,
+          kind:'tx',
+          mode:'edit',
+          id:tx.id,
+          type:tx.type,
           categoryId:
             tx.categoryId,
           amount:
-            String(tx.amount),
-          date: tx.date,
+            String(
+              tx.amount
+            ),
+          date:
+            tx.date,
           note:
             tx.note || ''
         };
@@ -1367,21 +1414,20 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'quick-cat'
-    ) {
+      action ===
+      'quick-cat'
+    ){
 
       sheet = {
-        kind: 'quick',
+        kind:'quick',
         categoryId:
           t.dataset.id,
-        amount: '',
-        note: '',
-        date:
-          todayStr(),
-        showNote: false,
-        showDate: false
+        amount:'',
+        note:'',
+        date:todayStr(),
+        showNote:false,
+        showDate:false
       };
 
       renderOverlays();
@@ -1389,14 +1435,12 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'show-note'
-    ) {
+      action ===
+      'show-note'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       sheet.showNote =
         true;
@@ -1406,14 +1450,12 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'show-date'
-    ) {
+      action ===
+      'show-date'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       sheet.showDate =
         true;
@@ -1423,24 +1465,26 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'save-quick'
-    ) {
+      action ===
+      'save-quick'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       const amt =
-        Number(sheet.amount);
+        Number(
+          sheet.amount
+        );
 
-      if (amt > 0) {
+      if (
+        amt > 0
+      ){
 
         DB.transactions.push({
-          id: uid(),
-          type: 'expense',
-          amount: amt,
+          id:uid(),
+          type:'expense',
+          amount:amt,
           categoryId:
             sheet.categoryId,
           date:
@@ -1453,7 +1497,6 @@ document.addEventListener(
         });
 
         saveDB();
-
         safeSync();
 
         sheet =
@@ -1465,14 +1508,12 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'tx-type'
-    ) {
+      action ===
+      'tx-type'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       sheet.type =
         t.dataset.type;
@@ -1491,14 +1532,12 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'pick-tx-cat'
-    ) {
+      action ===
+      'pick-tx-cat'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       sheet.categoryId =
         t.dataset.id;
@@ -1508,7 +1547,9 @@ document.addEventListener(
           'chipList'
         );
 
-      if (chipContainer) {
+      if (
+        chipContainer
+      ){
 
         chipContainer.innerHTML =
           renderTxCatChips(
@@ -1524,17 +1565,17 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'save-tx'
-    ) {
+      action ===
+      'save-tx'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       const amt =
-        Number(sheet.amount);
+        Number(
+          sheet.amount
+        );
 
       const catId =
         sheet.categoryId ||
@@ -1547,21 +1588,28 @@ document.addEventListener(
         ).id ||
         '';
 
-      if (amt > 0) {
+      if (
+        amt > 0
+      ){
 
         const tx = {
           id:
             sheet.id ||
             uid(),
+
           type:
             sheet.type,
+
           amount:
             amt,
+
           categoryId:
             catId,
+
           date:
             sheet.date ||
             todayStr(),
+
           note:
             (
               sheet.note ||
@@ -1580,17 +1628,15 @@ document.addEventListener(
           exists
             ? DB.transactions.map(
                 x =>
-                  x.id ===
-                  tx.id
+                  x.id === tx.id
                     ? tx
                     : x
               )
-            : DB.transactions.concat([
-                tx
-              ]);
+            : DB.transactions.concat(
+                [tx]
+              );
 
         saveDB();
-
         safeSync();
 
         sheet =
@@ -1602,68 +1648,65 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'delete-tx'
-    ) {
+      action ===
+      'delete-tx'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       confirmState = {
-
         message:
           '¿Eliminar este movimiento?',
 
-        onConfirm: () => {
+        onConfirm:
+          () => {
 
-          DB.transactions =
-            DB.transactions.filter(
-              x =>
-                x.id !==
-                sheet.id
-            );
+            DB.transactions =
+              DB.transactions.filter(
+                x =>
+                  x.id !==
+                  sheet.id
+              );
 
-          saveDB();
+            saveDB();
+            safeSync();
 
-          safeSync();
+            sheet =
+              null;
 
-          sheet =
-            null;
+            confirmState =
+              null;
 
-          confirmState =
-            null;
-
-          renderAppContent();
-        }
+            renderAppContent();
+          }
       };
 
       renderOverlays();
 
       return;
     }
-
 
     /* ======================================================
        CATEGORÍAS
        ====================================================== */
 
     if (
-      action === 'new-cat'
-    ) {
+      action ===
+      'new-cat'
+    ){
 
       sheet = {
-        kind: 'cat',
-        mode: 'new',
-        id: null,
-        name: '',
-        type: 'expense',
-        color: '#06B6D4',
-        icon: 'food',
-        budget: '',
-        primary: false,
-        isFixed: false
+        kind:'cat',
+        mode:'new',
+        id:null,
+        name:'',
+        type:'expense',
+        color:'#06B6D4',
+        icon:'food',
+        budget:'',
+        primary:false,
+        isFixed:false
       };
 
       renderOverlays();
@@ -1671,10 +1714,10 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'edit-cat'
-    ) {
+      action ===
+      'edit-cat'
+    ){
 
       const c =
         DB.categories.find(
@@ -1683,19 +1726,23 @@ document.addEventListener(
             t.dataset.id
         );
 
-      if (c) {
+      if (
+        c
+      ){
 
         sheet = {
-          kind: 'cat',
-          mode: 'edit',
-          id: c.id,
-          name: c.name,
-          type: c.type,
-          color: c.color,
-          icon: c.icon,
+          kind:'cat',
+          mode:'edit',
+          id:c.id,
+          name:c.name,
+          type:c.type,
+          color:c.color,
+          icon:c.icon,
           budget:
             c.budget
-              ? String(c.budget)
+              ? String(
+                  c.budget
+                )
               : '',
           primary:
             !!c.primary,
@@ -1709,119 +1756,90 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'cat-type'
-    ) {
+      action ===
+      'cat-type'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       sheet.type =
         t.dataset.type;
 
-      const budgetField =
-        document.getElementById(
-          'budgetField'
-        );
+      document.getElementById(
+        'budgetField'
+      ).style.display =
+        sheet.type === 'expense'
+          ? 'block'
+          : 'none';
 
-      const primaryField =
-        document.getElementById(
-          'primaryField'
-        );
+      document.getElementById(
+        'primaryField'
+      ).style.display =
+        sheet.type === 'income'
+          ? 'block'
+          : 'none';
 
-      const fixedField =
-        document.getElementById(
-          'fixedField'
-        );
-
-      if (budgetField) {
-        budgetField.style.display =
-          sheet.type === 'expense'
-            ? 'block'
-            : 'none';
-      }
-
-      if (primaryField) {
-        primaryField.style.display =
-          sheet.type === 'income'
-            ? 'block'
-            : 'none';
-      }
-
-      if (fixedField) {
-        fixedField.style.display =
-          sheet.type === 'expense'
-            ? 'block'
-            : 'none';
-      }
+      document.getElementById(
+        'fixedField'
+      ).style.display =
+        sheet.type === 'expense'
+          ? 'block'
+          : 'none';
 
       return;
     }
 
-
     if (
-      action === 'toggle-primary'
-    ) {
+      action ===
+      'toggle-primary'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       sheet.primary =
         !sheet.primary;
 
-      const sw =
-        document.getElementById(
+      document
+        .getElementById(
           'primarySwitch'
-        );
-
-      if (sw) {
-        sw.classList.toggle(
+        )
+        .classList.toggle(
           'on',
           sheet.primary
         );
-      }
 
       return;
     }
 
-
     if (
-      action === 'toggle-fixed'
-    ) {
+      action ===
+      'toggle-fixed'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       sheet.isFixed =
         !sheet.isFixed;
 
-      const sw =
-        document.getElementById(
+      document
+        .getElementById(
           'fixedSwitch'
-        );
-
-      if (sw) {
-        sw.classList.toggle(
+        )
+        .classList.toggle(
           'on-violet',
           sheet.isFixed
         );
-      }
 
       return;
     }
 
-
     if (
-      action === 'pick-color'
-    ) {
+      action ===
+      'pick-color'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       sheet.color =
         t.dataset.color;
@@ -1842,14 +1860,12 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'pick-icon'
-    ) {
+      action ===
+      'pick-icon'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       sheet.icon =
         t.dataset.icon;
@@ -1870,18 +1886,16 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'save-cat'
-    ) {
+      action ===
+      'save-cat'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       if (
         sheet.name.trim()
-      ) {
+      ){
 
         const cat = {
           id:
@@ -1930,17 +1944,15 @@ document.addEventListener(
           exists
             ? DB.categories.map(
                 x =>
-                  x.id ===
-                  cat.id
+                  x.id === cat.id
                     ? cat
                     : x
               )
-            : DB.categories.concat([
-                cat
-              ]);
+            : DB.categories.concat(
+                [cat]
+              );
 
         saveDB();
-
         safeSync();
 
         sheet =
@@ -1952,66 +1964,68 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'delete-cat'
-    ) {
+      action ===
+      'delete-cat'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       confirmState = {
-
         message:
           '¿Eliminar categoría?',
 
-        onConfirm: () => {
+        onConfirm:
+          () => {
 
-          DB.categories =
-            DB.categories.filter(
-              x =>
-                x.id !==
-                sheet.id
-            );
+            DB.categories =
+              DB.categories.filter(
+                x =>
+                  x.id !==
+                  sheet.id
+              );
 
-          saveDB();
+            saveDB();
+            safeSync();
 
-          safeSync();
+            sheet =
+              null;
 
-          sheet =
-            null;
+            confirmState =
+              null;
 
-          confirmState =
-            null;
-
-          renderAppContent();
-        }
+            renderAppContent();
+          }
       };
 
       renderOverlays();
 
       return;
     }
-
 
     /* ======================================================
        CRÉDITOS
        ====================================================== */
 
     if (
-      action === 'new-credit'
-    ) {
+      action ===
+      'new-credit'
+    ){
 
       sheet = {
-        kind: 'credit',
-        mode: 'new',
-        id: null,
-        title: '',
+        kind:'credit',
+        mode:'new',
+        id:null,
+        title:'',
         type:
           UI.creditFilter ||
           'against',
-        total: ''
+        total:'',
+        hasInterest:false,
+        interestRate:'',
+        interestPeriod:'monthly',
+        termMonths:'',
+        startDate:todayStr()
       };
 
       renderOverlays();
@@ -2019,29 +2033,68 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'edit-credit'
-    ) {
+      action ===
+      'edit-credit'
+    ){
 
       const c =
-        (DB.credits || [])
-          .find(
-            x =>
-              x.id ===
-              t.dataset.id
-          );
+        DB.credits.find(
+          x =>
+            x.id ===
+            t.dataset.id
+        );
 
-      if (c) {
+      if (
+        c
+      ){
 
         sheet = {
-          kind: 'credit',
-          mode: 'edit',
-          id: c.id,
-          title: c.title,
-          type: c.type,
+          kind:'credit',
+          mode:'edit',
+          id:c.id,
+          title:
+            c.title ||
+            '',
+          type:
+            c.type ||
+            'against',
           total:
-            String(c.total)
+            String(
+              c.total ||
+              ''
+            ),
+
+          hasInterest:
+            Boolean(
+              c.interestEnabled
+            ) ||
+            Number(
+              c.interestRate
+            ) > 0,
+
+          interestRate:
+            String(
+              c.interestRate ||
+              ''
+            ),
+
+          interestPeriod:
+            c.interestPeriod ===
+            'annual'
+              ? 'annual'
+              : 'monthly',
+
+          termMonths:
+            String(
+              c.termMonths ||
+              ''
+            ),
+
+          startDate:
+            c.startDate ||
+            c.date ||
+            todayStr()
         };
 
         renderOverlays();
@@ -2050,14 +2103,12 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'credit-type'
-    ) {
+      action ===
+      'credit-type'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       sheet.type =
         t.dataset.type;
@@ -2067,37 +2118,91 @@ document.addEventListener(
       return;
     }
 
+    if (
+      action ===
+      'toggle-credit-interest'
+    ){
+
+      if (!sheet) return;
+
+      sheet.hasInterest =
+        !sheet.hasInterest;
+
+      renderOverlays();
+
+      return;
+    }
 
     if (
-      action === 'save-credit'
-    ) {
+      action ===
+      'save-credit'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
-      const total =
-        Number(sheet.total);
+      const tot =
+        Number(
+          sheet.total
+        );
+
+      const rate =
+        Math.max(
+          0,
+          Number(
+            sheet.interestRate
+          ) || 0
+        );
+
+      const term =
+        Math.max(
+          0,
+          Math.floor(
+            Number(
+              sheet.termMonths
+            ) || 0
+          )
+        );
+
+      const hasInterest =
+        !!sheet.hasInterest &&
+        rate > 0 &&
+        term > 0;
 
       if (
         sheet.title.trim() &&
-        total > 0
-      ) {
+        tot > 0 &&
+        (
+          !sheet.hasInterest ||
+          (
+            rate > 0 &&
+            term > 0
+          )
+        )
+      ){
 
-        if (!DB.credits) {
+        if (
+          !DB.credits
+        ){
+
           DB.credits = [];
         }
 
-        const existing =
+        const previous =
           sheet.id
-            ? DB.credits.find(
-                x =>
-                  x.id ===
-                  sheet.id
+            ? (
+                DB.credits.find(
+                  x =>
+                    x.id ===
+                    sheet.id
+                ) ||
+                {}
               )
-            : null;
+            : {};
 
         const credit = {
+
+          ...previous,
+
           id:
             sheet.id ||
             uid(),
@@ -2109,20 +2214,37 @@ document.addEventListener(
             sheet.type,
 
           total:
-            total,
+            tot,
 
-          /*
-           * Igual que el código original:
-           * al editar un crédito se conservan
-           * todos sus aportes existentes.
-           */
+          interestEnabled:
+            hasInterest,
+
+          interestRate:
+            hasInterest
+              ? rate
+              : 0,
+
+          interestPeriod:
+            sheet.interestPeriod ===
+            'annual'
+              ? 'annual'
+              : 'monthly',
+
+          termMonths:
+            hasInterest
+              ? term
+              : 0,
+
+          startDate:
+            sheet.startDate ||
+            todayStr(),
+
+          amortization:
+            'french',
+
           payments:
-            sheet.id
-              ? (
-                  existing?.payments ||
-                  []
-                )
-              : []
+            previous.payments ||
+            []
         };
 
         const exists =
@@ -2141,12 +2263,11 @@ document.addEventListener(
                     ? credit
                     : x
               )
-            : DB.credits.concat([
-                credit
-              ]);
+            : DB.credits.concat(
+                [credit]
+              );
 
         saveDB();
-
         safeSync();
 
         sheet =
@@ -2158,42 +2279,38 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'delete-credit'
-    ) {
+      action ===
+      'delete-credit'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       confirmState = {
-
         message:
           '¿Eliminar crédito?',
 
-        onConfirm: () => {
+        onConfirm:
+          () => {
 
-          DB.credits =
-            (DB.credits || [])
-              .filter(
+            DB.credits =
+              DB.credits.filter(
                 x =>
                   x.id !==
                   sheet.id
               );
 
-          saveDB();
+            saveDB();
+            safeSync();
 
-          safeSync();
+            sheet =
+              null;
 
-          sheet =
-            null;
+            confirmState =
+              null;
 
-          confirmState =
-            null;
-
-          renderAppContent();
-        }
+            renderAppContent();
+          }
       };
 
       renderOverlays();
@@ -2201,25 +2318,24 @@ document.addEventListener(
       return;
     }
 
-
     /* ======================================================
-       APORTES DE CRÉDITOS
+       APORTES
        ====================================================== */
 
     if (
-      action === 'new-payment'
-    ) {
+      action ===
+      'new-payment'
+    ){
 
       sheet = {
-        kind: 'payment',
-        mode: 'new',
+        kind:'payment',
+        mode:'new',
         creditId:
           t.dataset.id,
-        paymentId: null,
-        amount: '',
-        date:
-          todayStr(),
-        note: ''
+        paymentId:null,
+        amount:'',
+        date:todayStr(),
+        note:''
       };
 
       renderOverlays();
@@ -2227,41 +2343,43 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'edit-payment'
-    ) {
+      action ===
+      'edit-payment'
+    ){
 
       const c =
-        (DB.credits || [])
-          .find(
-            x =>
-              x.id ===
-              t.dataset.cid
-          );
+        DB.credits.find(
+          x =>
+            x.id ===
+            t.dataset.cid
+        );
 
       const p =
         (
           c?.payments ||
           []
-        )
-        .find(
+        ).find(
           x =>
             x.id ===
             t.dataset.pid
         );
 
-      if (p) {
+      if (
+        p
+      ){
 
         sheet = {
-          kind: 'payment',
-          mode: 'edit',
+          kind:'payment',
+          mode:'edit',
           creditId:
             t.dataset.cid,
           paymentId:
             p.id,
           amount:
-            String(p.amount),
+            String(
+              p.amount
+            ),
           date:
             p.date,
           note:
@@ -2275,29 +2393,29 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'save-payment'
-    ) {
+      action ===
+      'save-payment'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
-      const amount =
-        Number(sheet.amount);
+      const amt =
+        Number(
+          sheet.amount
+        );
 
       if (
-        amount > 0
-      ) {
+        amt > 0
+      ){
 
-        const payment = {
+        const pay = {
           id:
             sheet.paymentId ||
             uid(),
 
           amount:
-            amount,
+            amt,
 
           date:
             sheet.date ||
@@ -2311,50 +2429,49 @@ document.addEventListener(
         };
 
         DB.credits =
-          (DB.credits || [])
-            .map(
-              c => {
+          DB.credits.map(
+            c => {
 
-                if (
-                  c.id !==
-                  sheet.creditId
-                ) {
-                  return c;
-                }
+              if (
+                c.id ===
+                sheet.creditId
+              ){
 
-                let payments =
+                let pays =
                   c.payments ||
                   [];
 
                 const exists =
-                  payments.some(
+                  pays.some(
                     x =>
                       x.id ===
-                      payment.id
+                      pay.id
                   );
 
-                payments =
+                pays =
                   exists
-                    ? payments.map(
+                    ? pays.map(
                         x =>
                           x.id ===
-                          payment.id
-                            ? payment
+                          pay.id
+                            ? pay
                             : x
                       )
-                    : payments.concat([
-                        payment
-                      ]);
+                    : pays.concat(
+                        [pay]
+                      );
 
                 return {
                   ...c,
-                  payments
+                  payments:pays
                 };
               }
-            );
+
+              return c;
+            }
+          );
 
         saveDB();
-
         safeSync();
 
         sheet =
@@ -2366,67 +2483,53 @@ document.addEventListener(
       return;
     }
 
-
-    /*
-     * ESTA ACCIÓN EXISTÍA EN EL ORIGINAL
-     * Y AHORA TAMBIÉN ESTÁ CONECTADA.
-     */
-
     if (
-      action === 'delete-payment'
-    ) {
+      action ===
+      'delete-payment'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       confirmState = {
-
         message:
           '¿Eliminar aporte?',
 
-        onConfirm: () => {
+        onConfirm:
+          () => {
 
-          DB.credits =
-            (DB.credits || [])
-              .map(
-                c => {
+            DB.credits =
+              DB.credits.map(
+                c =>
+                  c.id ===
+                  sheet.creditId
 
-                  if (
-                    c.id !==
-                    sheet.creditId
-                  ) {
-                    return c;
-                  }
+                    ? {
+                        ...c,
+                        payments:
+                          (
+                            c.payments ||
+                            []
+                          ).filter(
+                            p =>
+                              p.id !==
+                              sheet.paymentId
+                          )
+                      }
 
-                  return {
-                    ...c,
-
-                    payments:
-                      (
-                        c.payments ||
-                        []
-                      ).filter(
-                        p =>
-                          p.id !==
-                          sheet.paymentId
-                      )
-                  };
-                }
+                    : c
               );
 
-          saveDB();
+            saveDB();
+            safeSync();
 
-          safeSync();
+            sheet =
+              null;
 
-          sheet =
-            null;
+            confirmState =
+              null;
 
-          confirmState =
-            null;
-
-          renderAppContent();
-        }
+            renderAppContent();
+          }
       };
 
       renderOverlays();
@@ -2434,18 +2537,18 @@ document.addEventListener(
       return;
     }
 
-
     /* ======================================================
        FACTURAS
        ====================================================== */
 
     if (
-      action === 'toggle-invoice'
-    ) {
+      action ===
+      'toggle-invoice'
+    ){
 
       UI.openInvoiceId =
         UI.openInvoiceId ===
-          t.dataset.id
+        t.dataset.id
           ? null
           : t.dataset.id;
 
@@ -2454,40 +2557,40 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'edit-invoice'
-    ) {
+      action ===
+      'edit-invoice'
+    ){
 
       const inv =
-        (DB.invoices || [])
-          .find(
-            x =>
-              x.id ===
-              t.dataset.id
-          );
+        DB.invoices.find(
+          x =>
+            x.id ===
+            t.dataset.id
+        );
 
-      if (inv) {
+      if (
+        inv
+      ){
 
         sheet = {
-          kind: 'invoice',
-          mode: 'edit',
-          id: inv.id,
-          title: inv.title,
-          date: inv.date,
-
+          kind:'invoice',
+          mode:'edit',
+          id:inv.id,
+          title:
+            inv.title,
+          date:
+            inv.date,
           items:
-            (inv.items || [])
-              .map(
-                it => ({
-                  ...it,
-                  price:
-                    String(
-                      it.price
-                    )
-                })
-              ),
-
+            inv.items.map(
+              it => ({
+                ...it,
+                price:
+                  String(
+                    it.price
+                  )
+              })
+            ),
           registered:
             !!inv.registered
         };
@@ -2498,138 +2601,135 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'register-invoice'
-    ) {
+      action ===
+      'register-invoice'
+    ){
 
       const inv =
-        (DB.invoices || [])
-          .find(
-            x =>
-              x.id ===
-              t.dataset.id
-          );
-
-      if (!inv) {
-        return;
-      }
-
-      const firstExpense =
-        DB.categories.find(
-          c =>
-            c.type ===
-            'expense'
+        DB.invoices.find(
+          x =>
+            x.id ===
+            t.dataset.id
         );
 
-      sheet = {
-        kind: 'tx',
-        mode: 'new',
-        id: null,
-        type: 'expense',
+      if (
+        inv
+      ){
 
-        categoryId:
-          firstExpense
-            ? firstExpense.id
-            : '',
+        sheet = {
+          kind:'tx',
+          mode:'new',
+          id:null,
+          type:'expense',
+          categoryId:
+            (
+              DB.categories.find(
+                c =>
+                  c.type ===
+                  'expense'
+              ) || {}
+            ).id ||
+            '',
+          amount:
+            String(
+              inv.total
+            ),
+          date:
+            inv.date ||
+            todayStr(),
+          note:
+            inv.title ||
+            '',
+          sourceInvoiceId:
+            inv.id
+        };
 
-        amount:
-          String(inv.total),
-
-        date:
-          inv.date ||
-          todayStr(),
-
-        note:
-          inv.title ||
-          '',
-
-        sourceInvoiceId:
-          inv.id
-      };
-
-      renderOverlays();
+        renderOverlays();
+      }
 
       return;
     }
 
-
     if (
-      action === 'add-invoice-item'
-    ) {
+      action ===
+      'add-invoice-item'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       sheet.items.push({
-        id: uid(),
-        name: '',
-        price: ''
+        id:uid(),
+        name:'',
+        price:''
       });
 
-      refreshInvoiceItemsUI();
+      document.getElementById(
+        'inv-items-list'
+      ).innerHTML =
+        renderInvoiceItemsHTML(
+          sheet
+        );
 
       return;
     }
 
-
     if (
-      action === 'remove-invoice-item'
-    ) {
+      action ===
+      'remove-invoice-item'
+    ){
 
-      if (!sheet) {
-        return;
-      }
-
-      const idx =
-        Number(
-          t.dataset.idx
-        );
+      if (!sheet) return;
 
       sheet.items.splice(
-        idx,
+        Number(
+          t.dataset.idx
+        ),
         1
       );
 
       if (
         !sheet.items.length
-      ) {
+      ){
 
         sheet.items.push({
-          id: uid(),
-          name: '',
-          price: ''
+          id:uid(),
+          name:'',
+          price:''
         });
       }
 
-      refreshInvoiceItemsUI();
+      document.getElementById(
+        'inv-items-list'
+      ).innerHTML =
+        renderInvoiceItemsHTML(
+          sheet
+        );
 
       return;
     }
 
-
     if (
-      action === 'save-invoice'
-    ) {
+      action ===
+      'save-invoice'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       const items =
         sheet.items
           .filter(
             it =>
               it.name.trim() &&
-              Number(it.price) > 0
+              Number(
+                it.price
+              ) > 0
           )
           .map(
             it => ({
               id:
                 it.id ||
                 uid(),
-
               name:
                 it.name
                   .trim()
@@ -2637,7 +2737,6 @@ document.addEventListener(
                     0,
                     60
                   ),
-
               price:
                 Number(
                   it.price
@@ -2645,12 +2744,17 @@ document.addEventListener(
             })
           );
 
-      if (items.length) {
+      if (
+        items.length
+      ){
 
         const total =
           items.reduce(
-            (sum, it) =>
-              sum +
+            (
+              s,
+              it
+            ) =>
+              s +
               it.price,
             0
           );
@@ -2671,7 +2775,6 @@ document.addEventListener(
             ),
 
           date:
-            sheet.date ||
             todayStr(),
 
           items,
@@ -2682,8 +2785,12 @@ document.addEventListener(
             !!sheet.registered
         };
 
-        if (!DB.invoices) {
-          DB.invoices = [];
+        if (
+          !DB.invoices
+        ){
+
+          DB.invoices =
+            [];
         }
 
         const exists =
@@ -2702,12 +2809,11 @@ document.addEventListener(
                     ? invoice
                     : x
               )
-            : DB.invoices.concat([
-                invoice
-              ]);
+            : DB.invoices.concat(
+                [invoice]
+              );
 
         saveDB();
-
         safeSync();
 
         sheet =
@@ -2719,42 +2825,38 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'delete-invoice'
-    ) {
+      action ===
+      'delete-invoice'
+    ){
 
-      if (!sheet) {
-        return;
-      }
+      if (!sheet) return;
 
       confirmState = {
-
         message:
           '¿Eliminar factura?',
 
-        onConfirm: () => {
+        onConfirm:
+          () => {
 
-          DB.invoices =
-            (DB.invoices || [])
-              .filter(
+            DB.invoices =
+              DB.invoices.filter(
                 x =>
                   x.id !==
                   sheet.id
               );
 
-          saveDB();
+            saveDB();
+            safeSync();
 
-          safeSync();
+            sheet =
+              null;
 
-          sheet =
-            null;
+            confirmState =
+              null;
 
-          confirmState =
-            null;
-
-          renderAppContent();
-        }
+            renderAppContent();
+          }
       };
 
       renderOverlays();
@@ -2762,14 +2864,14 @@ document.addEventListener(
       return;
     }
 
-
     /* ======================================================
-       GENERAL
+       CERRAR
        ====================================================== */
 
     if (
-      action === 'close-sheet'
-    ) {
+      action ===
+      'close-sheet'
+    ){
 
       sheet =
         null;
@@ -2779,10 +2881,10 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'cancel-confirm'
-    ) {
+      action ===
+      'cancel-confirm'
+    ){
 
       confirmState =
         null;
@@ -2792,12 +2894,14 @@ document.addEventListener(
       return;
     }
 
-
     if (
-      action === 'confirm-ok'
-    ) {
+      action ===
+      'confirm-ok'
+    ){
 
-      if (!confirmState) {
+      if (
+        !confirmState
+      ){
         return;
       }
 
@@ -2814,118 +2918,44 @@ document.addEventListener(
       return;
     }
 
+    /* ======================================================
+       MONEDA
+       ====================================================== */
 
     if (
-      action === 'set-currency'
-    ) {
-
-      if (!DB.settings) {
-        DB.settings = {
-          currency: 'COP'
-        };
-      }
+      action ===
+      'set-currency'
+    ){
 
       DB.settings.currency =
         t.dataset.code;
 
       saveDB();
-
       safeSync();
 
       renderAppContent();
 
       return;
     }
-
-
-    if (
-      action === 'export-backup'
-    ) {
-
-      exportBackup();
-
-      return;
-    }
-
-
-    if (
-      action === 'import-backup'
-    ) {
-
-      document
-        .getElementById(
-          'import-file'
-        )
-        ?.click();
-
-      return;
-    }
-
-
-    if (
-      action === 'reset-data'
-    ) {
-
-      confirmState = {
-
-        message:
-          'Borrar todos los movimientos.',
-
-        onConfirm: () => {
-
-          DB.transactions =
-            [];
-
-          DB.categories =
-            DEFAULT_CATEGORIES.slice();
-
-          DB.credits =
-            [];
-
-          DB.invoices =
-            [];
-
-          DB.settings = {
-            currency:
-              DB.settings?.currency ||
-              'COP'
-          };
-
-          saveDB();
-
-          safeSync();
-
-          confirmState =
-            null;
-
-          renderAppContent();
-        }
-      };
-
-      renderOverlays();
-
-      return;
-    }
-
   }
 );
 
-
 /* ==========================================================
-   SINCRONIZACIÓN DE CAMPOS DE SHEETS
+   SINCRONIZACIÓN DE CAMPOS
    ========================================================== */
 
-function attachSheetFieldSync() {
+function attachSheetFieldSync(){
 
-  if (!sheet) {
-    return;
-  }
+  if (!sheet) return;
 
+  /* ========================================================
+     MOVIMIENTO / GASTO RÁPIDO
+     ======================================================== */
 
   if (
     sheet.kind === 'tx' ||
     sheet.kind === 'quick'
-  ) {
+  ){
 
     const prefix =
       sheet.kind === 'tx'
@@ -2950,8 +2980,9 @@ function attachSheetFieldSync() {
         '-note'
       );
 
-
-    if (a) {
+    if (
+      a
+    ){
 
       a.addEventListener(
         'input',
@@ -2967,19 +2998,20 @@ function attachSheetFieldSync() {
               sheet.amount
             );
 
-
           const saveBtn =
             document.querySelector(
-              'button[data-action="save-tx"], button[data-action="save-quick"]'
+              'button[data-action="save-tx"],button[data-action="save-quick"]'
             );
 
-          if (saveBtn) {
+          if (
+            saveBtn
+          ){
 
             if (
               Number(
                 sheet.amount
               ) > 0
-            ) {
+            ){
 
               saveBtn.removeAttribute(
                 'disabled'
@@ -3006,36 +3038,42 @@ function attachSheetFieldSync() {
       );
     }
 
-
-    if (d) {
+    if (
+      d
+    ){
 
       d.addEventListener(
         'input',
         () => {
+
           sheet.date =
             d.value;
         }
       );
     }
 
-
-    if (n) {
+    if (
+      n
+    ){
 
       n.addEventListener(
         'input',
         () => {
+
           sheet.note =
             n.value;
         }
       );
     }
 
+  /* ========================================================
+     CATEGORÍA
+     ======================================================== */
 
-  }
-
-  else if (
-    sheet.kind === 'cat'
-  ) {
+  } else if (
+    sheet.kind ===
+    'cat'
+  ){
 
     const nm =
       document.getElementById(
@@ -3047,20 +3085,23 @@ function attachSheetFieldSync() {
         'f-budget'
       );
 
-
-    if (nm) {
+    if (
+      nm
+    ){
 
       nm.addEventListener(
         'input',
         () => {
+
           sheet.name =
             nm.value;
         }
       );
     }
 
-
-    if (b) {
+    if (
+      b
+    ){
 
       b.addEventListener(
         'input',
@@ -3079,25 +3120,228 @@ function attachSheetFieldSync() {
       );
     }
 
+  /* ========================================================
+     CRÉDITO
+     ======================================================== */
 
-  }
-
-  else if (
-    sheet.kind === 'credit'
-  ) {
+  } else if (
+    sheet.kind ===
+    'credit'
+  ){
 
     const title =
       document.getElementById(
         'c-title'
       );
 
-    const total =
+    const tot =
       document.getElementById(
         'c-total'
       );
 
+    const rate =
+      document.getElementById(
+        'c-interest-rate'
+      );
 
-    if (title) {
+    const period =
+      document.getElementById(
+        'c-interest-period'
+      );
+
+    const term =
+      document.getElementById(
+        'c-term'
+      );
+
+    const startDate =
+      document.getElementById(
+        'c-start-date'
+      );
+
+    /*
+     * Preview en tiempo real.
+     */
+
+    const updateCreditPreview =
+      () => {
+
+        const principal =
+          Number(
+            sheet.total
+          ) || 0;
+
+        const interestEnabled =
+          !!sheet.hasInterest;
+
+        const interestRate =
+          Number(
+            sheet.interestRate
+          ) || 0;
+
+        const interestPeriod =
+          sheet.interestPeriod ||
+          'monthly';
+
+        const termMonths =
+          Number(
+            sheet.termMonths
+          ) || 0;
+
+        const monthlyRate =
+          interestEnabled
+            ? (
+                interestPeriod === 'annual'
+                  ? interestRate /
+                    100 /
+                    12
+                  : interestRate /
+                    100
+              )
+            : 0;
+
+        let installment =
+          0;
+
+        let total =
+          principal;
+
+        let interest =
+          0;
+
+        if (
+          principal > 0 &&
+          termMonths > 0
+        ){
+
+          if (
+            monthlyRate > 0
+          ){
+
+            const factor =
+              Math.pow(
+                1 +
+                monthlyRate,
+                termMonths
+              );
+
+            installment =
+              principal *
+              (
+                monthlyRate *
+                factor
+              ) /
+              (
+                factor -
+                1
+              );
+
+            total =
+              installment *
+              termMonths;
+
+            interest =
+              Math.max(
+                0,
+                total -
+                principal
+              );
+
+          } else {
+
+            installment =
+              principal /
+              termMonths;
+          }
+        }
+
+        const iEl =
+          document.getElementById(
+            'c-preview-interest'
+          );
+
+        const tEl =
+          document.getElementById(
+            'c-preview-total'
+          );
+
+        const pEl =
+          document.getElementById(
+            'c-preview-payment'
+          );
+
+        const saveBtn =
+          document.getElementById(
+            'credit-save-btn'
+          );
+
+        if (
+          iEl
+        ){
+
+          iEl.textContent =
+            fmtMoneyLocal(
+              interest
+            );
+        }
+
+        if (
+          tEl
+        ){
+
+          tEl.textContent =
+            fmtMoneyLocal(
+              total
+            );
+        }
+
+        if (
+          pEl
+        ){
+
+          pEl.textContent =
+            installment > 0
+              ? fmtMoneyLocal(
+                  installment
+                )
+              : '—';
+        }
+
+        if (
+          saveBtn
+        ){
+
+          const ok =
+            String(
+              sheet.title ||
+              ''
+            ).trim().length > 0 &&
+            principal > 0 &&
+            (
+              !sheet.hasInterest ||
+              (
+                Number(
+                  sheet.interestRate
+                ) > 0 &&
+                Number(
+                  sheet.termMonths
+                ) > 0
+              )
+            );
+
+          saveBtn.disabled =
+            !ok;
+
+          saveBtn.style.opacity =
+            ok
+              ? '1'
+              : '0.5';
+        }
+      };
+
+    if (
+      title
+    ){
 
       title.addEventListener(
         'input',
@@ -3106,15 +3350,16 @@ function attachSheetFieldSync() {
           sheet.title =
             title.value;
 
-          updateCreditSaveState();
+          updateCreditPreview();
         }
       );
     }
 
+    if (
+      tot
+    ){
 
-    if (total) {
-
-      total.addEventListener(
+      tot.addEventListener(
         'input',
         e => {
 
@@ -3128,17 +3373,108 @@ function attachSheetFieldSync() {
               sheet.total
             );
 
-          updateCreditSaveState();
+          updateCreditPreview();
         }
       );
     }
 
+    if (
+      rate
+    ){
 
-  }
+      rate.addEventListener(
+        'input',
+        e => {
 
-  else if (
-    sheet.kind === 'payment'
-  ) {
+          sheet.interestRate =
+            Math.min(
+              100,
+              Math.max(
+                0,
+                Number(
+                  e.target.value
+                ) || 0
+              )
+            );
+
+          updateCreditPreview();
+        }
+      );
+    }
+
+    if (
+      period
+    ){
+
+      period.addEventListener(
+        'change',
+        () => {
+
+          sheet.interestPeriod =
+            period.value ===
+            'annual'
+              ? 'annual'
+              : 'monthly';
+
+          updateCreditPreview();
+        }
+      );
+    }
+
+    if (
+      term
+    ){
+
+      term.addEventListener(
+        'input',
+        () => {
+
+          sheet.termMonths =
+            Math.min(
+              600,
+              Math.max(
+                0,
+                Math.floor(
+                  Number(
+                    term.value
+                  ) || 0
+                )
+              )
+            );
+
+          term.value =
+            sheet.termMonths ||
+            '';
+
+          updateCreditPreview();
+        }
+      );
+    }
+
+    if (
+      startDate
+    ){
+
+      startDate.addEventListener(
+        'input',
+        () => {
+
+          sheet.startDate =
+            startDate.value;
+        }
+      );
+    }
+
+    updateCreditPreview();
+
+  /* ========================================================
+     APORTE
+     ======================================================== */
+
+  } else if (
+    sheet.kind ===
+    'payment'
+  ){
 
     const a =
       document.getElementById(
@@ -3155,8 +3491,14 @@ function attachSheetFieldSync() {
         'p-note'
       );
 
+    const saveBtn =
+      document.getElementById(
+        'pay-save-btn'
+      );
 
-    if (a) {
+    if (
+      a
+    ){
 
       a.addEventListener(
         'input',
@@ -3172,41 +3514,63 @@ function attachSheetFieldSync() {
               sheet.amount
             );
 
-          updatePaymentSaveState();
+          if (
+            saveBtn
+          ){
+
+            const valid =
+              Number(
+                sheet.amount
+              ) > 0;
+
+            saveBtn.disabled =
+              !valid;
+
+            saveBtn.style.opacity =
+              valid
+                ? '1'
+                : '0.5';
+          }
         }
       );
     }
 
-
-    if (d) {
+    if (
+      d
+    ){
 
       d.addEventListener(
         'input',
         () => {
+
           sheet.date =
             d.value;
         }
       );
     }
 
-
-    if (n) {
+    if (
+      n
+    ){
 
       n.addEventListener(
         'input',
         () => {
+
           sheet.note =
             n.value;
         }
       );
     }
 
+  /* ========================================================
+     FACTURA
+     ======================================================== */
 
-  }
-
-  else if (
-    sheet.kind === 'invoice'
-  ) {
+  } else if (
+    sheet.kind ===
+    'invoice'
+  ){
 
     const ti =
       document.getElementById(
@@ -3218,37 +3582,42 @@ function attachSheetFieldSync() {
         'inv-date'
       );
 
-
-    if (ti) {
+    if (
+      ti
+    ){
 
       ti.addEventListener(
         'input',
         () => {
+
           sheet.title =
             ti.value;
         }
       );
     }
 
-
-    if (da) {
+    if (
+      da
+    ){
 
       da.addEventListener(
         'input',
         () => {
+
           sheet.date =
             da.value;
         }
       );
     }
 
-
     const list =
       document.getElementById(
         'inv-items-list'
       );
 
-    if (list) {
+    if (
+      list
+    ){
 
       list.addEventListener(
         'input',
@@ -3263,14 +3632,13 @@ function attachSheetFieldSync() {
           if (
             idx === undefined ||
             !field
-          ) {
+          ){
             return;
           }
 
-
           if (
             field === 'price'
-          ) {
+          ){
 
             sheet.items[idx].price =
               parseFormattedNumber(
@@ -3288,11 +3656,13 @@ function attachSheetFieldSync() {
               e.target.value;
           }
 
-
           const totalVal =
             sheet.items.reduce(
-              (sum, it) =>
-                sum +
+              (
+                s,
+                it
+              ) =>
+                s +
                 (
                   Number(
                     it.price
@@ -3306,135 +3676,77 @@ function attachSheetFieldSync() {
               'inv-total-val'
             );
 
-          if (totalEl) {
+          if (
+            totalEl
+          ){
 
             totalEl.textContent =
-              new Intl.NumberFormat(
-                'es-CO',
-                {
-                  style:
-                    'currency',
-                  currency:
-                    DB.settings?.currency ||
-                    'COP',
-                  maximumFractionDigits:
-                    0
-                }
-              ).format(
+              fmtMoneyLocal(
                 totalVal
               );
           }
-
-          refreshInvoiceSaveState();
         }
       );
     }
   }
 }
 
-
 /* ==========================================================
-   ESTADOS DE GUARDADO
+   FORMATO LOCAL PARA PREVIEWS
    ========================================================== */
 
-function updateCreditSaveState() {
+function fmtMoneyLocal(
+  amount
+){
 
-  if (!sheet) {
-    return;
-  }
+  const cur =
+    DB.settings.currency ||
+    'COP';
 
-  const btn =
-    document.getElementById(
-      'credit-save-btn'
+  const locales = {
+    COP:'es-CO',
+    USD:'en-US',
+    MXN:'es-MX',
+    EUR:'es-ES'
+  };
+
+  const locale =
+    locales[cur] ||
+    'es-CO';
+
+  try {
+
+    return new Intl.NumberFormat(
+      locale,
+      {
+        style:'currency',
+        currency:cur,
+        maximumFractionDigits:0
+      }
+    ).format(
+      Number(amount) || 0
     );
 
-  if (!btn) {
-    return;
+  } catch(e) {
+
+    return (
+      Number(amount) ||
+      0
+    ).toFixed(0) +
+    ' ' +
+    cur;
   }
-
-  const valid =
-    sheet.title.trim().length > 0 &&
-    Number(sheet.total) > 0;
-
-  btn.disabled =
-    !valid;
 }
-
-
-function updatePaymentSaveState() {
-
-  if (!sheet) {
-    return;
-  }
-
-  const btn =
-    document.getElementById(
-      'pay-save-btn'
-    );
-
-  if (!btn) {
-    return;
-  }
-
-  btn.disabled =
-    !(Number(sheet.amount) > 0);
-}
-
-
-function refreshInvoiceItemsUI() {
-
-  const container =
-    document.getElementById(
-      'inv-items-list'
-    );
-
-  if (container) {
-    container.innerHTML =
-      renderInvoiceItemsHTML(
-        sheet
-      );
-  }
-
-  refreshInvoiceSaveState();
-}
-
-
-function refreshInvoiceSaveState() {
-
-  if (!sheet) {
-    return;
-  }
-
-  const btn =
-    document.getElementById(
-      'invoice-save-btn'
-    );
-
-  if (!btn) {
-    return;
-  }
-
-  const valid =
-    sheet.items.some(
-      it =>
-        it.name.trim() &&
-        Number(it.price) > 0
-    );
-
-  btn.disabled =
-    !valid;
-}
-
 
 /* ==========================================================
-   COMPRESIÓN DE IMÁGENES
+   COMPRESIÓN DE IMAGEN
    ========================================================== */
 
 function compressImage(
   file,
   maxWidth = 800,
   quality = 0.7
-) {
+){
 
   return new Promise(
     resolve => {
@@ -3455,88 +3767,82 @@ function compressImage(
           img.src =
             event.target.result;
 
-          img.onload = () => {
+          img.onload =
+            () => {
 
-            const canvas =
-              document.createElement(
-                'canvas'
-              );
-
-            let width =
-              img.width;
-
-            let height =
-              img.height;
-
-
-            if (
-              width > maxWidth
-            ) {
-
-              height =
-                Math.round(
-                  (
-                    height *
-                    maxWidth
-                  ) /
-                  width
+              const canvas =
+                document.createElement(
+                  'canvas'
                 );
 
-              width =
-                maxWidth;
-            }
+              let width =
+                img.width;
 
+              let height =
+                img.height;
 
-            canvas.width =
-              width;
+              if (
+                width >
+                maxWidth
+              ){
 
-            canvas.height =
-              height;
+                height =
+                  Math.round(
+                    (
+                      height *
+                      maxWidth
+                    ) /
+                    width
+                  );
 
+                width =
+                  maxWidth;
+              }
 
-            const ctx =
-              canvas.getContext(
-                '2d'
+              canvas.width =
+                width;
+
+              canvas.height =
+                height;
+
+              const ctx =
+                canvas.getContext(
+                  '2d'
+                );
+
+              ctx.drawImage(
+                img,
+                0,
+                0,
+                width,
+                height
               );
 
-            ctx.drawImage(
-              img,
-              0,
-              0,
-              width,
-              height
-            );
+              const dataUrl =
+                canvas.toDataURL(
+                  'image/jpeg',
+                  quality
+                );
 
+              const match =
+                dataUrl.match(
+                  /^data:([^;]+);base64,(.*)$/
+                );
 
-            const dataUrl =
-              canvas.toDataURL(
-                'image/jpeg',
-                quality
-              );
-
-
-            const match =
-              dataUrl.match(
-                /^data:([^;]+);base64,(.*)$/
-              );
-
-
-            resolve({
-              mimeType:
-                match[1],
-
-              base64:
-                match[2]
-            });
-          };
+              resolve({
+                mimeType:
+                  match[1],
+                base64:
+                  match[2]
+              });
+            };
         };
     }
   );
 }
 
-
 /* ==========================================================
-   ESCANEO DE FACTURAS
+   ESCÁNER DE FACTURAS
    ========================================================== */
 
 document.addEventListener(
@@ -3547,7 +3853,7 @@ document.addEventListener(
       e.target.id ===
       'global-camera-input' &&
       e.target.files[0]
-    ) {
+    ){
 
       const file =
         e.target.files[0];
@@ -3558,7 +3864,6 @@ document.addEventListener(
       };
 
       renderOverlays();
-
 
       compressImage(
         file,
@@ -3585,43 +3890,30 @@ document.addEventListener(
               null;
 
             sheet = {
-              kind:
-                'invoice',
-
-              mode:
-                'new',
-
-              id:
-                null,
-
+              kind:'invoice',
+              mode:'new',
+              id:null,
               title:
                 'Factura ' +
                 todayStr(),
-
               date:
                 todayStr(),
-
               items:
                 items.length
                   ? items
                   : [
                       {
-                        id:
-                          uid(),
-                        name:
-                          '',
-                        price:
-                          ''
+                        id:uid(),
+                        name:'',
+                        price:''
                       }
                     ],
-
-              registered:
-                false
+              registered:false
             };
 
             renderOverlays();
 
-          } catch (err) {
+          } catch(err) {
 
             scanningOverlay =
               null;
@@ -3639,9 +3931,8 @@ document.addEventListener(
   }
 );
 
-
 /* ==========================================================
-   ARRANQUE
+   INICIO
    ========================================================== */
 
 render();
