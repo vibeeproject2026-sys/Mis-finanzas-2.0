@@ -148,6 +148,18 @@ function renderAppContent(){
        UI.tab==='credits' ? renderCredits(UI.creditFilter) :
        UI.tab==='categories' ? renderCategories() :
        (renderSettings() + '<div style="padding:16px 24px;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'));
+  
+    // Ocultar automáticamente los botones locales de respaldo JSON en Ajustes si estamos en esa pestaña
+    if (UI.tab === 'settings') {
+      setTimeout(() => {
+        document.querySelectorAll('button').forEach(btn => {
+          const txt = btn.textContent || '';
+          if (txt.includes('Exportar') || txt.includes('Importar')) {
+            btn.closest('.card, .field, div')?.remove() || (btn.style.display = 'none');
+          }
+        });
+      }, 10);
+    }
   }
 
   let tabbarHTML = [
@@ -243,8 +255,8 @@ document.addEventListener('click',(e)=>{
       Object.assign(DB, {transactions:[], categories:DEFAULT_CATEGORIES.slice(), credits:[], invoices:[], settings:{currency:'COP'}});
       saveDB(); 
       UI.tab = 'dashboard';
-      confirmState=null; 
-      render(); 
+      confirmState = null; // Limpiamos la confirmación para que desaparezca la ventana
+      render(); // Redibuja y muestra el login
     }};
     renderOverlays(); return;
   }
@@ -434,12 +446,12 @@ document.addEventListener('click',(e)=>{
     if(!confirmState) return; 
     const fn=confirmState.onConfirm; 
     confirmState=null; 
+    renderOverlays(); // Limpiamos visualmente el overlay de confirmación al instante
     fn(); 
     return; 
   }
 
   if(action==='set-currency'){ DB.settings.currency=t.dataset.code; saveDB(); safeSync(); renderAppContent(); return; }
-  // (Botones locales de backup eliminados para orientar la app 100% a la nube SaaS)
 });
 
 function attachSheetFieldSync(){
@@ -482,7 +494,6 @@ function attachSheetFieldSync(){
   }
 }
 
-// FUNCIÓN PARA COMPRIMIR IMÁGENES AL VUELO ANTES DE ENVIARLAS A GEMINI (SUPER RÁPIDO)
 function compressImage(file, maxWidth = 800, quality = 0.7) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -516,7 +527,6 @@ document.addEventListener('change',(e)=>{
     scanningOverlay = {message:'Optimizando y analizando factura con IA...'};
     renderOverlays();
     
-    // Comprimimos la imagen localmente para que suba en un par de segundos exactos
     compressImage(file, 800, 0.7).then(async ({ base64, mimeType }) => {
       try {
         const items = (API.scanInvoiceViaProxy) ? await API.scanInvoiceViaProxy(base64, mimeType) : [];
