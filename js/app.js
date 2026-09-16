@@ -648,6 +648,7 @@ function attachMomCarousel(){
 
   const updateCarousel = (index) => {
     currentIndex = (index + totalSlides) % totalSlides;
+    track.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
     track.style.transform = `translateX(-${currentIndex * 100}%)`;
     dots.forEach((dot, i) => {
       dot.classList.toggle('active', i === currentIndex);
@@ -655,29 +656,49 @@ function attachMomCarousel(){
   };
 
   let startX = 0;
+  let currentX = 0;
   let isDragging = false;
+  let startTime = 0;
 
-  track.addEventListener('touchstart', (e) => {
-    startX = e.touches[0].clientX;
+  track.addEventListener('pointerdown', (e) => {
+    startX = e.clientX;
+    currentX = startX;
     isDragging = true;
-  }, {passive: true});
+    startTime = Date.now();
+    track.style.transition = 'none';
+    track.setPointerCapture(e.pointerId);
+  });
 
-  track.addEventListener('touchmove', (e) => {
+  track.addEventListener('pointermove', (e) => {
     if (!isDragging) return;
-    const currentX = e.touches[0].clientX;
+    currentX = e.clientX;
+  });
+
+  track.addEventListener('pointerup', (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    track.releasePointerCapture(e.pointerId);
+
     const diff = startX - currentX;
-    if (Math.abs(diff) > 50) {
+    const elapsed = Date.now() - startTime;
+
+    // Si el gesto fue rápido o superó los 45px de distancia, cambiamos de slide
+    if (Math.abs(diff) > 45 || (Math.abs(diff) > 20 && elapsed < 250)) {
       if (diff > 0) {
         updateCarousel(currentIndex + 1);
       } else {
         updateCarousel(currentIndex - 1);
       }
-      isDragging = false;
+    } else {
+      updateCarousel(currentIndex); // Regresa a la posición actual
     }
-  }, {passive: true});
+  });
 
-  track.addEventListener('touchend', () => {
-    isDragging = false;
+  track.addEventListener('pointercancel', () => {
+    if (isDragging) {
+      isDragging = false;
+      updateCarousel(currentIndex);
+    }
   });
 
   dots.forEach((dot, index) => {
@@ -686,6 +707,7 @@ function attachMomCarousel(){
     });
   });
 }
+
 
 function renderAppContent(){
 
