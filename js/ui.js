@@ -1,26 +1,65 @@
-import { DB, CURRENCIES, SWATCHES, ICON_KEYS, ICON_EMOJI, todayStr } from './state.js';
-import { computeCreditsSummary } from './domain.js';
+import {
+  DB,
+  CURRENCIES,
+  SWATCHES,
+  ICON_KEYS,
+  ICON_EMOJI,
+  todayStr
+} from './state.js';
+
+import {
+  computeCreditsSummary
+} from './domain.js';
 
 /* ==========================================================
    SOPORTE DE ICONOS SVG
    ========================================================== */
+
 export function icon(name){
   const svgs = {
-    'wallet': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
-    'list': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
-    'plus': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>',
-    'credit': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
-    'tag': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>',
-    'search': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>',
-    'pencil': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
-    'check': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>',
-    'close': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
-    'trash': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>',
-    'alert': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 9v2M12 15h.01M22.61 16.53L13.73 3.15a2 2 0 0 0-3.46 0L1.39 16.53a2 2 0 0 0 1.73 3h17.76a2 2 0 0 0 1.73-3z"/></svg>',
-    'gear': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33-1.82V9a1.65 1.65 0 0 0 1.51-1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1 z"/></svg>',
-    'camera': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
-    'receipt': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 14h-4M16 10H8M8 14h2"/></svg>'
+    'wallet':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
+
+    'list':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+
+    'plus':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>',
+
+    'credit':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
+
+    'tag':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>',
+
+    'search':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>',
+
+    'pencil':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+
+    'check':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>',
+
+    'close':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+
+    'trash':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>',
+
+    'alert':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 9v2M12 15h.01M22.61 16.53L13.73 3.15a2 2 0 0 0-3.46 0L1.39 16.53a2 2 0 0 0 1.73 3h17.76a2 2 0 0 0 1.73-3z"/></svg>',
+
+    'gear':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33-1.82V9a1.65 1.65 0 0 0 1.51-1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1 z"/></svg>',
+
+    'camera':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+
+    'receipt':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 14h-4M16 10H8M8 14h2"/></svg>'
   };
+
   return `<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">${svgs[name] || ''}</span>`;
 }
 
@@ -37,20 +76,35 @@ export const esc = (s) =>
   );
 
 export function formatThousandInput(val){
-  const digits = String(val).replace(/\D/g, '');
+  const digits =
+    String(val).replace(/\D/g, '');
+
   if (!digits) return '';
-  return new Intl.NumberFormat('es-CO').format(digits);
+
+  return new Intl.NumberFormat(
+    'es-CO'
+  ).format(digits);
 }
 
 export function parseFormattedNumber(val){
   if (!val) return '';
-  return String(val).replace(/\D/g, '');
+
+  return String(val).replace(
+    /\D/g,
+    ''
+  );
 }
 
 export function fmtMoney(amount){
-  const cur = DB.settings.currency || 'COP';
-  const cfg = CURRENCIES[cur] || CURRENCIES.COP;
-  const n = Number(amount) || 0;
+  const cur =
+    DB.settings.currency || 'COP';
+
+  const cfg =
+    CURRENCIES[cur] ||
+    CURRENCIES.COP;
+
+  const n =
+    Number(amount) || 0;
 
   try {
     return new Intl.NumberFormat(
@@ -61,7 +115,7 @@ export function fmtMoney(amount){
         maximumFractionDigits:0
       }
     ).format(n);
-  } catch(e){
+  } catch(e) {
     return n.toFixed(0) + ' ' + cur;
   }
 }
@@ -84,7 +138,9 @@ export function catById(id){
 
 export function getPrimaryIncomeCat(){
   return DB.categories.find(
-    c => c.type === 'income' && c.primary
+    c =>
+      c.type === 'income' &&
+      c.primary
   ) || null;
 }
 
@@ -97,7 +153,8 @@ export function computeTotals(){
   let expense = 0;
 
   DB.transactions.forEach(t => {
-    const amt = Number(t.amount) || 0;
+    const amt =
+      Number(t.amount) || 0;
 
     if (t.type === 'income'){
       income += amt;
@@ -125,7 +182,8 @@ export function currentMonthTx(){
     t =>
       t.date &&
       typeof t.date === 'string' &&
-      t.date.substring(0, 7) === localMonthKey
+      t.date.substring(0, 7) ===
+        localMonthKey
   );
 }
 
@@ -138,7 +196,8 @@ export function computeMonthStats(){
   let expense = 0;
 
   currentMonthTx().forEach(t => {
-    const amt = Number(t.amount) || 0;
+    const amt =
+      Number(t.amount) || 0;
 
     if (t.type === 'income'){
       if (
@@ -167,7 +226,10 @@ export function computeMonthStats(){
       ? Math.max(
           0,
           Math.round(
-            (netSavings / income) * 100
+            (
+              netSavings /
+              income
+            ) * 100
           )
         )
       : 0;
@@ -225,15 +287,27 @@ export function computeMonthOverMonthMetrics(){
     const amt =
       Number(t.amount) || 0;
 
-    if (mKey === currentMonthKey){
+    if (
+      mKey === currentMonthKey
+    ){
 
-      if (t.type === 'expense'){
+      if (
+        t.type === 'expense'
+      ){
+
         currentExpense += amt;
 
-        currentCatMap[t.categoryId] =
-          (currentCatMap[t.categoryId] || 0) +
-          amt;
+        currentCatMap[
+          t.categoryId
+        ] =
+          (
+            currentCatMap[
+              t.categoryId
+            ] || 0
+          ) + amt;
+
       } else {
+
         currentIncome += amt;
       }
 
@@ -241,13 +315,23 @@ export function computeMonthOverMonthMetrics(){
       mKey === prevMonthKey
     ){
 
-      if (t.type === 'expense'){
+      if (
+        t.type === 'expense'
+      ){
+
         prevExpense += amt;
 
-        prevCatMap[t.categoryId] =
-          (prevCatMap[t.categoryId] || 0) +
-          amt;
+        prevCatMap[
+          t.categoryId
+        ] =
+          (
+            prevCatMap[
+              t.categoryId
+            ] || 0
+          ) + amt;
+
       } else {
+
         prevIncome += amt;
       }
     }
@@ -265,7 +349,10 @@ export function computeMonthOverMonthMetrics(){
     prevExpense > 0
       ? Math.round(
           (
-            (currentExpense - prevExpense) /
+            (
+              currentExpense -
+              prevExpense
+            ) /
             prevExpense
           ) * 100
         )
@@ -279,7 +366,10 @@ export function computeMonthOverMonthMetrics(){
     prevIncome > 0
       ? Math.round(
           (
-            (currentIncome - prevIncome) /
+            (
+              currentIncome -
+              prevIncome
+            ) /
             prevIncome
           ) * 100
         )
@@ -292,22 +382,27 @@ export function computeMonthOverMonthMetrics(){
   let highestGrowthCat = null;
   let maxDiff = -Infinity;
 
-  Object.keys(currentCatMap)
-    .forEach(catId => {
+  Object.keys(
+    currentCatMap
+  ).forEach(catId => {
 
-      const diff =
-        currentCatMap[catId] -
-        (prevCatMap[catId] || 0);
+    const diff =
+      currentCatMap[catId] -
+      (
+        prevCatMap[catId] || 0
+      );
 
-      if (
-        diff > maxDiff &&
-        diff > 0
-      ){
-        maxDiff = diff;
-        highestGrowthCat =
-          catById(catId);
-      }
-    });
+    if (
+      diff > maxDiff &&
+      diff > 0
+    ){
+
+      maxDiff = diff;
+
+      highestGrowthCat =
+        catById(catId);
+    }
+  });
 
   const savingsRate =
     currentIncome > 0
@@ -342,18 +437,26 @@ export function computeCategoryTotals(){
 
   currentMonthTx()
     .forEach(t => {
+
       if (
         t.type === 'expense'
       ){
+
         map[t.categoryId] =
-          (map[t.categoryId] || 0) +
-          (Number(t.amount) || 0);
+          (
+            map[t.categoryId] ||
+            0
+          ) +
+          (
+            Number(t.amount) ||
+            0
+          );
       }
     });
 
   return Object.entries(map)
     .map(
-      ([id, total]) => ({
+      ([id,total]) => ({
         id,
         total,
         cat:catById(id)
@@ -364,7 +467,8 @@ export function computeCategoryTotals(){
     )
     .sort(
       (a,b) =>
-        b.total - a.total
+        b.total -
+        a.total
     );
 }
 
@@ -427,10 +531,14 @@ export function computeBurnMetrics(){
           c.isFixed ||
           c.icon === 'home' ||
           c.icon === 'zap' ||
-          (c.name || '')
+          (
+            c.name || ''
+          )
             .toLowerCase()
             .includes('arriendo') ||
-          (c.name || '')
+          (
+            c.name || ''
+          )
             .toLowerCase()
             .includes('servicio')
       )
@@ -555,9 +663,11 @@ export function computeBurnMetrics(){
       if (
         periodExpenses[p] > 0
       ){
+
         avgDailyBurn =
           periodExpenses[p] /
           10;
+
         break;
       }
     }
@@ -615,9 +725,10 @@ export function computeBudgetRows(){
         Math.min(
           100,
           Math.round(
-            (spent /
-              c.budget) *
-            100
+            (
+              spent /
+              c.budget
+            ) * 100
           )
         );
 
@@ -690,21 +801,47 @@ export function computeCreditsPaidThisMonth(){
 }
 
 /* ==========================================================
-   GRÁFICO CIRCULAR (PIE CHART SVG)
+   GRÁFICA CIRCULAR
    ========================================================== */
 
 export function expensePieSVG(
   catTotals,
   monthExpense,
   monthIncome,
-  creditsPending
+  creditsPaid,
+  uncategorizedExpense = 0
 ){
-  creditsPending =
-    Number(creditsPending) || 0;
+
+  const expense =
+    Math.max(
+      0,
+      Number(monthExpense) || 0
+    );
+
+  const income =
+    Math.max(
+      0,
+      Number(monthIncome) || 0
+    );
+
+  const credits =
+    Math.max(
+      0,
+      Number(creditsPaid) || 0
+    );
+
+  const uncategorized =
+    Math.max(
+      0,
+      Number(uncategorizedExpense) || 0
+    );
+
+  const totalOutflow =
+    expense +
+    credits;
 
   if (
-    !catTotals.length &&
-    creditsPending <= 0
+    totalOutflow <= 0
   ){
     return '';
   }
@@ -713,133 +850,405 @@ export function expensePieSVG(
   const cy = 60;
   const r = 44;
   const stroke = 16;
-  const circumference =
-    2 * Math.PI * r;
 
-  const gap = 3.2;
+  const circumference =
+    2 *
+    Math.PI *
+    r;
+
+  const gap = 2.8;
+
+  /*
+   * El ingreso mensual representa el 100%.
+   *
+   * Ejemplo:
+   *
+   * Ingreso       $5.000.000
+   * Gastos        $1.500.000
+   * Créditos        $500.000
+   *
+   * Salidas       $2.000.000
+   *
+   * Gastado = 40%
+   * Disponible = 60%
+   */
+
+  const denominator =
+    income > 0
+      ? income
+      : totalOutflow;
+
+  const spentRatio =
+    Math.min(
+      1,
+      totalOutflow /
+      denominator
+    );
+
+  const remainingRatio =
+    Math.max(
+      0,
+      1 -
+      spentRatio
+    );
+
+  /*
+   * Colores de respaldo.
+   *
+   * Se utilizan únicamente cuando una categoría:
+   *
+   * 1. No tiene color.
+   * 2. Tiene un color repetido con otra categoría.
+   *
+   * Si la categoría tiene un color propio y único,
+   * ese color se conserva.
+   */
+
+  const categoryPalette = [
+    '#38BDF8',
+    '#A78BFA',
+    '#F59E0B',
+    '#34D399',
+    '#FB7185',
+    '#F97316',
+    '#22D3EE',
+    '#C084FC',
+    '#84CC16',
+    '#E879F9',
+    '#2DD4BF',
+    '#FACC15'
+  ];
+
+  const usedCategoryColors =
+    new Set();
+
+  let paletteIndex = 0;
+
+  const normalizeColor =
+    color =>
+      String(
+        color || ''
+      )
+        .trim()
+        .toUpperCase();
+
+  const getCategoryColor =
+    cat => {
+
+      const original =
+        String(
+          cat?.color || ''
+        ).trim();
+
+      const normalized =
+        normalizeColor(
+          original
+        );
+
+      /*
+       * Conservamos el color original
+       * cuando todavía no ha sido utilizado.
+       */
+
+      if (
+        original &&
+        !usedCategoryColors.has(
+          normalized
+        )
+      ){
+
+        usedCategoryColors.add(
+          normalized
+        );
+
+        return original;
+      }
+
+      /*
+       * Si el color estaba repetido,
+       * buscamos otro color de la paleta.
+       */
+
+      let attempts = 0;
+
+      while (
+        attempts <
+        categoryPalette.length
+      ){
+
+        const candidate =
+          categoryPalette[
+            paletteIndex %
+            categoryPalette.length
+          ];
+
+        paletteIndex++;
+        attempts++;
+
+        if (
+          !usedCategoryColors.has(
+            normalizeColor(
+              candidate
+            )
+          )
+        ){
+
+          usedCategoryColors.add(
+            normalizeColor(
+              candidate
+            )
+          );
+
+          return candidate;
+        }
+      }
+
+      /*
+       * Último respaldo.
+       */
+
+      const fallback =
+        categoryPalette[
+          paletteIndex %
+          categoryPalette.length
+        ];
+
+      paletteIndex++;
+
+      return fallback;
+    };
+
+  /*
+   * Construimos primero todas las salidas.
+   *
+   * Así garantizamos que:
+   *
+   * categorías +
+   * sin categoría +
+   * créditos
+   *
+   * sea exactamente igual a:
+   *
+   * gastos + créditos.
+   */
+
+  const rawSlices = [];
+
+  catTotals.forEach(
+    rw => {
+
+      const value =
+        Math.max(
+          0,
+          Number(rw.total) || 0
+        );
+
+      if (
+        value <= 0
+      ){
+        return;
+      }
+
+      rawSlices.push({
+        label:
+          rw.cat?.name ||
+          'Categoría',
+
+        value,
+
+        color:
+          getCategoryColor(
+            rw.cat
+          )
+      });
+    }
+  );
+
+  /*
+   * Gastos que existen en movimientos
+   * pero cuyo categoryId ya no existe.
+   */
+
+  if (
+    uncategorized > 0
+  ){
+
+    rawSlices.push({
+      label:'Sin categoría',
+      value:uncategorized,
+      color:'#8B85A3'
+    });
+  }
+
+  /*
+   * Los abonos a créditos son una salida
+   * de dinero independiente.
+   */
+
+  if (
+    credits > 0
+  ){
+
+    rawSlices.push({
+      label:'Abonado a créditos',
+      value:credits,
+      color:'#F43F5E'
+    });
+  }
+
+  /*
+   * Cantidad de separaciones visuales.
+   */
+
+  const gapCount =
+    rawSlices.length +
+    (
+      remainingRatio > 0.005
+        ? 1
+        : 0
+    );
+
+  const totalGap =
+    gapCount > 1
+      ? Math.min(
+          gap * gapCount,
+          circumference * 0.22
+        )
+      : 0;
 
   const usable =
     Math.max(
       0,
-      circumference - gap
+      circumference -
+      totalGap
     );
 
-  const base =
-    monthIncome > 0
-      ? monthIncome
-      : (
-          monthExpense +
-          creditsPending
-        );
-
-  const remainingPct =
-    monthIncome > 0
-      ? Math.max(
-          0,
-          (
-            monthIncome -
-            monthExpense -
-            creditsPending
-          ) /
-          monthIncome
-        )
-      : 0;
-
-  let offset = 0;
   const slices = [];
 
-  catTotals.forEach(rw => {
+  let offset = 0;
 
-    const pct =
-      Math.max(
-        0,
-        rw.total / base
-      );
+  rawSlices.forEach(
+    slice => {
 
-    if (
-      pct <= 0
-    ){
-      return;
+      const ratio =
+        denominator > 0
+          ? Math.max(
+              0,
+              slice.value /
+              denominator
+            )
+          : 0;
+
+      if (
+        ratio <= 0
+      ){
+        return;
+      }
+
+      /*
+       * Evitamos que el dibujo supere
+       * el 100% del círculo.
+       */
+
+      const availableRatio =
+        Math.max(
+          0,
+          spentRatio -
+          (
+            offset /
+            Math.max(
+              usable,
+              1
+            )
+          )
+        );
+
+      const safeRatio =
+        Math.min(
+          ratio,
+          availableRatio
+        );
+
+      if (
+        safeRatio <= 0
+      ){
+        return;
+      }
+
+      const rawDash =
+        safeRatio *
+        usable;
+
+      const dash =
+        Math.max(
+          0,
+          rawDash -
+          (
+            totalGap > 0
+              ? gap * 0.55
+              : 0
+          )
+        );
+
+      if (
+        dash <= 0
+      ){
+        return;
+      }
+
+      slices.push({
+        color:slice.color,
+        dash,
+        offset
+      });
+
+      offset +=
+        rawDash;
     }
+  );
 
-    const rawDash =
-      pct * usable;
-
-    const dash =
-      Math.max(
-        0,
-        rawDash -
-        gap * 0.15
-      );
-
-    slices.push({
-      color:rw.cat.color,
-      dash,
-      offset
-    });
-
-    offset +=
-      rawDash +
-      (gap * 0.35);
-  });
+  /*
+   * Segmento de dinero disponible.
+   */
 
   if (
-    creditsPending > 0 &&
-    base > 0
-  ){
-
-    const pct =
-      Math.max(
-        0,
-        creditsPending /
-        base
-      );
-
-    const rawDash =
-      pct * usable;
-
-    const dash =
-      Math.max(
-        0,
-        rawDash -
-        gap * 0.15
-      );
-
-    slices.push({
-      color:'#F43F5E',
-      dash,
-      offset
-    });
-
-    offset +=
-      rawDash +
-      (gap * 0.35);
-  }
-
-  if (
-    remainingPct > 0.005
+    remainingRatio > 0.005 &&
+    usable > 0
   ){
 
     const rawDash =
-      remainingPct *
+      remainingRatio *
       usable;
 
     const dash =
       Math.max(
         0,
         rawDash -
-        gap * 0.1
+        (
+          totalGap > 0
+            ? gap * 0.55
+            : 0
+        )
       );
 
-    slices.push({
-      color:'#1E293B',
-      dash,
-      offset
-    });
+    if (
+      dash > 0
+    ){
+
+      slices.push({
+        color:'#1E293B',
+        dash,
+        offset
+      });
+    }
   }
 
   let svg =
-    '<svg viewBox="0 0 120 120" aria-label="Gastos e ingresos">';
+    '<svg viewBox="0 0 120 120" aria-label="Gastos respecto al ingreso">';
+
+  /*
+   * Base del círculo.
+   */
 
   svg +=
     '<circle cx="' +
@@ -852,39 +1261,43 @@ export function expensePieSVG(
     stroke +
     '"/>';
 
-  slices.forEach(s => {
+  /*
+   * Segmentos.
+   */
 
-    if (
-      s.dash > 0.5
-    ){
+  slices.forEach(
+    s => {
 
-      svg +=
-        '<circle cx="' +
-        cx +
-        '" cy="' +
-        cy +
-        '" r="' +
-        r +
-        '" fill="none" stroke="' +
-        s.color +
-        '" stroke-width="' +
-        stroke +
-        '" ' +
-        'stroke-dasharray="' +
-        s.dash.toFixed(2) +
-        ' ' +
-        (
-          circumference -
-          s.dash
-        ).toFixed(2) +
-        '" ' +
-        'stroke-dashoffset="' +
-        (
-          -s.offset
-        ).toFixed(2) +
-        '" transform="rotate(-90 60 60)" stroke-linecap="butt" />';
+      if (
+        s.dash > 0.5
+      ){
+
+        svg +=
+          '<circle cx="' +
+          cx +
+          '" cy="' +
+          cy +
+          '" r="' +
+          r +
+          '" fill="none" stroke="' +
+          s.color +
+          '" stroke-width="' +
+          stroke +
+          '" stroke-dasharray="' +
+          s.dash.toFixed(2) +
+          ' ' +
+          (
+            circumference -
+            s.dash
+          ).toFixed(2) +
+          '" stroke-dashoffset="' +
+          (
+            -s.offset
+          ).toFixed(2) +
+          '" transform="rotate(-90 60 60)" stroke-linecap="butt" />';
+      }
     }
-  });
+  );
 
   svg +=
     '</svg>';
@@ -893,10 +1306,11 @@ export function expensePieSVG(
 }
 
 /* ==========================================================
-   RENDERIZADO DE VISTAS PRINCIPALES
+   DASHBOARD
    ========================================================== */
 
 export function renderDashboard(){
+
   const totals =
     computeTotals();
 
@@ -928,6 +1342,10 @@ export function renderDashboard(){
 
   let html = '';
 
+  /* ----------------------------------------------------------
+     BALANCE
+     ---------------------------------------------------------- */
+
   html +=
     '<div class="balance-card">';
 
@@ -938,12 +1356,18 @@ export function renderDashboard(){
     '<div class="balance-amount" style="color:' +
     balColor +
     '">' +
-    fmtMoney(totals.balance) +
+    fmtMoney(
+      totals.balance
+    ) +
     '</div>';
 
   html +=
     '<div class="balance-month">' +
-    esc(monthLabelStr(new Date())) +
+    esc(
+      monthLabelStr(
+        new Date()
+      )
+    ) +
     '</div>';
 
   html +=
@@ -951,12 +1375,16 @@ export function renderDashboard(){
 
   html +=
     '<div class="b-metric"><span class="lbl">Ingresos del mes</span><span class="val inc">+' +
-    fmtMoney(month.income) +
+    fmtMoney(
+      month.income
+    ) +
     '</span></div>';
 
   html +=
     '<div class="b-metric"><span class="lbl">Gastos del mes</span><span class="val exp">−' +
-    fmtMoney(month.expense) +
+    fmtMoney(
+      month.expense
+    ) +
     '</span></div>';
 
   html +=
@@ -972,7 +1400,9 @@ export function renderDashboard(){
         ? '+'
         : ''
     ) +
-    fmtMoney(month.netSavings) +
+    fmtMoney(
+      month.netSavings
+    ) +
     '</span></div>';
 
   html +=
@@ -982,6 +1412,10 @@ export function renderDashboard(){
 
   html +=
     '</div></div>';
+
+  /* ----------------------------------------------------------
+     RITMO DE GASTO
+     ---------------------------------------------------------- */
 
   html +=
     '<div class="card">';
@@ -994,7 +1428,9 @@ export function renderDashboard(){
 
   html +=
     '<div class="burn-info"><span class="burn-lbl">Disponible sugerido por día</span><span class="burn-val" style="color:var(--pink)">' +
-    fmtMoney(burn.dailyAvailable) +
+    fmtMoney(
+      burn.dailyAvailable
+    ) +
     ' / día</span></div>';
 
   const statusClass =
@@ -1044,12 +1480,16 @@ export function renderDashboard(){
 
     html +=
       '<div class="runway-val">Ritmo actual <span>' +
-      fmtMoney(burn.avgDailyBurn) +
+      fmtMoney(
+        burn.avgDailyBurn
+      ) +
       ' / día</span></div>';
 
     html +=
       '<div style="font-size:11px;opacity:.82;margin-top:4px">Acumulado ' +
-      fmtMoney(burn.currentPeriodExpense) +
+      fmtMoney(
+        burn.currentPeriodExpense
+      ) +
       ' en ' +
       burn.currentPeriodDays +
       ' días</div>';
@@ -1058,7 +1498,9 @@ export function renderDashboard(){
 
     html +=
       '<div class="runway-val">Promedio <span>' +
-      fmtMoney(burn.currentPeriodExpense) +
+      fmtMoney(
+        burn.currentPeriodExpense
+      ) +
       ' / 10 días</span></div>';
   }
 
@@ -1070,19 +1512,25 @@ export function renderDashboard(){
 
   html +=
     '<div style="display:flex;justify-content:space-between;font-size:10.5px;margin-top:3px"><span>1–10</span><b>' +
-    fmtMoney(burn.periodExpenses[0]) +
+    fmtMoney(
+      burn.periodExpenses[0]
+    ) +
     '</b></div>';
 
   html +=
     '<div style="display:flex;justify-content:space-between;font-size:10.5px;margin-top:3px;opacity:.82"><span>11–20</span><b>' +
-    fmtMoney(burn.periodExpenses[1]) +
+    fmtMoney(
+      burn.periodExpenses[1]
+    ) +
     '</b></div>';
 
   html +=
     '<div style="display:flex;justify-content:space-between;font-size:10.5px;margin-top:3px;opacity:.68"><span>21–' +
     burn.daysInMonth +
     '</span><b>' +
-    fmtMoney(burn.periodExpenses[2]) +
+    fmtMoney(
+      burn.periodExpenses[2]
+    ) +
     '</b></div>';
 
   html +=
@@ -1101,6 +1549,10 @@ export function renderDashboard(){
   html +=
     '</div></div></div>';
 
+  /* ----------------------------------------------------------
+     GASTO RÁPIDO
+     ---------------------------------------------------------- */
+
   if (
     expenseCats.length
   ){
@@ -1117,7 +1569,9 @@ export function renderDashboard(){
             c.id +
             '"><span class="em">' +
             (
-              ICON_EMOJI[c.icon] ||
+              ICON_EMOJI[
+                c.icon
+              ] ||
               '⭐'
             ) +
             '</span><span class="nm">' +
@@ -1128,19 +1582,80 @@ export function renderDashboard(){
       '</div>';
   }
 
+  /* ----------------------------------------------------------
+     GRÁFICA
+     ---------------------------------------------------------- */
+
   const creditsPaid =
     computeCreditsPaidThisMonth();
+
+  /*
+   * Gastos que sí tienen categoría existente.
+   */
+
+  const categorizedExpense =
+    catTotals.reduce(
+      (
+        sum,
+        r
+      ) =>
+        sum +
+        (
+          Number(
+            r.total
+          ) || 0
+        ),
+      0
+    );
+
+  /*
+   * Gastos cuyo categoryId ya no existe.
+   */
+
+  const uncategorizedExpense =
+    Math.max(
+      0,
+      (
+        Number(
+          month.expense
+        ) || 0
+      ) -
+      categorizedExpense
+    );
+
+  /*
+   * Todas las salidas que afectan
+   * el porcentaje del ingreso.
+   */
+
+  const totalOutflow =
+    (
+      Number(
+        month.expense
+      ) || 0
+    ) +
+    (
+      Number(
+        creditsPaid
+      ) || 0
+    );
 
   html +=
     '<div class="card"><div class="section-title">Gastos por categoría (este mes)</div>';
 
   if (
-    (
-      catTotals.length &&
-      month.expense > 0
-    ) ||
-    creditsPaid > 0
+    totalOutflow > 0
   ){
+
+    /*
+     * El porcentaje central representa:
+     *
+     * (Gastos + abonos a créditos)
+     * --------------------------------
+     *          Ingreso
+     *
+     * limitado a 100%.
+     */
 
     const spentPct =
       month.income > 0
@@ -1148,16 +1663,13 @@ export function renderDashboard(){
             100,
             Math.round(
               (
-                (
-                  month.expense +
-                  creditsPaid
-                ) /
+                totalOutflow /
                 month.income
               ) *
               100
             )
           )
-        : 100;
+        : 0;
 
     const remainingPct =
       month.income > 0
@@ -1177,68 +1689,148 @@ export function renderDashboard(){
         catTotals,
         month.expense,
         month.income,
-        creditsPaid
+        creditsPaid,
+        uncategorizedExpense
       ) +
       '<div class="pie-center"><strong>' +
-      spentPct +
-      '%</strong><span>del ingreso</span></div></div>';
+      (
+        month.income > 0
+          ? spentPct + '%'
+          : '—'
+      ) +
+      '</strong><span>' +
+      (
+        month.income > 0
+          ? 'del ingreso'
+          : 'sin ingreso'
+      ) +
+      '</span></div></div>';
 
     html +=
       '<div class="pie-legend">';
 
-    catTotals.forEach(r => {
+    /*
+     * CATEGORÍAS
+     *
+     * Cada una muestra exactamente:
+     *
+     * gasto categoría / ingreso total
+     */
 
-      const pctOfExpenses =
-        (
-          r.total /
-          month.expense
-        ) *
-        100;
+    catTotals.forEach(
+      r => {
 
-      html +=
-        '<div class="pie-legend-row"><span class="pie-dot" style="background:' +
-        r.cat.color +
-        '"></span><span class="pie-name">' +
-        esc(r.cat.name) +
-        '</span><span class="pie-pct">' +
-        (
-          pctOfExpenses < 0.1
-            ? '<0.1'
-            : pctOfExpenses.toFixed(1)
-        ) +
-        '%</span></div>';
-    });
+        const pctOfIncome =
+          month.income > 0
+            ? (
+                r.total /
+                month.income
+              ) *
+              100
+            : 0;
+
+        const categoryColor =
+          r.cat?.color ||
+          '#8B85A3';
+
+        html +=
+          '<div class="pie-legend-row">' +
+          '<span class="pie-dot" style="background:' +
+          categoryColor +
+          '"></span>' +
+          '<span class="pie-name">' +
+          esc(
+            r.cat.name
+          ) +
+          '</span>' +
+          '<span class="pie-pct">' +
+          (
+            month.income > 0
+              ? (
+                  pctOfIncome < 0.1
+                    ? '<0.1'
+                    : pctOfIncome.toFixed(1)
+                )
+              : '—'
+          ) +
+          '%</span>' +
+          '</div>';
+      }
+    );
+
+    /*
+     * SIN CATEGORÍA
+     */
 
     if (
-      creditsPaid > 0
+      uncategorizedExpense > 0
     ){
 
-      const creditsBase =
+      const pct =
         month.income > 0
-          ? month.income
-          : (
-              month.expense +
-              creditsPaid
-            );
-
-      const pctOfCredits =
-        creditsBase > 0
           ? (
-              creditsPaid /
-              creditsBase
+              uncategorizedExpense /
+              month.income
             ) *
             100
           : 0;
 
       html +=
-        '<div class="pie-legend-row"><span class="pie-dot" style="background:#F43F5E"></span><span class="pie-name">Abonado a créditos</span><span class="pie-pct">' +
+        '<div class="pie-legend-row">' +
+        '<span class="pie-dot" style="background:#8B85A3"></span>' +
+        '<span class="pie-name">Sin categoría</span>' +
+        '<span class="pie-pct">' +
         (
-          pctOfCredits < 0.1
-            ? '<0.1'
-            : pctOfCredits.toFixed(1)
+          month.income > 0
+            ? (
+                pct < 0.1
+                  ? '<0.1'
+                  : pct.toFixed(1)
+              )
+            : '—'
         ) +
-        '%</span></div>';
+        '%</span>' +
+        '</div>';
     }
+
+    /*
+     * ABONOS A CRÉDITOS
+     */
+
+    if (
+      creditsPaid > 0
+    ){
+
+      const pctOfCredits =
+        month.income > 0
+          ? (
+              creditsPaid /
+              month.income
+            ) *
+            100
+          : 0;
+
+      html +=
+        '<div class="pie-legend-row">' +
+        '<span class="pie-dot" style="background:#F43F5E"></span>' +
+        '<span class="pie-name">Abonado a créditos</span>' +
+        '<span class="pie-pct">' +
+        (
+          month.income > 0
+            ? (
+                pctOfCredits < 0.1
+                  ? '<0.1'
+                  : pctOfCredits.toFixed(1)
+              )
+            : '—'
+        ) +
+        '%</span>' +
+        '</div>';
+    }
+
+    /*
+     * DISPONIBLE
+     */
 
     if (
       month.income > 0 &&
@@ -1246,9 +1838,13 @@ export function renderDashboard(){
     ){
 
       html +=
-        '<div class="pie-legend-row"><span class="pie-dot" style="background:#1E293B"></span><span class="pie-name">Disponible</span><span class="pie-pct">' +
+        '<div class="pie-legend-row">' +
+        '<span class="pie-dot" style="background:#1E293B"></span>' +
+        '<span class="pie-name">Disponible</span>' +
+        '<span class="pie-pct">' +
         remainingPct +
-        '%</span></div>';
+        '%</span>' +
+        '</div>';
     }
 
     html +=
@@ -1262,6 +1858,10 @@ export function renderDashboard(){
 
   html +=
     '</div>';
+
+  /* ----------------------------------------------------------
+     COMPARATIVA MES A MES
+     ---------------------------------------------------------- */
 
   html +=
     '<div class="mom-card"><div class="mom-header"><span class="mom-title">📊 Comparativa Mes a Mes</span><div class="mom-dots">';
@@ -1293,9 +1893,13 @@ export function renderDashboard(){
 
   html +=
     '<div class="mom-slide"><div class="mom-slide-grid"><div class="mom-box"><div class="lbl">Gastos este mes</div><div class="val" style="color:var(--expense)">' +
-    fmtMoney(mom.currentExpense) +
+    fmtMoney(
+      mom.currentExpense
+    ) +
     '</div></div><div class="mom-box"><div class="lbl">Gastos mes pasado</div><div class="val">' +
-    fmtMoney(mom.prevExpense) +
+    fmtMoney(
+      mom.prevExpense
+    ) +
     '</div><div class="delta ' +
     (
       expUp
@@ -1322,9 +1926,13 @@ export function renderDashboard(){
 
   html +=
     '<div class="mom-slide"><div class="mom-slide-grid"><div class="mom-box"><div class="lbl">Ingresos este mes</div><div class="val" style="color:var(--income)">' +
-    fmtMoney(mom.currentIncome) +
+    fmtMoney(
+      mom.currentIncome
+    ) +
     '</div></div><div class="mom-box"><div class="lbl">Ingresos mes pasado</div><div class="val">' +
-    fmtMoney(mom.prevIncome) +
+    fmtMoney(
+      mom.prevIncome
+    ) +
     '</div><div class="delta ' +
     (
       incUp
@@ -1359,7 +1967,9 @@ export function renderDashboard(){
         ? '+'
         : ''
     ) +
-    fmtMoney(mom.currentSavings) +
+    fmtMoney(
+      mom.currentSavings
+    ) +
     '</div></div><div class="mom-box"><div class="lbl">Ahorro mes pasado</div><div class="val" style="color:' +
     (
       mom.prevSavings >= 0
@@ -1372,7 +1982,9 @@ export function renderDashboard(){
         ? '+'
         : ''
     ) +
-    fmtMoney(mom.prevSavings) +
+    fmtMoney(
+      mom.prevSavings
+    ) +
     '</div></div></div></div>';
 
   html +=
@@ -1386,9 +1998,13 @@ export function renderDashboard(){
 
     html +=
       '<div class="mom-slide"><div class="mom-single"><div class="lbl">Mayor aumento de gasto</div><div class="val" style="color:var(--expense)">' +
-      esc(mom.highestGrowthCat.name) +
+      esc(
+        mom.highestGrowthCat.name
+      ) +
       '</div><div class="sub">Subió ' +
-      fmtMoney(mom.maxDiff) +
+      fmtMoney(
+        mom.maxDiff
+      ) +
       ' vs mes anterior</div></div></div>';
 
   } else {
@@ -1406,9 +2022,13 @@ export function renderDashboard(){
 
     html +=
       '<div class="mom-insight"><span>💡</span><div><b>Atención en ' +
-      esc(mom.highestGrowthCat.name) +
+      esc(
+        mom.highestGrowthCat.name
+      ) +
       ':</b> Tu gasto subió ' +
-      fmtMoney(mom.maxDiff) +
+      fmtMoney(
+        mom.maxDiff
+      ) +
       ' respecto al mes anterior.</div></div>';
 
   } else {
@@ -1420,6 +2040,10 @@ export function renderDashboard(){
   html +=
     '</div>';
 
+  /* ----------------------------------------------------------
+     PRESUPUESTOS
+     ---------------------------------------------------------- */
+
   if (
     budgets.length
   ){
@@ -1427,47 +2051,59 @@ export function renderDashboard(){
     html +=
       '<div class="card" style="margin-top:16px"><div class="section-title">Presupuestos</div>';
 
-    budgets.forEach(b => {
+    budgets.forEach(
+      b => {
 
-      let barColor =
-        b.cat.color;
+        let barColor =
+          b.cat.color;
 
-      if (
-        b.over
-      ){
-        barColor =
-          'var(--expense)';
-      } else if (
-        b.isPacingFast
-      ){
-        barColor =
-          'var(--amber)';
+        if (
+          b.over
+        ){
+
+          barColor =
+            'var(--expense)';
+
+        } else if (
+          b.isPacingFast
+        ){
+
+          barColor =
+            'var(--amber)';
+        }
+
+        html +=
+          '<div class="cat-row"><div class="top"><span>' +
+          (
+            b.over
+              ? icon('alert') +
+                ' '
+              : ''
+          ) +
+          esc(
+            b.cat.name
+          ) +
+          '</span><span style="color:' +
+          (
+            b.over
+              ? 'var(--expense)'
+              : 'var(--ink-muted)'
+          ) +
+          '">' +
+          fmtMoney(
+            b.spent
+          ) +
+          ' / ' +
+          fmtMoney(
+            b.cat.budget
+          ) +
+          '</span></div><div class="bar-track"><div class="bar-fill" style="width:' +
+          b.pct +
+          '%;background:' +
+          barColor +
+          '"></div></div></div>';
       }
-
-      html +=
-        '<div class="cat-row"><div class="top"><span>' +
-        (
-          b.over
-            ? icon('alert') + ' '
-            : ''
-        ) +
-        esc(b.cat.name) +
-        '</span><span style="color:' +
-        (
-          b.over
-            ? 'var(--expense)'
-            : 'var(--ink-muted)'
-        ) +
-        '">' +
-        fmtMoney(b.spent) +
-        ' / ' +
-        fmtMoney(b.cat.budget) +
-        '</span></div><div class="bar-track"><div class="bar-fill" style="width:' +
-        b.pct +
-        '%;background:' +
-        barColor +
-        '"></div></div></div>';
-    });
+    );
 
     html +=
       '</div>';
@@ -1476,14 +2112,23 @@ export function renderDashboard(){
   return html;
 }
 
+/* ==========================================================
+   MOVIMIENTOS
+   ========================================================== */
+
 export function renderTxRow(t){
+
   const cat =
-    catById(t.categoryId);
+    catById(
+      t.categoryId
+    );
 
   const emoji =
     cat
       ? (
-          ICON_EMOJI[cat.icon] ||
+          ICON_EMOJI[
+            cat.icon
+          ] ||
           '⭐'
         )
       : '⭐';
@@ -1500,26 +2145,37 @@ export function renderTxRow(t){
     '<button class="tx-item" data-action="edit-tx" data-id="' +
     t.id +
     '">' +
+
     '<div class="avatar" style="background:' +
     bg +
     '">' +
     emoji +
     '</div>' +
-    '<div class="tx-main"><div class="tx-title">' +
+
+    '<div class="tx-main">' +
+
+    '<div class="tx-title">' +
     esc(
       cat
         ? cat.name
         : 'Sin categoría'
     ) +
-    '</div><div class="tx-sub">' +
-    esc(t.date) +
+    '</div>' +
+
+    '<div class="tx-sub">' +
+    esc(
+      t.date
+    ) +
     (
       t.note
         ? ' · ' +
           esc(t.note)
         : ''
     ) +
-    '</div></div>' +
+    '</div>' +
+
+    '</div>' +
+
     '<div class="tx-amount ' +
     t.type +
     '">' +
@@ -1528,8 +2184,12 @@ export function renderTxRow(t){
         ? '+'
         : '−'
     ) +
-    fmtMoney(t.amount) +
-    '</div></button>'
+    fmtMoney(
+      t.amount
+    ) +
+    '</div>' +
+
+    '</button>'
   );
 }
 
@@ -1537,6 +2197,7 @@ export function filteredTx(
   search,
   txFilter
 ){
+
   return DB.transactions
     .filter(
       t =>
@@ -1544,36 +2205,38 @@ export function filteredTx(
           ? true
           : t.type === txFilter
     )
-    .filter(t => {
+    .filter(
+      t => {
 
-      if (
-        !search.trim()
-      ){
-        return true;
-      }
+        if (
+          !search.trim()
+        ){
+          return true;
+        }
 
-      const s =
-        search.toLowerCase();
+        const s =
+          search.toLowerCase();
 
-      const cat =
-        catById(
-          t.categoryId
-        );
+        const cat =
+          catById(
+            t.categoryId
+          );
 
-      return (
+        return (
+          (
+            t.note || ''
+          )
+            .toLowerCase()
+            .includes(s)
+        ) ||
         (
-          t.note || ''
-        )
-          .toLowerCase()
-          .includes(s)
-      ) ||
-      (
-        cat &&
-        cat.name
-          .toLowerCase()
-          .includes(s)
-      );
-    })
+          cat &&
+          cat.name
+            .toLowerCase()
+            .includes(s)
+        );
+      }
+    )
     .sort(
       (a,b) =>
         (
@@ -1590,6 +2253,7 @@ export function renderTransactions(
   search,
   txFilter
 ){
+
   const list =
     filteredTx(
       search,
@@ -1649,9 +2313,14 @@ export function renderTransactions(
   return html;
 }
 
+/* ==========================================================
+   FACTURAS
+   ========================================================== */
+
 export function renderInvoices(
   openInvoiceId
 ){
+
   let html = '';
 
   html +=
@@ -1676,109 +2345,132 @@ export function renderInvoices(
   if (
     !list.length
   ){
+
     return (
       html +
       '<div class="empty-state">Aún no has escaneado ninguna factura.<br>Usa el botón central (+) para escanear una.</div>'
     );
   }
 
-  list.forEach(inv => {
+  list.forEach(
+    inv => {
 
-    const isOpen =
-      openInvoiceId === inv.id;
+      const isOpen =
+        openInvoiceId ===
+        inv.id;
 
-    html +=
-      '<div class="credit-card"><div class="credit-head"><div><div class="credit-title">' +
-      esc(inv.title) +
-      '</div><div class="credit-sub">' +
-      esc(inv.date) +
-      ' · ' +
-      inv.items.length +
-      ' ítem(s)</div></div><button data-action="edit-invoice" data-id="' +
-      inv.id +
-      '">' +
-      icon('pencil') +
-      '</button></div>';
+      html +=
+        '<div class="credit-card"><div class="credit-head"><div><div class="credit-title">' +
+        esc(
+          inv.title
+        ) +
+        '</div><div class="credit-sub">' +
+        esc(
+          inv.date
+        ) +
+        ' · ' +
+        inv.items.length +
+        ' ítem(s)</div></div><button data-action="edit-invoice" data-id="' +
+        inv.id +
+        '">' +
+        icon('pencil') +
+        '</button></div>';
 
-    html +=
-      '<div class="credit-values"><span>Total:</span><span class="credit-pending against">' +
-      fmtMoney(inv.total) +
-      '</span></div>';
+      html +=
+        '<div class="credit-values"><span>Total:</span><span class="credit-pending against">' +
+        fmtMoney(
+          inv.total
+        ) +
+        '</span></div>';
 
-    html +=
-      '<button class="add-pay-btn" data-action="toggle-invoice" data-id="' +
-      inv.id +
-      '">' +
-      (
+      html +=
+        '<button class="add-pay-btn" data-action="toggle-invoice" data-id="' +
+        inv.id +
+        '">' +
+        (
+          isOpen
+            ? 'Ocultar ítems'
+            : 'Ver ítems'
+        ) +
+        '</button>';
+
+      if (
         isOpen
-          ? 'Ocultar ítems'
-          : 'Ver ítems'
-      ) +
-      '</button>';
+      ){
 
-    if (
-      isOpen
-    ){
+        html +=
+          '<div style="margin-top:10px;">';
+
+        inv.items.forEach(
+          it => {
+
+            html +=
+              '<div class="invoice-item-row"><span class="iname">' +
+              esc(
+                it.name
+              ) +
+              '</span><span class="iprice">' +
+              fmtMoney(
+                it.price
+              ) +
+              '</span></div>';
+          }
+        );
+
+        html +=
+          '</div>';
+      }
 
       html +=
         '<div style="margin-top:10px;">';
 
-      inv.items.forEach(it => {
+      if (
+        inv.registered
+      ){
+
+        const cat =
+          catById(
+            inv.categoryId
+          );
 
         html +=
-          '<div class="invoice-item-row"><span class="iname">' +
-          esc(it.name) +
-          '</span><span class="iprice">' +
-          fmtMoney(it.price) +
-          '</span></div>';
-      });
+          '<span class="registered-badge">' +
+          icon('check') +
+          ' Registrada' +
+          (
+            cat
+              ? ' en ' +
+                esc(
+                  cat.name
+                )
+              : ''
+          ) +
+          '</span>';
+
+      } else {
+
+        html +=
+          '<button class="add-pay-btn" data-action="register-invoice" data-id="' +
+          inv.id +
+          '">Elegir categoría y registrar</button>';
+      }
 
       html +=
-        '</div>';
+        '</div></div>';
     }
-
-    html +=
-      '<div style="margin-top:10px;">';
-
-    if (
-      inv.registered
-    ){
-
-      const cat =
-        catById(
-          inv.categoryId
-        );
-
-      html +=
-        '<span class="registered-badge">' +
-        icon('check') +
-        ' Registrada' +
-        (
-          cat
-            ? ' en ' +
-              esc(cat.name)
-            : ''
-        ) +
-        '</span>';
-
-    } else {
-
-      html +=
-        '<button class="add-pay-btn" data-action="register-invoice" data-id="' +
-        inv.id +
-        '">Elegir categoría y registrar</button>';
-    }
-
-    html +=
-      '</div></div>';
-  });
+  );
 
   return html;
 }
 
+/* ==========================================================
+   CRÉDITOS
+   ========================================================== */
+
 export function renderCredits(
   creditFilter
 ){
+
   let html = '';
 
   const summary =
@@ -1949,8 +2641,14 @@ export function renderCredits(
     '<div class="filter-row" style="margin-bottom:14px;">';
 
   [
-    ['against','En contra (Deudas)'],
-    ['favor','A favor (Cobros)']
+    [
+      'against',
+      'En contra (Deudas)'
+    ],
+    [
+      'favor',
+      'A favor (Cobros)'
+    ]
   ].forEach(
     ([val,label]) => {
 
@@ -1985,138 +2683,162 @@ export function renderCredits(
   if (
     !list.length
   ){
+
     return (
       html +
       '<div class="empty-state">No hay créditos registrados.</div>'
     );
   }
 
-  list.forEach(c => {
+  list.forEach(
+    c => {
 
-    const totalPaid =
-      (
-        c.payments || []
-      )
-        .reduce(
-          (sum,p) =>
-            sum +
-            (
-              Number(p.amount) ||
-              0
-            ),
-          0
+      const totalPaid =
+        (
+          c.payments || []
+        )
+          .reduce(
+            (sum,p) =>
+              sum +
+              (
+                Number(
+                  p.amount
+                ) || 0
+              ),
+            0
+          );
+
+      const pending =
+        Math.max(
+          0,
+          Number(c.total) -
+          totalPaid
         );
 
-    const pending =
-      Math.max(
-        0,
-        Number(c.total) -
-        totalPaid
-      );
-
-    const pct =
-      c.total > 0
-        ? Math.min(
-            100,
-            Math.round(
-              (
-                totalPaid /
-                c.total
-              ) *
-              100
+      const pct =
+        c.total > 0
+          ? Math.min(
+              100,
+              Math.round(
+                (
+                  totalPaid /
+                  c.total
+                ) *
+                100
+              )
             )
-          )
-        : 0;
+          : 0;
 
-    const isAgainst =
-      c.type === 'against';
-
-    html +=
-      '<div class="credit-card">';
-
-    html +=
-      '<div class="credit-head"><div><div class="credit-title">' +
-      esc(c.title) +
-      '</div><div class="credit-sub">Total: ' +
-      fmtMoney(c.total) +
-      '</div></div><button data-action="edit-credit" data-id="' +
-      c.id +
-      '">' +
-      icon('pencil') +
-      '</button></div>';
-
-    html +=
-      '<div class="credit-values"><span>Falta por ' +
-      (
-        isAgainst
-          ? 'pagar'
-          : 'cobrar'
-      ) +
-      ':</span><span class="credit-pending ' +
-      (
-        isAgainst
-          ? 'against'
-          : 'favor'
-      ) +
-      '">' +
-      fmtMoney(pending) +
-      '</span></div>';
-
-    html +=
-      '<div class="bar-track" style="margin-bottom:12px;"><div class="bar-fill" style="width:' +
-      pct +
-      '%;background:' +
-      (
-        isAgainst
-          ? 'var(--expense)'
-          : 'var(--income)'
-      ) +
-      '"></div></div>';
-
-    if (
-      c.payments &&
-      c.payments.length
-    ){
+      const isAgainst =
+        c.type ===
+        'against';
 
       html +=
-        '<div style="margin-top:8px;"><span style="font-size:11px;font-weight:700;color:var(--ink-muted);">HISTORIAL:</span>';
+        '<div class="credit-card">';
 
-      c.payments.forEach(p => {
+      html +=
+        '<div class="credit-head"><div><div class="credit-title">' +
+        esc(
+          c.title
+        ) +
+        '</div><div class="credit-sub">Total: ' +
+        fmtMoney(
+          c.total
+        ) +
+        '</div></div><button data-action="edit-credit" data-id="' +
+        c.id +
+        '">' +
+        icon('pencil') +
+        '</button></div>';
+
+      html +=
+        '<div class="credit-values"><span>Falta por ' +
+        (
+          isAgainst
+            ? 'pagar'
+            : 'cobrar'
+        ) +
+        ':</span><span class="credit-pending ' +
+        (
+          isAgainst
+            ? 'against'
+            : 'favor'
+        ) +
+        '">' +
+        fmtMoney(
+          pending
+        ) +
+        '</span></div>';
+
+      html +=
+        '<div class="bar-track" style="margin-bottom:12px;"><div class="bar-fill" style="width:' +
+        pct +
+        '%;background:' +
+        (
+          isAgainst
+            ? 'var(--expense)'
+            : 'var(--income)'
+        ) +
+        '"></div></div>';
+
+      if (
+        c.payments &&
+        c.payments.length
+      ){
 
         html +=
-          '<div class="payment-item"><span>' +
-          esc(p.date) +
-          (
-            p.note
-              ? ' - ' +
-                esc(p.note)
-              : ''
-          ) +
-          '</span><span><b>+' +
-          fmtMoney(p.amount) +
-          '</b> <button style="margin-left:6px" data-action="edit-payment" data-cid="' +
-          c.id +
-          '" data-pid="' +
-          p.id +
-          '">' +
-          icon('pencil') +
-          '</button></span></div>';
-      });
+          '<div style="margin-top:8px;"><span style="font-size:11px;font-weight:700;color:var(--ink-muted);">HISTORIAL:</span>';
+
+        c.payments.forEach(
+          p => {
+
+            html +=
+              '<div class="payment-item"><span>' +
+              esc(
+                p.date
+              ) +
+              (
+                p.note
+                  ? ' - ' +
+                    esc(
+                      p.note
+                    )
+                  : ''
+              ) +
+              '</span><span><b>+' +
+              fmtMoney(
+                p.amount
+              ) +
+              '</b> <button style="margin-left:6px" data-action="edit-payment" data-cid="' +
+              c.id +
+              '" data-pid="' +
+              p.id +
+              '">' +
+              icon('pencil') +
+              '</button></span></div>';
+          }
+        );
+
+        html +=
+          '</div>';
+      }
 
       html +=
-        '</div>';
+        '<button class="add-pay-btn" data-action="new-payment" data-id="' +
+        c.id +
+        '">+ Agregar aporte</button></div>';
     }
-
-    html +=
-      '<button class="add-pay-btn" data-action="new-payment" data-id="' +
-      c.id +
-      '">+ Agregar aporte</button></div>';
-  });
+  );
 
   return html;
 }
 
+/* ==========================================================
+   CATEGORÍAS
+   ========================================================== */
+
 export function renderCategories(){
+
   const totals =
     computeCategoryTotals();
 
@@ -2146,40 +2868,56 @@ export function renderCategories(){
     c => {
 
       const emoji =
-        ICON_EMOJI[c.icon] ||
+        ICON_EMOJI[
+          c.icon
+        ] ||
         '⭐';
 
       return (
         '<button class="cat-item" data-action="edit-cat" data-id="' +
         c.id +
         '">' +
+
         '<div class="avatar" style="background:' +
         c.color +
         '22">' +
         emoji +
         '</div>' +
-        '<div class="tx-main"><div class="cat-name">' +
-        esc(c.name) +
+
+        '<div class="tx-main">' +
+
+        '<div class="cat-name">' +
+        esc(
+          c.name
+        ) +
+
         (
           c.primary
             ? '<span class="star-badge">Principal</span>'
             : ''
         ) +
+
         (
           c.isFixed
             ? '<span class="fixed-badge">Fijo</span>'
             : ''
         ) +
+
         '</div>' +
+
         (
           c.type === 'expense' &&
           c.budget
             ? '<div class="cat-budget">Presupuesto: ' +
-              fmtMoney(c.budget) +
+              fmtMoney(
+                c.budget
+              ) +
               '</div>'
             : ''
         ) +
+
         '</div>' +
+
         (
           c.type === 'expense' &&
           totalsById[c.id]
@@ -2190,7 +2928,9 @@ export function renderCategories(){
               '</div>'
             : ''
         ) +
+
         icon('pencil') +
+
         '</button>'
       );
     };
@@ -2199,14 +2939,27 @@ export function renderCategories(){
     '<button class="new-cat-btn" data-action="new-cat">' +
     icon('plus') +
     ' Nueva categoría</button>' +
+
     '<div class="section-title">Ingresos</div>' +
-    income.map(row).join('') +
+
+    income
+      .map(row)
+      .join('') +
+
     '<div class="section-title" style="margin-top:20px">Gastos</div>' +
-    expense.map(row).join('')
+
+    expense
+      .map(row)
+      .join('')
   );
 }
 
+/* ==========================================================
+   AJUSTES
+   ========================================================== */
+
 export function renderSettings(){
+
   let html =
     '<div class="section-title">Moneda</div><div class="settings-list">';
 
@@ -2267,15 +3020,18 @@ export function renderSettings(){
     '<div class="data-box"><div class="row"><span class="muted">Movimientos</span><span>' +
     DB.transactions.length +
     '</span></div>' +
+
     '<div class="row"><span class="muted">Categorías</span><span>' +
     DB.categories.length +
     '</span></div>' +
+
     '<div class="row"><span class="muted">Créditos</span><span>' +
     (
       DB.credits ||
       []
     ).length +
     '</span></div>' +
+
     '<div class="row"><span class="muted">Facturas</span><span>' +
     (
       DB.invoices ||
@@ -2298,56 +3054,81 @@ export function renderSettings(){
   return html;
 }
 
+/* ==========================================================
+   MENÚ DEL BOTÓN +
+   ========================================================== */
+
 export function renderFabMenu(){
+
   return (
     '<div class="fab-menu-backdrop" id="fab-backdrop">' +
+
       '<div class="fab-menu-sheet">' +
 
         '<button class="fab-menu-item" data-action="fab-new-tx">' +
+
           '<div class="icon-box">' +
             icon('plus') +
           '</div>' +
+
           '<span>Registrar movimiento</span>' +
+
         '</button>' +
 
         '<button class="fab-menu-item" data-action="fab-new-credit">' +
+
           '<div class="icon-box">' +
             icon('credit') +
           '</div>' +
+
           '<span>Agregar nuevo crédito</span>' +
+
         '</button>' +
 
         '<button class="fab-menu-item" data-action="fab-scan-invoice">' +
+
           '<div class="icon-box">' +
             icon('camera') +
           '</div>' +
+
           '<span>Escanear factura con IA</span>' +
+
         '</button>' +
 
         '<button class="fab-menu-item" data-action="fab-invoices">' +
+
           '<div class="icon-box">' +
             icon('receipt') +
           '</div>' +
+
           '<span>Ver facturas escaneadas</span>' +
+
         '</button>' +
 
         '<button class="fab-menu-item" data-action="fab-settings">' +
+
           '<div class="icon-box">' +
             icon('gear') +
           '</div>' +
+
           '<span>Ajustes y Moneda</span>' +
+
         '</button>' +
 
       '</div>' +
+
     '</div>'
   );
 }
 
 /* ==========================================================
-   RENDERIZADO DE HOJAS Y MODALES
+   HOJA DE GASTO RÁPIDO
    ========================================================== */
 
-export function renderQuickSheet(sheet){
+export function renderQuickSheet(
+  sheet
+){
+
   const cat =
     catById(
       sheet.categoryId
@@ -2356,19 +3137,25 @@ export function renderQuickSheet(sheet){
   const emoji =
     cat
       ? (
-          ICON_EMOJI[cat.icon] ||
+          ICON_EMOJI[
+            cat.icon
+          ] ||
           '⭐'
         )
       : '⭐';
 
   const valid =
-    Number(sheet.amount) > 0;
+    Number(
+      sheet.amount
+    ) > 0;
 
   return (
     '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
+
     '<div class="sheet-head"><h3>Registrar gasto</h3><button data-action="close-sheet">' +
     icon('close') +
     '</button></div>' +
+
     '<div class="quick-header"><div class="avatar">' +
     emoji +
     '</div><div class="qname">' +
@@ -2378,6 +3165,7 @@ export function renderQuickSheet(sheet){
         : ''
     ) +
     '</div></div>' +
+
     '<div class="field"><input id="q-amount" class="amount-input" type="text" inputmode="numeric" placeholder="$ 0" value="' +
     esc(
       formatThousandInput(
@@ -2385,20 +3173,29 @@ export function renderQuickSheet(sheet){
       )
     ) +
     '"></div>' +
+
     (
       sheet.showNote
         ? '<div class="field"><div class="field-label">Nota</div><input id="q-note" value="' +
-          esc(sheet.note) +
+          esc(
+            sheet.note
+          ) +
           '"></div>'
+
         : '<button class="link-btn" data-action="show-note">+ Agregar nota</button>'
     ) +
+
     (
       sheet.showDate
         ? '<div class="field"><div class="field-label">Fecha</div><input id="q-date" type="date" value="' +
-          esc(sheet.date) +
+          esc(
+            sheet.date
+          ) +
           '"></div>'
+
         : '<button class="link-btn" data-action="show-date">Cambiar fecha</button>'
     ) +
+
     '<div class="sheet-actions" style="margin-top:14px"><button class="save-btn" id="quick-save-btn" data-action="save-quick" ' +
     (
       valid
@@ -2406,25 +3203,35 @@ export function renderQuickSheet(sheet){
         : 'disabled'
     ) +
     '>Guardar gasto</button></div>' +
+
     '</div></div>'
   );
 }
+
+/* ==========================================================
+   CHIPS DE CATEGORÍAS
+   ========================================================== */
 
 export function renderTxCatChips(
   cats,
   selectedId
 ){
+
   if (
     !cats.length
   ){
-    return '<div class="empty-hint">Crea primero una categoría.</div>';
+
+    return (
+      '<div class="empty-hint">Crea primero una categoría.</div>'
+    );
   }
 
   return cats.map(
     c => {
 
       const sel =
-        selectedId === c.id;
+        selectedId ===
+        c.id;
 
       return (
         '<button class="pick-chip ' +
@@ -2442,22 +3249,38 @@ export function renderTxCatChips(
         '" data-action="pick-tx-cat" data-id="' +
         c.id +
         '">' +
+
         '<span class="chip-icon" style="background:' +
         c.color +
         '25">' +
+
         (
-          ICON_EMOJI[c.icon] ||
+          ICON_EMOJI[
+            c.icon
+          ] ||
           '⭐'
         ) +
+
         '</span><span class="chip-label">' +
-        esc(c.name) +
+
+        esc(
+          c.name
+        ) +
+
         '</span></button>'
       );
     }
   ).join('');
 }
 
-export function renderTxSheet(sheet){
+/* ==========================================================
+   HOJA DE MOVIMIENTO
+   ========================================================== */
+
+export function renderTxSheet(
+  sheet
+){
+
   const cats =
     DB.categories.filter(
       c =>
@@ -2472,11 +3295,14 @@ export function renderTxSheet(sheet){
     );
 
   const valid =
-    Number(sheet.amount) > 0 &&
+    Number(
+      sheet.amount
+    ) > 0 &&
     sheet.categoryId;
 
   return (
     '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
+
     '<div class="sheet-head"><h3>' +
     (
       sheet.mode === 'edit'
@@ -2486,6 +3312,7 @@ export function renderTxSheet(sheet){
     '</h3><button data-action="close-sheet">' +
     icon('close') +
     '</button></div>' +
+
     '<div class="type-toggle"><button class="' +
     (
       sheet.type === 'expense'
@@ -2493,6 +3320,7 @@ export function renderTxSheet(sheet){
         : ''
     ) +
     '" data-action="tx-type" data-type="expense">Gasto</button>' +
+
     '<button class="' +
     (
       sheet.type === 'income'
@@ -2500,6 +3328,7 @@ export function renderTxSheet(sheet){
         : ''
     ) +
     '" data-action="tx-type" data-type="income">Ingreso</button></div>' +
+
     '<div class="field"><div class="field-label">Monto</div><input id="f-amount" type="text" inputmode="numeric" placeholder="0" value="' +
     esc(
       formatThousandInput(
@@ -2507,16 +3336,25 @@ export function renderTxSheet(sheet){
       )
     ) +
     '"></div>' +
+
     '<div class="field"><div class="field-label">Categoría</div><div class="chip-wrap" id="chipList">' +
     chips +
     '</div></div>' +
+
     '<div class="field"><div class="field-label">Fecha</div><input id="f-date" type="date" value="' +
-    esc(sheet.date) +
+    esc(
+      sheet.date
+    ) +
     '"></div>' +
+
     '<div class="field"><div class="field-label">Nota</div><input id="f-note" value="' +
-    esc(sheet.note) +
+    esc(
+      sheet.note
+    ) +
     '"></div>' +
+
     '<div class="sheet-actions">' +
+
     (
       sheet.mode === 'edit'
         ? '<button class="del-btn" data-action="delete-tx">' +
@@ -2524,17 +3362,27 @@ export function renderTxSheet(sheet){
           '</button>'
         : ''
     ) +
+
     '<button class="save-btn" id="tx-save-btn" data-action="save-tx" ' +
     (
       valid
         ? ''
         : 'disabled'
     ) +
-    '>Guardar</button></div></div></div>'
+    '>Guardar</button></div>' +
+
+    '</div></div>'
   );
 }
 
-export function renderCatSheet(sheet){
+/* ==========================================================
+   HOJA DE CATEGORÍA
+   ========================================================== */
+
+export function renderCatSheet(
+  sheet
+){
+
   const swatches =
     SWATCHES
       .map(
@@ -2572,10 +3420,12 @@ export function renderCatSheet(sheet){
       .join('');
 
   const valid =
-    sheet.name.trim().length > 0;
+    sheet.name.trim().length >
+    0;
 
   return (
     '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
+
     '<div class="sheet-head"><h3>' +
     (
       sheet.mode === 'edit'
@@ -2585,9 +3435,13 @@ export function renderCatSheet(sheet){
     '</h3><button data-action="close-sheet">' +
     icon('close') +
     '</button></div>' +
+
     '<div class="field"><div class="field-label">Nombre</div><input id="f-name" value="' +
-    esc(sheet.name) +
+    esc(
+      sheet.name
+    ) +
     '"></div>' +
+
     '<div class="field"><div class="field-label">Tipo</div><div class="type-toggle"><button class="' +
     (
       sheet.type === 'expense'
@@ -2595,6 +3449,7 @@ export function renderCatSheet(sheet){
         : ''
     ) +
     '" data-action="cat-type" data-type="expense">Gasto</button>' +
+
     '<button class="' +
     (
       sheet.type === 'income'
@@ -2602,52 +3457,81 @@ export function renderCatSheet(sheet){
         : ''
     ) +
     '" data-action="cat-type" data-type="income">Ingreso</button></div></div>' +
+
     '<div class="field"><div class="field-label">Color</div><div class="chip-wrap" id="swatchList">' +
     swatches +
     '</div></div>' +
+
     '<div class="field"><div class="field-label">Ícono</div><div class="chip-wrap" id="iconList">' +
     icons +
     '</div></div>' +
+
     '<div id="primaryField" style="display:' +
     (
       sheet.type === 'income'
         ? 'block'
         : 'none'
     ) +
-    '"><div class="toggle-row" data-action="toggle-primary"><div><div class="tlabel">Ingreso principal</div></div><div class="switch ' +
+    '">' +
+
+    '<div class="toggle-row" data-action="toggle-primary">' +
+
+    '<div><div class="tlabel">Ingreso principal</div></div>' +
+
+    '<div class="switch ' +
     (
       sheet.primary
         ? 'on'
         : ''
     ) +
-    '" id="primarySwitch"><div class="knob"></div></div></div></div>' +
+    '" id="primarySwitch"><div class="knob"></div></div>' +
+
+    '</div></div>' +
+
     '<div id="fixedField" style="display:' +
     (
       sheet.type === 'expense'
         ? 'block'
         : 'none'
     ) +
-    '"><div class="toggle-row" data-action="toggle-fixed"><div><div class="tlabel">Gasto fijo</div></div><div class="switch ' +
+    '">' +
+
+    '<div class="toggle-row" data-action="toggle-fixed">' +
+
+    '<div><div class="tlabel">Gasto fijo</div></div>' +
+
+    '<div class="switch ' +
     (
       sheet.isFixed
         ? 'on-violet'
         : ''
     ) +
-    '" id="fixedSwitch"><div class="knob"></div></div></div></div>' +
+    '" id="fixedSwitch"><div class="knob"></div></div>' +
+
+    '</div></div>' +
+
     '<div class="field" id="budgetField" style="display:' +
     (
       sheet.type === 'expense'
         ? 'block'
         : 'none'
     ) +
-    '"><div class="field-label">Presupuesto mensual</div><input id="f-budget" type="text" inputmode="numeric" value="' +
+    '">' +
+
+    '<div class="field-label">Presupuesto mensual</div>' +
+
+    '<input id="f-budget" type="text" inputmode="numeric" value="' +
     esc(
       formatThousandInput(
         sheet.budget
       )
     ) +
-    '"></div>' +
+    '">' +
+
+    '</div>' +
+
     '<div class="sheet-actions">' +
+
     (
       sheet.mode === 'edit'
         ? '<button class="del-btn" data-action="delete-cat">' +
@@ -2655,23 +3539,37 @@ export function renderCatSheet(sheet){
           '</button>'
         : ''
     ) +
+
     '<button class="save-btn" id="cat-save-btn" data-action="save-cat" ' +
     (
       valid
         ? ''
         : 'disabled'
     ) +
-    '>Guardar</button></div></div></div>'
+    '>Guardar</button></div>' +
+
+    '</div></div>'
   );
 }
 
-export function renderCreditSheet(sheet){
+/* ==========================================================
+   HOJA DE CRÉDITO
+   ========================================================== */
+
+export function renderCreditSheet(
+  sheet
+){
+
   const valid =
-    sheet.title.trim().length > 0 &&
-    Number(sheet.total) > 0;
+    sheet.title.trim().length >
+      0 &&
+    Number(
+      sheet.total
+    ) > 0;
 
   return (
     '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
+
     '<div class="sheet-head"><h3>' +
     (
       sheet.mode === 'edit'
@@ -2681,6 +3579,7 @@ export function renderCreditSheet(sheet){
     '</h3><button data-action="close-sheet">' +
     icon('close') +
     '</button></div>' +
+
     '<div class="type-toggle"><button class="' +
     (
       sheet.type === 'against'
@@ -2688,6 +3587,7 @@ export function renderCreditSheet(sheet){
         : ''
     ) +
     '" data-action="credit-type" data-type="against">Deuda</button>' +
+
     '<button class="' +
     (
       sheet.type === 'favor'
@@ -2695,9 +3595,13 @@ export function renderCreditSheet(sheet){
         : ''
     ) +
     '" data-action="credit-type" data-type="favor">Cobro</button></div>' +
+
     '<div class="field"><div class="field-label">Concepto / Persona</div><input id="c-title" value="' +
-    esc(sheet.title) +
+    esc(
+      sheet.title
+    ) +
     '"></div>' +
+
     '<div class="field"><div class="field-label">Valor total</div><input id="c-total" type="text" inputmode="numeric" value="' +
     esc(
       formatThousandInput(
@@ -2705,7 +3609,9 @@ export function renderCreditSheet(sheet){
       )
     ) +
     '"></div>' +
+
     '<div class="sheet-actions">' +
+
     (
       sheet.mode === 'edit'
         ? '<button class="del-btn" data-action="delete-credit">' +
@@ -2713,22 +3619,35 @@ export function renderCreditSheet(sheet){
           '</button>'
         : ''
     ) +
+
     '<button class="save-btn" id="credit-save-btn" data-action="save-credit" ' +
     (
       valid
         ? ''
         : 'disabled'
     ) +
-    '>Guardar</button></div></div></div>'
+    '>Guardar</button></div>' +
+
+    '</div></div>'
   );
 }
 
-export function renderPaymentSheet(sheet){
+/* ==========================================================
+   HOJA DE APORTE
+   ========================================================== */
+
+export function renderPaymentSheet(
+  sheet
+){
+
   const valid =
-    Number(sheet.amount) > 0;
+    Number(
+      sheet.amount
+    ) > 0;
 
   return (
     '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
+
     '<div class="sheet-head"><h3>' +
     (
       sheet.mode === 'edit'
@@ -2738,6 +3657,7 @@ export function renderPaymentSheet(sheet){
     '</h3><button data-action="close-sheet">' +
     icon('close') +
     '</button></div>' +
+
     '<div class="field"><div class="field-label">Monto</div><input id="p-amount" type="text" inputmode="numeric" value="' +
     esc(
       formatThousandInput(
@@ -2745,13 +3665,21 @@ export function renderPaymentSheet(sheet){
       )
     ) +
     '"></div>' +
+
     '<div class="field"><div class="field-label">Fecha</div><input id="p-date" type="date" value="' +
-    esc(sheet.date) +
+    esc(
+      sheet.date
+    ) +
     '"></div>' +
+
     '<div class="field"><div class="field-label">Nota</div><input id="p-note" value="' +
-    esc(sheet.note) +
+    esc(
+      sheet.note
+    ) +
     '"></div>' +
+
     '<div class="sheet-actions">' +
+
     (
       sheet.mode === 'edit'
         ? '<button class="del-btn" data-action="delete-payment">' +
@@ -2759,25 +3687,44 @@ export function renderPaymentSheet(sheet){
           '</button>'
         : ''
     ) +
+
     '<button class="save-btn" id="pay-save-btn" data-action="save-payment" ' +
     (
       valid
         ? ''
         : 'disabled'
     ) +
-    '>Guardar aporte</button></div></div></div>'
+    '>Guardar aporte</button></div>' +
+
+    '</div></div>'
   );
 }
 
-export function renderInvoiceItemsHTML(sheet){
+/* ==========================================================
+   ITEMS DE FACTURA
+   ========================================================== */
+
+export function renderInvoiceItemsHTML(
+  sheet
+){
+
   return sheet.items
     .map(
-      (it,idx) => (
-        '<div class="item-edit-row"><input class="item-name" data-idx="' +
+      (
+        it,
+        idx
+      ) => (
+
+        '<div class="item-edit-row">' +
+
+        '<input class="item-name" data-idx="' +
         idx +
         '" data-field="name" placeholder="Ítem" value="' +
-        esc(it.name) +
+        esc(
+          it.name
+        ) +
         '">' +
+
         '<input class="item-price" data-idx="' +
         idx +
         '" data-field="price" type="text" inputmode="numeric" placeholder="0" value="' +
@@ -2787,24 +3734,38 @@ export function renderInvoiceItemsHTML(sheet){
           )
         ) +
         '">' +
+
         '<button class="item-remove-btn" data-action="remove-invoice-item" data-idx="' +
         idx +
         '">' +
         icon('trash') +
-        '</button></div>'
+        '</button>' +
+
+        '</div>'
       )
     )
     .join('');
 }
 
-export function renderInvoiceSheet(sheet){
+/* ==========================================================
+   HOJA DE FACTURA
+   ========================================================== */
+
+export function renderInvoiceSheet(
+  sheet
+){
+
   const total =
     sheet.items.reduce(
-      (s,it) =>
+      (
+        s,
+        it
+      ) =>
         s +
         (
-          Number(it.price) ||
-          0
+          Number(
+            it.price
+          ) || 0
         ),
       0
     );
@@ -2813,7 +3774,9 @@ export function renderInvoiceSheet(sheet){
     sheet.items.some(
       it =>
         it.name.trim() &&
-        Number(it.price) > 0
+        Number(
+          it.price
+        ) > 0
     );
 
   let html =
@@ -2826,12 +3789,16 @@ export function renderInvoiceSheet(sheet){
 
   html +=
     '<div class="field"><div class="field-label">Título</div><input id="inv-title" value="' +
-    esc(sheet.title) +
+    esc(
+      sheet.title
+    ) +
     '"></div>';
 
   html +=
     '<div class="field"><div class="field-label">Fecha</div><input id="inv-date" type="date" value="' +
-    esc(sheet.date) +
+    esc(
+      sheet.date
+    ) +
     '"></div>';
 
   html +=
@@ -2839,7 +3806,9 @@ export function renderInvoiceSheet(sheet){
 
   html +=
     '<div id="inv-items-list">' +
-    renderInvoiceItemsHTML(sheet) +
+    renderInvoiceItemsHTML(
+      sheet
+    ) +
     '</div>';
 
   html +=
@@ -2847,7 +3816,9 @@ export function renderInvoiceSheet(sheet){
 
   html +=
     '<div class="mom-single" style="margin-top:14px;"><div class="lbl">Total factura</div><div class="val" style="color:var(--pink)" id="inv-total-val">' +
-    fmtMoney(total) +
+    fmtMoney(
+      total
+    ) +
     '</div></div>';
 
   html +=
@@ -2856,6 +3827,7 @@ export function renderInvoiceSheet(sheet){
   if (
     sheet.mode === 'edit'
   ){
+
     html +=
       '<button class="del-btn" data-action="delete-invoice">' +
       icon('trash') +
@@ -2877,23 +3849,50 @@ export function renderInvoiceSheet(sheet){
   return html;
 }
 
+/* ==========================================================
+   CONFIRMACIÓN
+   ========================================================== */
+
 export function renderConfirmDialog(
   confirmState
 ){
+
   return (
     '<div class="overlay overlay-center"><div class="confirm-box"><p>' +
-    esc(confirmState.message) +
+    esc(
+      confirmState.message
+    ) +
     '</p>' +
-    '<div class="confirm-actions"><button class="confirm-cancel" data-action="cancel-confirm">Cancelar</button><button class="confirm-ok" data-action="confirm-ok">Confirmar</button></div></div></div>'
+
+    '<div class="confirm-actions">' +
+
+    '<button class="confirm-cancel" data-action="cancel-confirm">Cancelar</button>' +
+
+    '<button class="confirm-ok" data-action="confirm-ok">Confirmar</button>' +
+
+    '</div></div></div>'
   );
 }
+
+/* ==========================================================
+   OVERLAY DE ESCANEO
+   ========================================================== */
 
 export function renderScanningOverlay(
   scanningOverlay
 ){
+
   return (
-    '<div class="overlay overlay-center"><div class="confirm-box" style="text-align:center;"><div class="spinner" style="margin:0 auto 14px;"></div><p>' +
-    esc(scanningOverlay.message) +
-    '</p></div></div>'
+    '<div class="overlay overlay-center"><div class="confirm-box" style="text-align:center;">' +
+
+    '<div class="spinner" style="margin:0 auto 14px;"></div>' +
+
+    '<p>' +
+    esc(
+      scanningOverlay.message
+    ) +
+    '</p>' +
+
+    '</div></div>'
   );
 }
