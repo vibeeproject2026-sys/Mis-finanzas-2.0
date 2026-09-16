@@ -1,22 +1,55 @@
 const SUPABASE_URL = 'https://blsdheekuagurefhzelf.supabase.co';
 
-// CONSERVAR AQUÍ TU SUPABASE ANON KEY ACTUAL.
-// No utilizar service_role ni sb_secret en frontend.
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsc2RoZWVrdWd1cmVmaHplbGYiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc4OTUxODY2NSwiZXhwIjoyMTA1MDk0NjY1fQ.IwNQo4a_UgI4qVDEtUqA-N1JT7mK9znzq7bQLPIAam0';
+// =========================================================
+// MIS FINANZAS
+// SUPABASE PUBLISHABLE KEY
+// =========================================================
+//
+// Esta clave es apta para frontend/browser.
+// La seguridad de los datos se controla mediante RLS.
+//
+// NO colocar aquí:
+// - secret key
+// - service_role
+// - sb_secret
+//
+// =========================================================
 
+const SUPABASE_PUBLISHABLE_KEY =
+  'sb_publishable_C5ZO4zf0WDXcXVgkP0Jx1w_y8tJmmJJ';
+
+
+// =========================================================
+// CONFIGURACIÓN
+// =========================================================
 
 function isSupabaseConfigured() {
   return Boolean(
     SUPABASE_URL &&
-    SUPABASE_ANON_KEY &&
-    SUPABASE_ANON_KEY !== 'PEGA_AQUI_TU_ANON_KEY'
+    SUPABASE_PUBLISHABLE_KEY
   );
 }
 
 
+// =========================================================
+// DECODIFICAR JWT
+// =========================================================
+//
+// Se utiliza únicamente para comprobar preventivamente
+// que el userId utilizado por la aplicación corresponde
+// al usuario autenticado.
+//
+// La seguridad definitiva está en RLS de Supabase.
+// =========================================================
+
 function decodeJwtPayload(token) {
+
   try {
-    if (!token || typeof token !== 'string') {
+
+    if (
+      !token ||
+      typeof token !== 'string'
+    ) {
       return null;
     }
 
@@ -33,19 +66,25 @@ function decodeJwtPayload(token) {
       .replace(/_/g, '/');
 
     const padded = base64.padEnd(
-      base64.length + ((4 - (base64.length % 4)) % 4),
+      base64.length +
+      ((4 - (base64.length % 4)) % 4),
       '='
     );
 
+    const binary = atob(padded);
+
+    let percentEncoded = '';
+
+    for (let i = 0; i < binary.length; i++) {
+
+      percentEncoded +=
+        '%' +
+        ('00' + binary.charCodeAt(i).toString(16))
+          .slice(-2);
+    }
+
     const json = decodeURIComponent(
-      atob(padded)
-        .split('')
-        .map(
-          char =>
-            '%' +
-            ('00' + char.charCodeAt(0).toString(16)).slice(-2)
-        )
-        .join('')
+      percentEncoded
     );
 
     return JSON.parse(json);
@@ -62,38 +101,77 @@ function decodeJwtPayload(token) {
 }
 
 
-function tokenMatchesUser(token, userId) {
-  if (!token || !userId) {
+// =========================================================
+// VALIDAR IDENTIDAD DEL TOKEN
+// =========================================================
+
+function tokenMatchesUser(
+  token,
+  userId
+) {
+
+  if (
+    !token ||
+    !userId
+  ) {
     return false;
   }
 
-  const claims = decodeJwtPayload(token);
+  const claims =
+    decodeJwtPayload(token);
 
-  if (!claims || !claims.sub) {
+  if (
+    !claims ||
+    !claims.sub
+  ) {
     return false;
   }
 
-  return String(claims.sub) === String(userId);
+  return (
+    String(claims.sub) ===
+    String(userId)
+  );
 }
 
 
-function getSupabaseHeaders(token = null) {
+// =========================================================
+// HEADERS SUPABASE
+// =========================================================
+
+function getSupabaseHeaders(
+  token = null
+) {
+
   const headers = {
-    'apikey': SUPABASE_ANON_KEY,
-    'Content-Type': 'application/json'
+    'apikey':
+      SUPABASE_PUBLISHABLE_KEY,
+
+    'Content-Type':
+      'application/json'
   };
 
   if (token) {
-    headers.Authorization = `Bearer ${token}`;
+
+    headers.Authorization =
+      `Bearer ${token}`;
   }
 
   return headers;
 }
 
 
-async function readErrorDetail(response) {
+// =========================================================
+// LEER DETALLE DE ERROR
+// =========================================================
+
+async function readErrorDetail(
+  response
+) {
+
   try {
-    const errorData = await response.json();
+
+    const errorData =
+      await response.json();
 
     return (
       errorData?.message ||
@@ -111,42 +189,57 @@ async function readErrorDetail(response) {
 }
 
 
-export async function signUpUser(email, password) {
+// =========================================================
+// REGISTRO
+// =========================================================
+
+export async function signUpUser(
+  email,
+  password
+) {
 
   if (!isSupabaseConfigured()) {
+
     throw new Error(
       'Supabase no está configurado.'
     );
   }
 
-  if (!email || !password) {
+  if (
+    !email ||
+    !password
+  ) {
+
     throw new Error(
       'Correo y contraseña son obligatorios.'
     );
   }
 
-  const response = await fetch(
-    `${SUPABASE_URL}/auth/v1/signup`,
-    {
-      method: 'POST',
+  const response =
+    await fetch(
+      `${SUPABASE_URL}/auth/v1/signup`,
+      {
+        method: 'POST',
 
-      headers: getSupabaseHeaders(),
+        headers:
+          getSupabaseHeaders(),
 
-      body: JSON.stringify({
-        email,
-        password
-      })
-    }
-  );
+        body: JSON.stringify({
+          email,
+          password
+        })
+      }
+    );
 
-  const data = await response.json();
+  const data =
+    await response.json();
 
   if (!response.ok) {
 
     throw new Error(
-      data.msg ||
-      data.error_description ||
-      data.message ||
+      data?.msg ||
+      data?.error_description ||
+      data?.message ||
       'Error al registrar usuario'
     );
   }
@@ -155,47 +248,70 @@ export async function signUpUser(email, password) {
 }
 
 
-export async function signInUser(email, password) {
+// =========================================================
+// INICIO DE SESIÓN
+// =========================================================
+
+export async function signInUser(
+  email,
+  password
+) {
 
   if (!isSupabaseConfigured()) {
+
     throw new Error(
       'Supabase no está configurado.'
     );
   }
 
-  if (!email || !password) {
+  if (
+    !email ||
+    !password
+  ) {
+
     throw new Error(
       'Correo y contraseña son obligatorios.'
     );
   }
 
-  const response = await fetch(
-    `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
-    {
-      method: 'POST',
+  const response =
+    await fetch(
+      `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
+      {
+        method: 'POST',
 
-      headers: getSupabaseHeaders(),
+        headers:
+          getSupabaseHeaders(),
 
-      body: JSON.stringify({
-        email,
-        password
-      })
-    }
-  );
+        body: JSON.stringify({
+          email,
+          password
+        })
+      }
+    );
 
-  const data = await response.json();
+  const data =
+    await response.json();
 
   if (!response.ok) {
 
+    const detail =
+      data?.error_description ||
+      data?.msg ||
+      data?.message ||
+      '';
+
     throw new Error(
-      data.error_description ||
-      data.msg ||
-      data.message ||
+      detail ||
       'Correo o contraseña incorrectos'
     );
   }
 
-  if (!data?.access_token || !data?.user?.id) {
+  if (
+    !data?.access_token ||
+    !data?.user?.id
+  ) {
+
     throw new Error(
       'Supabase no devolvió una sesión válida.'
     );
@@ -204,6 +320,10 @@ export async function signInUser(email, password) {
   return data;
 }
 
+
+// =========================================================
+// SINCRONIZAR DATOS CON SUPABASE
+// =========================================================
 
 export async function syncWithSupabase(
   token,
@@ -217,20 +337,24 @@ export async function syncWithSupabase(
     !userId ||
     !payload
   ) {
+
     return {
       ok: false,
       skipped: true
     };
   }
 
-  /*
-   * El userId debe corresponder al usuario autenticado
-   * contenido en el token.
-   *
-   * Esta comprobación NO sustituye RLS.
-   * RLS debe seguir validando auth.uid() en Supabase.
-   */
-  if (!tokenMatchesUser(token, userId)) {
+
+  // -------------------------------------------------------
+  // VALIDACIÓN PREVENTIVA DE IDENTIDAD
+  // -------------------------------------------------------
+
+  if (
+    !tokenMatchesUser(
+      token,
+      userId
+    )
+  ) {
 
     console.error(
       'La identidad del token no coincide con userId.'
@@ -244,41 +368,56 @@ export async function syncWithSupabase(
     };
   }
 
+
   try {
 
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_data`,
-      {
-        method: 'POST',
+    const response =
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/user_data`,
+        {
+          method: 'POST',
 
-        headers: {
-          ...getSupabaseHeaders(token),
-          'Prefer': 'resolution=merge-duplicates,return=minimal'
-        },
+          headers: {
+            ...getSupabaseHeaders(token),
 
-        body: JSON.stringify({
-          id: userId,
-          payload,
-          updated_at: new Date().toISOString()
-        })
-      }
-    );
+            'Prefer':
+              'resolution=merge-duplicates,return=minimal'
+          },
+
+          body: JSON.stringify({
+            id: userId,
+
+            payload,
+
+            updated_at:
+              new Date().toISOString()
+          })
+        }
+      );
+
 
     if (!response.ok) {
 
-      const detail = await readErrorDetail(
-        response
-      );
+      const detail =
+        await readErrorDetail(
+          response
+        );
 
       throw new Error(
         `Supabase rechazó la sincronización (${response.status})` +
-        (detail ? `: ${detail}` : '')
+        (
+          detail
+            ? `: ${detail}`
+            : ''
+        )
       );
     }
+
 
     return {
       ok: true
     };
+
 
   } catch (error) {
 
@@ -295,6 +434,10 @@ export async function syncWithSupabase(
 }
 
 
+// =========================================================
+// DESCARGAR DATOS DEL USUARIO
+// =========================================================
+
 export async function fetchUserData(
   token,
   userId
@@ -305,14 +448,21 @@ export async function fetchUserData(
     !token ||
     !userId
   ) {
+
     return null;
   }
 
-  /*
-   * Comprobación preventiva de identidad.
-   * La protección definitiva debe estar en las políticas RLS.
-   */
-  if (!tokenMatchesUser(token, userId)) {
+
+  // -------------------------------------------------------
+  // VALIDACIÓN PREVENTIVA DE IDENTIDAD
+  // -------------------------------------------------------
+
+  if (
+    !tokenMatchesUser(
+      token,
+      userId
+    )
+  ) {
 
     console.error(
       'La identidad del token no coincide con userId.'
@@ -321,40 +471,55 @@ export async function fetchUserData(
     return null;
   }
 
+
   try {
 
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_data?id=eq.${encodeURIComponent(userId)}`,
-      {
-        method: 'GET',
+    const response =
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/user_data?id=eq.${encodeURIComponent(userId)}`,
+        {
+          method: 'GET',
 
-        headers: getSupabaseHeaders(token)
-      }
-    );
+          headers:
+            getSupabaseHeaders(token)
+        }
+      );
+
 
     if (!response.ok) {
 
-      const detail = await readErrorDetail(
-        response
-      );
+      const detail =
+        await readErrorDetail(
+          response
+        );
 
       throw new Error(
         `Supabase rechazó la descarga (${response.status})` +
-        (detail ? `: ${detail}` : '')
+        (
+          detail
+            ? `: ${detail}`
+            : ''
+        )
       );
     }
 
-    const data = await response.json();
+
+    const data =
+      await response.json();
+
 
     if (
       Array.isArray(data) &&
       data.length > 0 &&
       data[0]?.payload
     ) {
+
       return data[0].payload;
     }
 
+
     return null;
+
 
   } catch (error) {
 
@@ -368,36 +533,56 @@ export async function fetchUserData(
 }
 
 
+// =========================================================
+// ESCANEAR FACTURA MEDIANTE PROXY SEGURO
+// =========================================================
+//
+// La clave de IA NO está en el frontend.
+// La aplicación llama al endpoint:
+// /api/scan-invoice
+//
+// =========================================================
+
 export async function scanInvoiceViaProxy(
   base64Data,
   mimeType
 ) {
 
-  const PROXY_ENDPOINT = '/api/scan-invoice';
+  const PROXY_ENDPOINT =
+    '/api/scan-invoice';
+
 
   if (!base64Data) {
+
     throw new Error(
       'No se recibió la imagen de la factura.'
     );
   }
 
+
   try {
 
-    const response = await fetch(
-      PROXY_ENDPOINT,
-      {
-        method: 'POST',
+    const response =
+      await fetch(
+        PROXY_ENDPOINT,
+        {
+          method: 'POST',
 
-        headers: {
-          'Content-Type': 'application/json'
-        },
+          headers: {
+            'Content-Type':
+              'application/json'
+          },
 
-        body: JSON.stringify({
-          imageBase64: base64Data,
-          mimeType: mimeType
-        })
-      }
-    );
+          body: JSON.stringify({
+            imageBase64:
+              base64Data,
+
+            mimeType:
+              mimeType
+          })
+        }
+      );
+
 
     if (!response.ok) {
 
@@ -415,17 +600,28 @@ export async function scanInvoiceViaProxy(
 
       } catch (_) {}
 
+
       throw new Error(
         'Error en el servidor proxy de IA.' +
-        (detail ? ` ${detail}` : '')
+        (
+          detail
+            ? ` ${detail}`
+            : ''
+        )
       );
     }
 
-    const data = await response.json();
 
-    return Array.isArray(data.items)
+    const data =
+      await response.json();
+
+
+    return Array.isArray(
+      data.items
+    )
       ? data.items
       : [];
+
 
   } catch (error) {
 
