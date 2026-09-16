@@ -1,0 +1,31 @@
+:root{
+  --bg:#020408; 
+  --card: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(11, 19, 38, 0.82) 100%);
+  --card-alt:rgba(15, 23, 42, 0.75);
+  --ink:#FFFFFF; --ink-muted:#94A3B8; 
+  --line:rgba(56, 189, 248, 0.25);
+  --violet:#06B6D4; --violet-dark:#0284C7; --pink:#38BDF8;
+  --income:#34D399; --income-bg:rgba(52, 211, 153, 0.15);
+  --expense:#F43F5E; --expense-bg:rgba(244, 63, 94, 0.15);
+  --amber:#F59E0B; --amber-bg:rgba(245, 158, 11, 0.15);
+  --shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+  --border-glass: 1px solid rgba(255, 255, 255, 0.14);
+  --glow-cyan: 0 0 25px rgba(6, 182, 212, 0.4);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+html,body{
+  margin:0;padding:0;background:var(--bg);color:var(--ink);
+  font-family:'Outfit',-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden; height:100%;
+}
+#root{
+  max-width:480px;margin:0 auto;height:100dvh;height:100vh;
+  position:relative;display:flex;flex-direction:column;overflow:hidden;
+}
+#view{
+  flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+  padding:1.5rem 1rem 120px; position:relative;z-index:2; overscroll-behavior-y:contain;
+}
+h1,h2,h3,p{margin:0;}
+button{font-family:inherit;border:none;background:none;cursor:pointer;color:inherit;user-select:none;-webkit-user-select:none;}
+input, select{font-family:inherit;}
