@@ -6,7 +6,8 @@ import {
   renderInvoiceSheet, renderConfirmDialog, renderScanningOverlay, 
   filteredTx, renderTxCatChips, formatThousandInput, parseFormattedNumber 
 } from './ui.js';
-import { scanInvoiceViaProxy } from './api.js';
+import { scanInvoiceViaProxy, syncWithSupabase } from './api.js';
+import { renderAuthScreen, attachAuthListeners } from './auth.js';
 
 let UI = {tab:'dashboard', txFilter:'all', creditFilter:'against', search:'', openInvoiceId:null, fabMenuOpen:false};
 let sheet = null;
@@ -14,7 +15,33 @@ let confirmState = null;
 let scanningOverlay = null;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
 
+function checkAuthAndRender() {
+  const token = localStorage.getItem('supabase_token');
+  const userId = localStorage.getItem('supabase_user_id');
+
+  const rootEl = document.getElementById('root');
+  const tabbarEl = document.getElementById('tabbar');
+  const overlaysEl = document.getElementById('overlays');
+
+  if (!token || !userId) {
+    rootEl.innerHTML = renderAuthScreen();
+    tabbarEl.innerHTML = '';
+    overlaysEl.innerHTML = '';
+    attachAuthListeners(() => {
+      render();
+    });
+    return;
+  }
+
+  // Si hay sesión activa, renderizamos la app normal
+  renderAppContent();
+}
+
 export function render(){
+  checkAuthAndRender();
+}
+
+function renderAppContent(){
   document.getElementById('view').innerHTML =
     '<div class="hero"><div class="hero-content">' +
     '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
@@ -98,9 +125,9 @@ function closeFabMenu(callback) {
   const backdrop = document.getElementById('fab-backdrop');
   if (backdrop) {
     backdrop.classList.add('closing'); 
-    setTimeout(() => { UI.fabMenuOpen = false; render(); if (callback) callback(); }, 350); 
+    setTimeout(() => { UI.fabMenuOpen = false; renderAppContent(); if (callback) callback(); }, 350); 
   } else {
-    UI.fabMenuOpen = false; render(); if (callback) callback();
+    UI.fabMenuOpen = false; renderAppContent(); if (callback) callback();
   }
 }
 
@@ -110,13 +137,13 @@ document.addEventListener('click',(e)=>{
   if(!t) return;
   const action = t.dataset.action;
 
-  if(action==='set-tab'){ UI.tab = t.dataset.tab; UI.fabMenuOpen = false; render(); return; }
+  if(action==='set-tab'){ UI.tab = t.dataset.tab; UI.fabMenuOpen = false; renderAppContent(); return; }
   if(action==='set-filter'){ UI.txFilter = t.dataset.filter; refreshTxList(); return; }
-  if(action==='set-credit-filter'){ UI.creditFilter = t.dataset.filter; render(); return; }
+  if(action==='set-credit-filter'){ UI.creditFilter = t.dataset.filter; renderAppContent(); return; }
 
   if (action === 'toggle-fab-menu') {
     if (UI.fabMenuOpen) closeFabMenu();
-    else { t.classList.add('pulse-light'); setTimeout(() => { t.classList.remove('pulse-light'); UI.fabMenuOpen = true; render(); }, 400); }
+    else { t.classList.add('pulse-light'); setTimeout(() => { t.classList.remove('pulse-light'); UI.fabMenuOpen = true; renderAppContent(); }, 400); }
     return;
   }
 
@@ -125,8 +152,8 @@ document.addEventListener('click',(e)=>{
     setTimeout(() => {
       if(action==='fab-new-tx'){ closeFabMenu(() => { sheet = {kind:'tx', mode:'new', id:null, type:'expense', categoryId:(DB.categories.find(c=>c.type==='expense')||{}).id||'', amount:'', date:todayStr(), note:''}; renderOverlays(); }); }
       else if(action==='fab-scan-invoice'){ closeFabMenu(() => { document.getElementById('global-camera-input').click(); }); }
-      else if(action==='fab-invoices'){ closeFabMenu(() => { UI.tab='invoices'; render(); }); }
-      else if(action==='fab-settings'){ closeFabMenu(() => { UI.tab='settings'; render(); }); }
+      else if(action==='fab-invoices'){ closeFabMenu(() => { UI.tab='invoices'; renderAppContent(); }); }
+      else if(action==='fab-settings'){ closeFabMenu(() => { UI.tab='settings'; renderAppContent(); }); }
     }, 220);
     return;
   }
@@ -144,7 +171,12 @@ document.addEventListener('click',(e)=>{
   if(action==='show-date'){ sheet.showDate=true; renderOverlays(); return; }
   if(action==='save-quick'){
     const amt = Number(sheet.amount);
-    if(amt > 0){ DB.transactions.push({id:uid(), type:'expense', amount:amt, categoryId:sheet.categoryId, date:todayStr(), note:(sheet.note||'').trim()}); saveDB(); sheet=null; render(); }
+    if(amt > 0){ 
+      DB.transactions.push({id:uid(), type:'expense', amount:amt, categoryId:sheet.categoryId, date:todayStr(), note:(sheet.note||'').trim()}); 
+      saveDB(); 
+      syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id'));
+      sheet=null; renderAppContent(); 
+    }
     return;
   }
   if(action==='tx-type'){
@@ -164,11 +196,13 @@ document.addEventListener('click',(e)=>{
       const tx = {id:sheet.id||uid(), type:sheet.type, amount:amt, categoryId:sheet.categoryId, date:sheet.date||todayStr(), note:(sheet.note||'').trim()};
       const exists = DB.transactions.some(x => x.id === tx.id);
       DB.transactions = exists ? DB.transactions.map(x => x.id===tx.id?tx:x) : DB.transactions.concat([tx]);
-      saveDB(); sheet=null; render();
+      saveDB(); 
+      syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id'));
+      sheet=null; renderAppContent();
     }
     return;
   }
-  if(action==='delete-tx'){ confirmState={message:'¿Eliminar este movimiento?', onConfirm:()=>{ DB.transactions=DB.transactions.filter(x=>x.id!==sheet.id); saveDB(); sheet=null; confirmState=null; render(); }}; renderOverlays(); return; }
+  if(action==='delete-tx'){ confirmState={message:'¿Eliminar este movimiento?', onConfirm:()=>{ DB.transactions=DB.transactions.filter(x=>x.id!==sheet.id); saveDB(); syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id')); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
   if(action==='new-cat'){ sheet={kind:'cat',mode:'new',id:null,name:'',type:'expense',color:'#06B6D4',icon:'food',budget:'',primary:false,isFixed:false}; renderOverlays(); return; }
   if(action==='edit-cat'){
@@ -192,11 +226,13 @@ document.addEventListener('click',(e)=>{
       const cat={id:sheet.id||uid(), name:sheet.name.trim(), type:sheet.type, color:sheet.color, icon:sheet.icon, budget:sheet.type==='expense'&&sheet.budget?Number(sheet.budget):null, primary:sheet.type==='income'?!!sheet.primary:false, isFixed:sheet.type==='expense'?!!sheet.isFixed:false};
       const exists=DB.categories.some(x=>x.id===cat.id);
       DB.categories = exists ? DB.categories.map(x=>x.id===cat.id?cat:x) : DB.categories.concat([cat]);
-      saveDB(); sheet=null; render();
+      saveDB(); 
+      syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id'));
+      sheet=null; renderAppContent();
     }
     return;
   }
-  if(action==='delete-cat'){ confirmState={message:'¿Eliminar categoría?', onConfirm:()=>{ DB.categories=DB.categories.filter(x=>x.id!==sheet.id); saveDB(); sheet=null; confirmState=null; render(); }}; renderOverlays(); return; }
+  if(action==='delete-cat'){ confirmState={message:'¿Eliminar categoría?', onConfirm:()=>{ DB.categories=DB.categories.filter(x=>x.id!==sheet.id); saveDB(); syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id')); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
   if(action==='new-credit'){ sheet={kind:'credit', mode:'new', id:null, title:'', type:UI.creditFilter||'against', total:''}; renderOverlays(); return; }
   if(action==='edit-credit'){ const c=DB.credits.find(x=>x.id===t.dataset.id); if(c){ sheet={kind:'credit', mode:'edit', id:c.id, title:c.title, type:c.type, total:String(c.total)}; renderOverlays(); } return; }
@@ -208,11 +244,13 @@ document.addEventListener('click',(e)=>{
       const credit={id:sheet.id||uid(), title:sheet.title.trim(), type:sheet.type, total:tot, payments:sheet.id?((DB.credits.find(x=>x.id===sheet.id)||{}).payments||[]):[]};
       const exists=DB.credits.some(x=>x.id===credit.id);
       DB.credits = exists ? DB.credits.map(x=>x.id===credit.id?credit:x) : DB.credits.concat([credit]);
-      saveDB(); sheet=null; render();
+      saveDB(); 
+      syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id'));
+      sheet=null; renderAppContent();
     }
     return;
   }
-  if(action==='delete-credit'){ confirmState={message:'¿Eliminar crédito?', onConfirm:()=>{ DB.credits=DB.credits.filter(x=>x.id!==sheet.id); saveDB(); sheet=null; confirmState=null; render(); }}; renderOverlays(); return; }
+  if(action==='delete-credit'){ confirmState={message:'¿Eliminar crédito?', onConfirm:()=>{ DB.credits=DB.credits.filter(x=>x.id!==sheet.id); saveDB(); syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id')); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
   if(action==='new-payment'){ sheet={kind:'payment', mode:'new', creditId:t.dataset.id, paymentId:null, amount:'', date:todayStr(), note:''}; renderOverlays(); return; }
   if(action==='edit-payment'){
@@ -233,12 +271,14 @@ document.addEventListener('click',(e)=>{
         }
         return c;
       });
-      saveDB(); sheet=null; render();
+      saveDB(); 
+      syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id'));
+      sheet=null; renderAppContent();
     }
     return;
   }
 
-  if(action==='toggle-invoice'){ UI.openInvoiceId = (UI.openInvoiceId===t.dataset.id)?null:t.dataset.id; render(); return; }
+  if(action==='toggle-invoice'){ UI.openInvoiceId = (UI.openInvoiceId===t.dataset.id)?null:t.dataset.id; renderAppContent(); return; }
   if(action==='edit-invoice'){
     const inv = DB.invoices.find(x=>x.id===t.dataset.id);
     if(inv){ sheet={kind:'invoice', mode:'edit', id:inv.id, title:inv.title, date:inv.date, items:inv.items.map(it=>({...it, price:String(it.price)})), registered:!!inv.registered}; renderOverlays(); }
@@ -255,21 +295,23 @@ document.addEventListener('click',(e)=>{
     const items = sheet.items.filter(it=>it.name.trim()&&Number(it.price)>0).map(it=>({id:it.id||uid(), name:it.name.trim().slice(0,60), price:Number(it.price)}));
     if(items.length){
       const total = items.reduce((s,it)=>s+it.price,0);
-      const invoice={id:sheet.id||uid(), title:(sheet.title||'').trim()||('Factura '+todayStr()), date:sheet.date||todayStr(), items, total, registered:!!sheet.registered};
+      const invoice={id:sheet.id||uid(), title:(sheet.title||'').trim()||('Factura '+todayStr()), date:todayStr(), items, total, registered:!!sheet.registered};
       if(!DB.invoices) DB.invoices=[];
       const exists=DB.invoices.some(x=>x.id===invoice.id);
       DB.invoices=exists?DB.invoices.map(x=>x.id===invoice.id?invoice:x):DB.invoices.concat([invoice]);
-      saveDB(); sheet=null; render();
+      saveDB(); 
+      syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id'));
+      sheet=null; renderAppContent();
     }
     return;
   }
-  if(action==='delete-invoice'){ confirmState={message:'¿Eliminar factura?', onConfirm:()=>{ DB.invoices=DB.invoices.filter(x=>x.id!==sheet.id); saveDB(); sheet=null; confirmState=null; render(); }}; renderOverlays(); return; }
+  if(action==='delete-invoice'){ confirmState={message:'¿Eliminar factura?', onConfirm:()=>{ DB.invoices=DB.invoices.filter(x=>x.id!==sheet.id); saveDB(); syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id')); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
   if(action==='close-sheet'){ sheet=null; renderOverlays(); return; }
   if(action==='cancel-confirm'){ confirmState=null; renderOverlays(); return; }
   if(action==='confirm-ok'){ const fn=confirmState.onConfirm; confirmState=null; fn(); return; }
 
-  if(action==='set-currency'){ DB.settings.currency=t.dataset.code; saveDB(); render(); return; }
+  if(action==='set-currency'){ DB.settings.currency=t.dataset.code; saveDB(); syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id')); renderAppContent(); return; }
   if(action==='export-backup'){
     const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob), a=document.createElement('a');
@@ -281,7 +323,7 @@ document.addEventListener('click',(e)=>{
   if(action==='reset-data'){
     confirmState={message:'¿Borrar todos los movimientos y datos?', onConfirm:()=>{
       DB={transactions:[], categories:DEFAULT_CATEGORIES.slice(), credits:[], invoices:[], settings:{currency:DB.settings.currency, geminiApiKey:DB.settings.geminiApiKey}};
-      saveDB(); confirmState=null; render();
+      saveDB(); syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id')); confirmState=null; renderAppContent();
     }};
     renderOverlays(); return;
   }
@@ -335,7 +377,9 @@ document.addEventListener('change',(e)=>{
         const parsed=JSON.parse(evt.target.result);
         if(!parsed||!Array.isArray(parsed.transactions)||!Array.isArray(parsed.categories)) throw new Error();
         DB={transactions:parsed.transactions, categories:parsed.categories, credits:parsed.credits||[], invoices:parsed.invoices||[], settings:parsed.settings||{currency:'COP'}};
-        saveDB(); render();
+        saveDB(); 
+        syncWithSupabase(localStorage.getItem('supabase_token'), localStorage.getItem('supabase_user_id'));
+        renderAppContent();
       }catch(err){alert('Copia no válida.');}
     };
     reader.readAsText(e.target.files[0]);
