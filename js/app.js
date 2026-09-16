@@ -147,7 +147,19 @@ function renderAppContent(){
        UI.tab==='invoices' ? renderInvoices(UI.openInvoiceId) :
        UI.tab==='credits' ? renderCredits(UI.creditFilter) :
        UI.tab==='categories' ? renderCategories() :
-       (renderSettings() + '<div style="padding:16px 24px;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'));
+       (renderSettings() + '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'));
+  
+    // Cambiar dinámicamente el título de la sección de ajustes si aparece, unificándolo limpiamente
+    if (UI.tab === 'settings') {
+      setTimeout(() => {
+        const headers = document.querySelectorAll('h2, h3, .section-title');
+        headers.forEach(h => {
+          if (h.textContent.includes('Moneda') || h.textContent.includes('Configuración')) {
+            h.textContent = 'Ajustes';
+          }
+        });
+      }, 10);
+    }
   }
 
   let tabbarHTML = [
@@ -197,7 +209,6 @@ function renderOverlays(){
   el.innerHTML = html;
   if (sheet) attachSheetFieldSync();
   
-  // Forzar que el botón de guardar esté siempre activo si hay un monto válido
   const saveBtn = document.querySelector('button[data-action="save-tx"], button[data-action="save-quick"]');
   if (saveBtn && sheet) {
     const amt = Number(sheet.amount);
@@ -319,7 +330,6 @@ document.addEventListener('click',(e)=>{
   if(action==='save-tx'){
     if(!sheet) return;
     const amt = Number(sheet.amount);
-    // Permitir guardar si el monto es mayor a 0 y tiene categoría o se asigna una por defecto
     const catId = sheet.categoryId || (DB.categories.find(c=>c.type===sheet.type)||{}).id || '';
     if(amt > 0){
       const tx = {id:sheet.id||uid(), type:sheet.type, amount:amt, categoryId:catId, date:sheet.date||todayStr(), note:(sheet.note||'').trim()};
@@ -464,7 +474,6 @@ function attachSheetFieldSync(){
       sheet.amount = parseFormattedNumber(e.target.value); 
       e.target.value = formatThousandInput(sheet.amount);
       
-      // Reactivar botón al vuelo mientras escribe
       const saveBtn = document.querySelector('button[data-action="save-tx"], button[data-action="save-quick"]');
       if (saveBtn) {
         if (Number(sheet.amount) > 0) {
