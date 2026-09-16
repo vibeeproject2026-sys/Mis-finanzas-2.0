@@ -41,7 +41,6 @@
   #view{
     flex:1;overflow-y:auto;overflow-x:hidden;
     -webkit-overflow-scrolling:touch;
-    /* Espacio extra abajo para que el contenido no quede tapado por el Dock iOS */
     padding:1.5rem 1rem 120px; position:relative;z-index:2;
     overscroll-behavior-y:contain;
   }
@@ -235,11 +234,10 @@
   .danger-btn{width:100%;border-radius:20px;padding:16px;font-weight:800;background:var(--expense-bg);color:var(--expense);margin-top:10px;border:1px solid rgba(244,63,94,0.4);}
   .secondary-btn{width:100%;border-radius:20px;padding:16px;font-weight:800;background:var(--card);box-shadow:var(--shadow);margin-top:10px;border:var(--border-glass);color:#FFFFFF;}
 
-  /* ===== Barra Inferior (Menú Flotante Estilo iOS Dock) ===== */
+  /* ===== Barra Inferior (Menú Flotante Estilo iOS Dock - Ligeramente translúcido) ===== */
   .tabbar{
     position:fixed;
     left:50%;
-    /* Flota sobre el borde inferior, respetando áreas seguras de iPhone */
     bottom: max(24px, env(safe-area-inset-bottom));
     transform:translateX(-50%);
     width: 92%; 
@@ -248,15 +246,15 @@
     display:flex;
     justify-content:space-around;
     align-items:center;
-    /* Efecto cristal / Glassmorphism profundo */
-    background: linear-gradient(180deg, rgba(30, 41, 59, 0.75) 0%, rgba(11, 19, 38, 0.85) 100%);
-    backdrop-filter: blur(35px) saturate(200%);
-    -webkit-backdrop-filter: blur(35px) saturate(200%);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 40px; /* Bordes de píldora */
+    /* Translúcido sutil: menor opacidad y blur muy ligero */
+    background: rgba(11, 19, 38, 0.45);
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 40px;
     height: 72px;
     padding: 0 8px;
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   .tab-btn{
@@ -265,7 +263,7 @@
     color:var(--ink-muted);
     transition: transform 0.2s, color 0.2s;
   }
-  .tab-btn:active { transform: scale(0.92); } /* Efecto de rebote al tocar */
+  .tab-btn:active { transform: scale(0.92); }
   
   .tab-btn.active{
     color:var(--pink);
@@ -277,7 +275,7 @@
 
   .center-fab-container {
     position: relative;
-    flex: 1.2; /* Un poco más de espacio para el botón central */
+    flex: 1.2;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -285,35 +283,34 @@
   }
   .fab-center {
     position: absolute;
-    top: -16px; /* Sobresale elegante y sutilmente del dock */
-    width: 56px;
-    height: 56px;
-    border-radius: 28px;
+    top: -8px; /* Ajustado para que no suba tanto y muerda sutilmente el borde */
+    width: 52px;
+    height: 52px;
+    border-radius: 26px;
     background: linear-gradient(135deg, #06B6D4, #3B82F6);
     color: #020617;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 10px 25px rgba(6, 182, 212, 0.6), inset 0 1px 0 rgba(255,255,255,0.4);
+    box-shadow: 0 8px 20px rgba(6, 182, 212, 0.5), inset 0 1px 0 rgba(255,255,255,0.4);
     border: 2px solid rgba(255, 255, 255, 0.8);
     transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
     z-index: 100;
   }
   
-  /* Animación Sutil y Elegante de Luz para el Botón Principal */
   .fab-center.pulse-light {
     animation: fabGlowPulse 0.4s ease-out forwards;
   }
   
   @keyframes fabGlowPulse {
-    0% { transform: scale(1); box-shadow: 0 10px 25px rgba(6, 182, 212, 0.6); background: linear-gradient(135deg, #06B6D4, #3B82F6); }
-    40% { transform: scale(0.9); box-shadow: 0 0 40px rgba(255, 255, 255, 0.9), 0 0 20px rgba(6, 182, 212, 1); background: #ffffff; color: #020617; border-color: #ffffff; }
-    100% { transform: scale(1); box-shadow: 0 10px 25px rgba(6, 182, 212, 0.6); background: linear-gradient(135deg, #06B6D4, #3B82F6); border-color: rgba(255, 255, 255, 0.8); }
+    0% { transform: scale(1); box-shadow: 0 8px 20px rgba(6, 182, 212, 0.5); background: linear-gradient(135deg, #06B6D4, #3B82F6); }
+    40% { transform: scale(0.9); box-shadow: 0 0 35px rgba(255, 255, 255, 0.9), 0 0 15px rgba(6, 182, 212, 1); background: #ffffff; color: #020617; border-color: #ffffff; }
+    100% { transform: scale(1); box-shadow: 0 8px 20px rgba(6, 182, 212, 0.5); background: linear-gradient(135deg, #06B6D4, #3B82F6); border-color: rgba(255, 255, 255, 0.8); }
   }
 
-  .fab-center .icon { width: 28px; height: 28px; pointer-events: none; }
+  .fab-center .icon { width: 26px; height: 26px; pointer-events: none; }
 
-  /* ===== Menú Desplegable Liquid Glass y Animado ===== */
+  /* ===== Menú Desplegable ===== */
   .fab-menu-backdrop {
     position: fixed; inset: 0; 
     background: rgba(2, 4, 8, 0.75);
@@ -323,14 +320,13 @@
     flex-direction: column;
     justify-content: flex-end; 
     align-items: center;       
-    padding-bottom: 120px; /* Aumentado para que abra justo arriba del nuevo dock */
+    padding-bottom: 120px; 
     opacity: 0; animation: fadeInMenu 0.3s ease forwards;
   }
 
-  /* Padding ampliado drásticamente para solucionar el desfase de contenido */
   .fab-menu-sheet {
     width: 90%; max-width: 340px; 
-    padding: 32px 24px; /* Mayor margen interno arriba, abajo y a los lados */
+    padding: 32px 24px;
     background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
     backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%);
     border: 1px solid rgba(56, 189, 248, 0.4); 
@@ -341,7 +337,6 @@
     animation: popInMenu 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   }
   
-  /* Cierre suave más lento (350ms) */
   .fab-menu-backdrop.closing { animation: fadeOutMenu 0.35s ease forwards; }
   .fab-menu-backdrop.closing .fab-menu-sheet { animation: popOutMenu 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 
@@ -353,7 +348,7 @@
     color: #FFFFFF; font-size: 15px; font-weight: 700; cursor: pointer; text-align: left;
     transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
     transform: scale(1);
-    min-height: 72px; /* Asegura un tamaño touch perfecto */
+    min-height: 72px;
   }
 
   .fab-menu-item:active { 
@@ -365,11 +360,10 @@
   
   .fab-menu-item * { pointer-events: none; }
   
-  /* Centrado estricto y exacto de los íconos interiores */
   .fab-menu-item .icon-box {
     width: 44px; height: 44px; border-radius: 14px; 
     background: rgba(6, 182, 212, 0.15);
-    display: flex; align-items: center; justify-content: center; /* Alineación perfecta del SVG */
+    display: flex; align-items: center; justify-content: center;
     font-size: 22px; color: var(--pink); flex-shrink: 0; 
     transition: transform 0.25s, background 0.2s, color 0.2s;
     margin: 0; padding: 0;
@@ -381,7 +375,6 @@
   @keyframes popInMenu { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
   @keyframes popOutMenu { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(20px) scale(0.95); } }
 
-  /* Animación más pausada y suave para los paneles inferiores */
   .overlay{position:fixed;inset:0;z-index:300;display:flex;align-items:flex-end;justify-content:center;background:rgba(2, 4, 8, 0.85);backdrop-filter:blur(10px); animation: fadeInMenu 0.3s ease;}
   .overlay-center{align-items:center;padding:1.5rem;}
   .sheet{
@@ -389,7 +382,7 @@
     padding-bottom:max(2rem, env(safe-area-inset-bottom));
     border:1px solid rgba(56, 189, 248, 0.4);
     box-shadow: 0 -15px 40px rgba(6, 182, 212, 0.3);
-    animation: slideUpMenu 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); /* Más lenta y elegante (400ms) */
+    animation: slideUpMenu 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .sheet-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,0.2);margin:0 auto 16px;}
   .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
@@ -472,6 +465,8 @@
 </div>
 <div class="tabbar" id="tabbar"></div>
 <div id="overlays"></div>
+<!-- Input global permanente para garantizar que el escáner funcione siempre por toque directo -->
+<input type="file" id="global-camera-input" accept="image/*" capture="environment" style="display:none">
 
 <script>
 function icon(name){
@@ -1030,8 +1025,11 @@ async function callGeminiForInvoice(base64Data, mimeType){
 }
 
 function openInvoiceScan(){
-  const input = document.getElementById('invoice-camera-input');
-  if (input) input.click();
+  const input = document.getElementById('global-camera-input');
+  if (input) {
+    input.value = ''; // Resetea para permitir re-seleccionar la misma foto si se desea
+    input.click();
+  }
 }
 
 async function handleInvoiceImage(file){
@@ -1058,7 +1056,7 @@ async function handleInvoiceImage(file){
 }
 
 function renderInvoices(){
-  let html = '<input type="file" id="invoice-camera-input" accept="image/*" capture="environment" style="display:none">';
+  let html = '';
   html += '<div class="section-title">Facturas Escaneadas</div>';
   const list = (DB.invoices || []).slice().sort((a,b) => (b.date+b.id).localeCompare(a.date+a.id));
   if (!list.length) return html + '<div class="empty-state">Aún no has escaneado ninguna factura.<br>Usa el botón central (+) para escanear una.</div>';
@@ -1565,7 +1563,6 @@ function importBackupFile(file){
   reader.readAsText(file);
 }
 
-// Lógica de Cierre Animado (Tiempo de espera extendido a 350ms)
 function closeFabMenu(callback) {
   const backdrop = document.getElementById('fab-backdrop');
   if (backdrop) {
@@ -1600,18 +1597,16 @@ document.addEventListener('click',(e)=>{
   if (action === 'toggle-fab-menu') {
     if (UI.fabMenuOpen) closeFabMenu();
     else {
-      // Agregar animación de luz al presionar el botón +
       t.classList.add('pulse-light');
       setTimeout(() => {
         t.classList.remove('pulse-light');
         UI.fabMenuOpen = true; 
         render(); 
-      }, 400); // 400ms para que la animación se disfrute completa antes de abrir el menú
+      }, 400);
     }
     return;
   }
 
-  // Ahora estas opciones usan el tiempo extendido para un cierre suave y apertura sin afanes
   if(action==='fab-new-tx'){ closeFabMenu(() => openNewTx()); return; }
   if(action==='fab-scan-invoice'){ closeFabMenu(() => openInvoiceScan()); return; }
   if(action==='fab-invoices'){ closeFabMenu(() => { UI.tab='invoices'; render(); }); return; }
@@ -1706,7 +1701,7 @@ document.addEventListener('click',(e)=>{
 
 document.addEventListener('change',(e)=>{
   if(e.target.id==='import-file'&&e.target.files[0])importBackupFile(e.target.files[0]);
-  if(e.target.id==='invoice-camera-input'&&e.target.files[0])handleInvoiceImage(e.target.files[0]);
+  if(e.target.id==='global-camera-input'&&e.target.files[0])handleInvoiceImage(e.target.files[0]);
 });
 
 render();
