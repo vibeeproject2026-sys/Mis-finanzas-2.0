@@ -1,8 +1,24 @@
 window.onerror = function(msg, url, line) {
-  document.body.innerHTML = '<div style="padding:40px; color:#ff4444; background:#111; height:100vh; text-align:center;"><h2>⚠️ Error de Código</h2><p>' + msg + '</p><p>Línea: ' + line + '</p></div>';
+  document.body.innerHTML =
+    '<div style="padding:40px; color:#ff4444; background:#111; height:100vh; text-align:center;">' +
+    '<h2>⚠️ Error de Código</h2>' +
+    '<p>' +
+    msg +
+    '</p>' +
+    '<p>Línea: ' +
+    line +
+    '</p>' +
+    '</div>';
 };
 
-import { DB, saveDB, todayStr, DEFAULT_CATEGORIES } from './state.js';
+
+import {
+  DB,
+  saveDB,
+  todayStr,
+  DEFAULT_CATEGORIES
+} from './state.js';
+
 
 import {
   renderDashboard,
@@ -27,39 +43,52 @@ import {
   parseFormattedNumber
 } from './ui.js';
 
+
 import * as API from './api.js';
 
+
 let UI = {
-  tab: 'dashboard',
-  txFilter: 'all',
-  creditFilter: 'against',
-  search: '',
-  openInvoiceId: null,
-  fabMenuOpen: false
+  tab:'dashboard',
+  txFilter:'all',
+  creditFilter:'against',
+  search:'',
+  openInvoiceId:null,
+  fabMenuOpen:false
 };
+
 
 let sheet = null;
 let confirmState = null;
 let scanningOverlay = null;
 
+
 const uid = () =>
-  Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  Date.now().toString(36) +
+  Math.random()
+    .toString(36)
+    .slice(2,8);
 
-
-/* ========================================================================
-   SINCRONIZACIÓN
-   ======================================================================== */
 
 const safeSync = () => {
+
   try {
-    const token = localStorage.getItem('supabase_token');
-    const userId = localStorage.getItem('supabase_user_id');
+
+    const token =
+      localStorage.getItem(
+        'supabase_token'
+      );
+
+    const userId =
+      localStorage.getItem(
+        'supabase_user_id'
+      );
 
     if (
       API.syncWithSupabase &&
       token &&
       userId
-    ) {
+    ){
+
       return API.syncWithSupabase(
         token,
         userId,
@@ -67,7 +96,8 @@ const safeSync = () => {
       );
     }
 
-  } catch (e) {
+  } catch(e){
+
     console.error(
       'Error preparando sincronización:',
       e
@@ -75,100 +105,83 @@ const safeSync = () => {
   }
 
   return Promise.resolve({
-    ok: false,
-    skipped: true
+    ok:false,
+    skipped:true
   });
 };
 
 
-/* ========================================================================
-   RENDER PRINCIPAL
-   ======================================================================== */
+export function render(){
 
-export function render() {
   try {
 
     let token = null;
     let userId = null;
 
     try {
-      token = localStorage.getItem('supabase_token');
-      userId = localStorage.getItem('supabase_user_id');
-    } catch (e) {
-      console.warn('Modo privado estricto');
+
+      token =
+        localStorage.getItem(
+          'supabase_token'
+        );
+
+      userId =
+        localStorage.getItem(
+          'supabase_user_id'
+        );
+
+    } catch(e){
+
+      console.warn(
+        'Modo privado estricto'
+      );
     }
 
-    const viewEl = document.getElementById('view');
-    const tabbarEl = document.getElementById('tabbar');
 
-    /*
-      SIN SESIÓN
-    */
+    const viewEl =
+      document.getElementById(
+        'view'
+      );
 
-    if (!token || !userId) {
+    const tabbarEl =
+      document.getElementById(
+        'tabbar'
+      );
 
-      if (viewEl) {
+
+    if (
+      !token ||
+      !userId
+    ){
+
+      if (
+        viewEl
+      ){
 
         viewEl.innerHTML = `
           <div style="display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:75vh;">
             <div class="card" style="width:100%;max-width:380px;padding:32px 24px;text-align:center;">
-
-              <div style="font-size:36px;margin-bottom:12px;">
-                ☁️
-              </div>
-
-              <h2 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;">
-                Terminal Cloud
-              </h2>
-
-              <p style="font-size:13px;color:var(--ink-muted);margin-bottom:24px;">
-                Gestión financiera en la nube
-              </p>
+              <div style="font-size:36px;margin-bottom:12px;">☁️</div>
+              <h2 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;">Terminal Cloud</h2>
+              <p style="font-size:13px;color:var(--ink-muted);margin-bottom:24px;">Gestión financiera en la nube</p>
 
               <div class="field" style="text-align:left;margin-bottom:14px;">
-                <div class="field-label">
-                  Correo electrónico
-                </div>
-
-                <input
-                  id="auth-email"
-                  type="email"
-                  placeholder="usuario@correo.com"
-                  style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;"
-                >
+                <div class="field-label">Correo electrónico</div>
+                <input id="auth-email" type="email" placeholder="usuario@correo.com" style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;">
               </div>
 
               <div class="field" style="text-align:left;margin-bottom:16px;">
-                <div class="field-label">
-                  Contraseña
-                </div>
-
-                <input
-                  id="auth-password"
-                  type="password"
-                  placeholder="••••••••"
-                  style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;"
-                >
+                <div class="field-label">Contraseña</div>
+                <input id="auth-password" type="password" placeholder="••••••••" style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;">
               </div>
 
-              <div
-                id="auth-error"
-                style="color:var(--expense);font-size:13px;margin-bottom:14px;min-height:16px;"
-              ></div>
+              <div id="auth-error" style="color:var(--expense);font-size:13px;margin-bottom:14px;min-height:16px;"></div>
 
-              <button
-                class="save-btn"
-                id="btn-login"
-                style="width:100%;margin-bottom:10px;padding:14px;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;border:none;cursor:pointer;"
-              >
+              <button class="save-btn" id="btn-login" style="width:100%;margin-bottom:10px;padding:14px;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;border:none;cursor:pointer;">
                 Iniciar Sesión
               </button>
 
-              <button
-                class="secondary-btn"
-                id="btn-signup"
-                style="width:100%;padding:14px;border-radius:12px;background:transparent;border:1px solid var(--border);color:#fff;font-weight:600;cursor:pointer;"
-              >
+              <button class="secondary-btn" id="btn-signup" style="width:100%;padding:14px;border-radius:12px;background:transparent;border:1px solid var(--border);color:#fff;font-weight:600;cursor:pointer;">
                 Crear Cuenta Nueva
               </button>
 
@@ -177,54 +190,66 @@ export function render() {
         `;
       }
 
-      if (tabbarEl) {
-        tabbarEl.innerHTML = '';
+      if (
+        tabbarEl
+      ){
+
+        tabbarEl.innerHTML =
+          '';
       }
 
-      setTimeout(attachAuthEvents, 50);
+      setTimeout(
+        attachAuthEvents,
+        50
+      );
 
       return;
     }
 
 
-    /*
-      CARGA DATOS CLOUD UNA SOLA VEZ
-    */
+    if (
+      !window.hasLoadedCloudData
+    ){
 
-    if (!window.hasLoadedCloudData) {
+      window.hasLoadedCloudData =
+        true;
 
-      window.hasLoadedCloudData = true;
+      if (
+        API.fetchUserData
+      ){
 
-      if (API.fetchUserData) {
+        API.fetchUserData(
+          token,
+          userId
+        )
+        .then(
+          cloudDB => {
 
-        API.fetchUserData(token, userId)
-          .then(cloudDB => {
+            if (
+              cloudDB
+            ){
 
-            if (cloudDB) {
-
-              Object.assign(DB, cloudDB);
+              Object.assign(
+                DB,
+                cloudDB
+              );
 
               saveDB();
 
               renderAppContent();
             }
-
-          })
-          .catch(err => {
-            console.error(
-              'Error cargando datos de la nube:',
-              err
-            );
-          });
+          }
+        );
       }
     }
 
+
     renderAppContent();
 
-  } catch (err) {
+  } catch(err){
 
     document.body.innerHTML =
-      '<div style="padding:40px;color:#ff4444;background:#111;height:100vh;">' +
+      '<div style="padding:40px; color:#ff4444; background:#111; height:100vh;">' +
       '<h2>Error visual</h2>' +
       '<p>' +
       err.message +
@@ -234,142 +259,90 @@ export function render() {
 }
 
 
-/* ========================================================================
-   AUTENTICACIÓN
-   ======================================================================== */
-
-function attachAuthEvents() {
+function attachAuthEvents(){
 
   const emailInput =
-    document.getElementById('auth-email');
+    document.getElementById(
+      'auth-email'
+    );
 
   const passInput =
-    document.getElementById('auth-password');
+    document.getElementById(
+      'auth-password'
+    );
 
   const errorDiv =
-    document.getElementById('auth-error');
+    document.getElementById(
+      'auth-error'
+    );
 
 
   const getCreds = () => ({
-    email: emailInput
-      ? emailInput.value.trim()
-      : '',
+    email:
+      emailInput
+        ? emailInput.value.trim()
+        : '',
 
-    password: passInput
-      ? passInput.value.trim()
-      : ''
+    password:
+      passInput
+        ? passInput.value.trim()
+        : ''
   });
 
 
-  /*
-    LOGIN
-  */
-
   document
-    .getElementById('btn-login')
-    ?.addEventListener('click', async () => {
+    .getElementById(
+      'btn-login'
+    )
+    ?.addEventListener(
+      'click',
+      async () => {
 
-      const {
-        email,
-        password
-      } = getCreds();
+        const {
+          email,
+          password
+        } = getCreds();
 
-      if (!email || !password) {
+        if (
+          !email ||
+          !password
+        ){
 
-        if (errorDiv) {
+          if (
+            errorDiv
+          ){
+
+            errorDiv.textContent =
+              'Completa todos los campos.';
+          }
+
+          return;
+        }
+
+        if (
+          errorDiv
+        ){
+
           errorDiv.textContent =
-            'Completa todos los campos.';
+            'Iniciando sesión...';
         }
 
-        return;
-      }
+        try {
 
-      if (errorDiv) {
-        errorDiv.textContent =
-          'Iniciando sesión...';
-      }
+          if (
+            !API.signInUser
+          ){
 
-      try {
+            throw new Error(
+              'Faltan funciones de API.'
+            );
+          }
 
-        if (!API.signInUser) {
-          throw new Error(
-            'Faltan funciones de API.'
-          );
-        }
-
-        const data =
-          await API.signInUser(
-            email,
-            password
-          );
-
-        localStorage.setItem(
-          'supabase_token',
-          data.access_token
-        );
-
-        localStorage.setItem(
-          'supabase_user_id',
-          data.user.id
-        );
-
-        window.hasLoadedCloudData = false;
-
-        render();
-
-      } catch (err) {
-
-        if (errorDiv) {
-          errorDiv.textContent =
-            err.message;
-        }
-      }
-    });
-
-
-  /*
-    REGISTRO
-  */
-
-  document
-    .getElementById('btn-signup')
-    ?.addEventListener('click', async () => {
-
-      const {
-        email,
-        password
-      } = getCreds();
-
-      if (!email || !password) {
-
-        if (errorDiv) {
-          errorDiv.textContent =
-            'Completa todos los campos.';
-        }
-
-        return;
-      }
-
-      if (errorDiv) {
-        errorDiv.textContent =
-          'Registrando cuenta...';
-      }
-
-      try {
-
-        if (!API.signUpUser) {
-          throw new Error(
-            'Faltan funciones de API.'
-          );
-        }
-
-        const data =
-          await API.signUpUser(
-            email,
-            password
-          );
-
-        if (data.access_token) {
+          const data =
+            await API.signInUser(
+              email,
+              password
+            );
 
           localStorage.setItem(
             'supabase_token',
@@ -381,328 +354,447 @@ function attachAuthEvents() {
             data.user.id
           );
 
-          window.hasLoadedCloudData = false;
+          window.hasLoadedCloudData =
+            false;
 
           render();
 
-        } else {
+        } catch(err){
 
-          if (errorDiv) {
+          if (
+            errorDiv
+          ){
 
             errorDiv.textContent =
-              '¡Cuenta creada con éxito! Inicia sesión ahora.';
+              err.message;
           }
         }
+      }
+    );
 
-      } catch (err) {
 
-        if (errorDiv) {
+  document
+    .getElementById(
+      'btn-signup'
+    )
+    ?.addEventListener(
+      'click',
+      async () => {
+
+        const {
+          email,
+          password
+        } = getCreds();
+
+        if (
+          !email ||
+          !password
+        ){
+
+          if (
+            errorDiv
+          ){
+
+            errorDiv.textContent =
+              'Completa todos los campos.';
+          }
+
+          return;
+        }
+
+        if (
+          errorDiv
+        ){
+
           errorDiv.textContent =
-            err.message;
+            'Registrando cuenta...';
+        }
+
+        try {
+
+          if (
+            !API.signUpUser
+          ){
+
+            throw new Error(
+              'Faltan funciones de API.'
+            );
+          }
+
+          const data =
+            await API.signUpUser(
+              email,
+              password
+            );
+
+          if (
+            data.access_token
+          ){
+
+            localStorage.setItem(
+              'supabase_token',
+              data.access_token
+            );
+
+            localStorage.setItem(
+              'supabase_user_id',
+              data.user.id
+            );
+
+            window.hasLoadedCloudData =
+              false;
+
+            render();
+
+          } else {
+
+            if (
+              errorDiv
+            ){
+
+              errorDiv.textContent =
+                '¡Cuenta creada con éxito! Inicia sesión ahora.';
+            }
+          }
+
+        } catch(err){
+
+          if (
+            errorDiv
+          ){
+
+            errorDiv.textContent =
+              err.message;
+          }
         }
       }
-    });
+    );
 }
 
 
-/* ========================================================================
-   CONTENIDO PRINCIPAL
-   ======================================================================== */
-
-function renderAppContent() {
+function renderAppContent(){
 
   const viewEl =
-    document.getElementById('view');
+    document.getElementById(
+      'view'
+    );
 
-  if (viewEl) {
+
+  if (
+    viewEl
+  ){
 
     viewEl.innerHTML =
-      '<div class="hero">' +
-        '<div class="hero-content">' +
+      '<div class="hero"><div class="hero-content">' +
 
-          '<div class="hero-badge">' +
-            '<span class="hero-dot"></span>' +
-            '<span>Terminal Cloud Active</span>' +
-          '</div>' +
+      '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
 
-          '<div class="hero-main">' +
+      '<div class="hero-main"><div><h1>Mis Finanzas</h1><p>Control y analítica en tiempo real</p></div><div class="hero-avatar">⚡</div></div>' +
 
-            '<div>' +
-              '<h1>Mis Finanzas</h1>' +
-              '<p>Control y analítica en tiempo real</p>' +
-            '</div>' +
-
-            '<div class="hero-avatar">⚡</div>' +
-
-          '</div>' +
-
-        '</div>' +
-      '</div>' +
+      '</div></div>' +
 
       (
         UI.tab === 'dashboard'
           ? renderDashboard()
-
           : UI.tab === 'transactions'
             ? renderTransactions(
                 UI.search,
                 UI.txFilter
               )
-
-          : UI.tab === 'invoices'
-            ? renderInvoices(
-                UI.openInvoiceId
-              )
-
-          : UI.tab === 'credits'
-            ? renderCredits(
-                UI.creditFilter
-              )
-
-          : UI.tab === 'categories'
-            ? renderCategories()
-
-          : (
-              renderSettings() +
-
-              '<div style="padding:16px 0;">' +
-
-                '<button ' +
-                  'class="save-btn" ' +
-                  'data-action="logout" ' +
-                  'style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;"' +
-                '>' +
-                  'Cerrar Sesión' +
-                '</button>' +
-
-              '</div>'
-            )
+            : UI.tab === 'invoices'
+              ? renderInvoices(
+                  UI.openInvoiceId
+                )
+              : UI.tab === 'credits'
+                ? renderCredits(
+                    UI.creditFilter
+                  )
+                : UI.tab === 'categories'
+                  ? renderCategories()
+                  : (
+                      renderSettings() +
+                      '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'
+                    )
       );
 
 
-    /*
-      Unificación visual de Ajustes
-    */
+    if (
+      UI.tab === 'settings'
+    ){
 
-    if (UI.tab === 'settings') {
+      setTimeout(
+        () => {
 
-      setTimeout(() => {
+          const headers =
+            document.querySelectorAll(
+              'h2, h3, .section-title'
+            );
 
-        const headers =
-          document.querySelectorAll(
-            'h2, h3, .section-title'
+          headers.forEach(
+            h => {
+
+              if (
+                h.textContent.includes(
+                  'Moneda'
+                ) ||
+                h.textContent.includes(
+                  'Configuración'
+                )
+              ){
+
+                h.textContent =
+                  'Ajustes';
+              }
+            }
           );
 
-        headers.forEach(h => {
-
-          if (
-            h.textContent.includes('Moneda') ||
-            h.textContent.includes('Configuración')
-          ) {
-            h.textContent = 'Ajustes';
-          }
-
-        });
-
-      }, 10);
+        },
+        10
+      );
     }
   }
 
 
-  /*
-    BARRA INFERIOR
-  */
-
-  const tabbarHTML = [
-
+  const tabbarHTML =
     [
-      'dashboard',
-      'wallet',
-      'Resumen'
-    ],
-
-    [
-      'transactions',
-      'list',
-      'Movimientos'
-    ],
-
-    [
-      'center',
-      'plus',
-      ''
-    ],
-
-    [
-      'credits',
-      'credit',
-      'Créditos'
-    ],
-
-    [
-      'categories',
-      'tag',
-      'Categorías'
+      ['dashboard','wallet','Resumen'],
+      ['transactions','list','Movimientos'],
+      ['center','plus',''],
+      ['credits','credit','Créditos'],
+      ['categories','tag','Categorías']
     ]
+    .map(
+      ([id,ic,label]) => {
 
-  ]
-  .map(([id, ic, label]) => {
+        if (
+          id === 'center'
+        ){
 
-    if (id === 'center') {
+          return (
+            '<div class="center-fab-container">' +
 
-      return `
-        <div class="center-fab-container">
-          <button
-            class="fab-center"
-            data-action="toggle-fab-menu"
-          >
-            <span
-              class="icon"
-              style="stroke-linecap:round;stroke-linejoin:round"
-            >
-              <svg
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                stroke-width="2.5"
-              >
-                <path d="M12 5v14M5 12h14"/>
-              </svg>
-            </span>
-          </button>
-        </div>
-      `;
-    }
+            '<button class="fab-center" data-action="toggle-fab-menu">' +
 
-    return `
-      <button
-        class="tab-btn ${UI.tab === id ? 'active' : ''}"
-        data-action="set-tab"
-        data-tab="${id}"
-      >
-        <span
-          class="icon"
-          style="stroke-linecap:round;stroke-linejoin:round"
-        >
-          ${getIconSvg(ic)}
-        </span>
+            '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' +
 
-        <span>${label}</span>
-      </button>
-    `;
+            '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">' +
 
-  })
-  .join('');
+            '<path d="M12 5v14M5 12h14"/>' +
+
+            '</svg>' +
+
+            '</span>' +
+
+            '</button>' +
+
+            '</div>'
+          );
+        }
+
+        return (
+          '<button class="tab-btn ' +
+          (
+            UI.tab === id
+              ? 'active'
+              : ''
+          ) +
+          '" data-action="set-tab" data-tab="' +
+          id +
+          '">' +
+
+          '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' +
+          getIconSvg(ic) +
+          '</span>' +
+
+          '<span>' +
+          label +
+          '</span>' +
+
+          '</button>'
+        );
+      }
+    )
+    .join('');
 
 
   const tabbarEl =
-    document.getElementById('tabbar');
+    document.getElementById(
+      'tabbar'
+    );
 
-  if (tabbarEl) {
+  if (
+    tabbarEl
+  ){
+
     tabbarEl.innerHTML =
       tabbarHTML;
   }
 
 
-  if (UI.tab === 'transactions') {
+  if (
+    UI.tab === 'transactions'
+  ){
+
     attachSearchListener();
   }
+
 
   renderOverlays();
 }
 
 
-/* ========================================================================
-   ICONOS DE LA BARRA
-   ======================================================================== */
-
-function getIconSvg(name) {
+function getIconSvg(name){
 
   const svgs = {
 
     wallet:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/>' +
-      '<path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/>' +
-      '<path d="M16 14h.01"/>' +
-      '</svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
 
     list:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>' +
-      '</svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
 
     credit:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/>' +
-      '</svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
 
     tag:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/>' +
-      '</svg>'
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>'
   };
 
-  return svgs[name] || '';
+  return (
+    svgs[name] ||
+    ''
+  );
 }
 
 
-/* ========================================================================
-   OVERLAYS
-   ======================================================================== */
-
-function renderOverlays() {
+function renderOverlays(){
 
   const el =
-    document.getElementById('overlays');
+    document.getElementById(
+      'overlays'
+    );
 
-  if (!el) return;
+  if (
+    !el
+  ){
+
+    return;
+  }
 
   let html = '';
 
-  if (UI.fabMenuOpen) {
-    html += renderFabMenu();
+
+  if (
+    UI.fabMenuOpen
+  ){
+
+    html +=
+      renderFabMenu();
   }
 
-  if (sheet && sheet.kind === 'tx') {
-    html += renderTxSheet(sheet);
+
+  if (
+    sheet &&
+    sheet.kind === 'tx'
+  ){
+
+    html +=
+      renderTxSheet(
+        sheet
+      );
   }
 
-  if (sheet && sheet.kind === 'quick') {
-    html += renderQuickSheet(sheet);
+
+  if (
+    sheet &&
+    sheet.kind === 'quick'
+  ){
+
+    html +=
+      renderQuickSheet(
+        sheet
+      );
   }
 
-  if (sheet && sheet.kind === 'cat') {
-    html += renderCatSheet(sheet);
+
+  if (
+    sheet &&
+    sheet.kind === 'cat'
+  ){
+
+    html +=
+      renderCatSheet(
+        sheet
+      );
   }
 
-  if (sheet && sheet.kind === 'credit') {
-    html += renderCreditSheet(sheet);
+
+  if (
+    sheet &&
+    sheet.kind === 'credit'
+  ){
+
+    html +=
+      renderCreditSheet(
+        sheet
+      );
   }
 
-  if (sheet && sheet.kind === 'payment') {
-    html += renderPaymentSheet(sheet);
+
+  if (
+    sheet &&
+    sheet.kind === 'payment'
+  ){
+
+    html +=
+      renderPaymentSheet(
+        sheet
+      );
   }
 
-  if (sheet && sheet.kind === 'invoice') {
-    html += renderInvoiceSheet(sheet);
+
+  if (
+    sheet &&
+    sheet.kind === 'invoice'
+  ){
+
+    html +=
+      renderInvoiceSheet(
+        sheet
+      );
   }
 
-  if (confirmState) {
-    html += renderConfirmDialog(
-      confirmState
-    );
+
+  if (
+    confirmState
+  ){
+
+    html +=
+      renderConfirmDialog(
+        confirmState
+      );
   }
 
-  if (scanningOverlay) {
-    html += renderScanningOverlay(
-      scanningOverlay
-    );
+
+  if (
+    scanningOverlay
+  ){
+
+    html +=
+      renderScanningOverlay(
+        scanningOverlay
+      );
   }
 
-  el.innerHTML = html;
 
-  if (sheet) {
+  el.innerHTML =
+    html;
+
+
+  if (
+    sheet
+  ){
+
     attachSheetFieldSync();
   }
 
@@ -712,29 +804,33 @@ function renderOverlays() {
       'button[data-action="save-tx"], button[data-action="save-quick"]'
     );
 
-  if (saveBtn && sheet) {
+  if (
+    saveBtn &&
+    sheet
+  ){
 
     const amt =
       Number(sheet.amount);
 
-    if (amt > 0) {
+    if (
+      amt > 0
+    ){
 
       saveBtn.removeAttribute(
         'disabled'
       );
 
-      saveBtn.style.opacity = '1';
-      saveBtn.style.cursor = 'pointer';
+      saveBtn.style.opacity =
+        '1';
+
+      saveBtn.style.cursor =
+        'pointer';
     }
   }
 }
 
 
-/* ========================================================================
-   REFRESCAR MOVIMIENTOS
-   ======================================================================== */
-
-function refreshTxList() {
+function refreshTxList(){
 
   const list =
     filteredTx(
@@ -747,32 +843,33 @@ function refreshTxList() {
       'tx-list'
     );
 
-  if (container) {
+  if (
+    container
+  ){
 
     container.innerHTML =
       list.length
-
         ? list
-            .map(t => renderTxRow(t))
+            .map(
+              t =>
+                renderTxRow(t)
+            )
             .join('')
-
         : '<div class="empty-state">No hay movimientos registrados.</div>';
   }
 }
 
 
-/* ========================================================================
-   BUSCADOR
-   ======================================================================== */
-
-function attachSearchListener() {
+function attachSearchListener(){
 
   const input =
     document.getElementById(
       'search-input'
     );
 
-  if (input) {
+  if (
+    input
+  ){
 
     input.addEventListener(
       'input',
@@ -788,51 +885,51 @@ function attachSearchListener() {
 }
 
 
-/* ========================================================================
-   FAB
-   ======================================================================== */
-
-function closeFabMenu(callback) {
+function closeFabMenu(
+  callback
+){
 
   const backdrop =
     document.getElementById(
       'fab-backdrop'
     );
 
-  if (backdrop) {
+  if (
+    backdrop
+  ){
 
     backdrop.classList.add(
       'closing'
     );
 
-    setTimeout(() => {
+    setTimeout(
+      () => {
 
-      UI.fabMenuOpen = false;
+        UI.fabMenuOpen =
+          false;
 
-      renderAppContent();
+        renderAppContent();
 
-      if (callback) {
-        callback();
-      }
+        if (
+          callback
+        ){
 
-    }, 350);
+          callback();
+        }
+
+      },
+      350
+    );
 
   } else {
 
-    UI.fabMenuOpen = false;
+    UI.fabMenuOpen =
+      false;
 
     renderAppContent();
-
-    if (callback) {
-      callback();
-    }
   }
 }
 
-
-/* ========================================================================
-   EVENTOS PRINCIPALES
-   ======================================================================== */
 
 document.addEventListener(
   'click',
@@ -841,8 +938,10 @@ document.addEventListener(
     if (
       e.target.id ===
       'fab-backdrop'
-    ) {
+    ){
+
       closeFabMenu();
+
       return;
     }
 
@@ -852,17 +951,25 @@ document.addEventListener(
         '[data-action]'
       );
 
-    if (!t) return;
+    if (
+      !t
+    ){
+
+      return;
+    }
+
 
     const action =
       t.dataset.action;
 
 
-    /* ------------------------------------------------------------
+    /* ======================================================
        LOGOUT
-       ------------------------------------------------------------ */
+       ====================================================== */
 
-    if (action === 'logout') {
+    if (
+      action === 'logout'
+    ){
 
       confirmState = {
 
@@ -885,13 +992,13 @@ document.addEventListener(
           Object.assign(
             DB,
             {
-              transactions: [],
+              transactions:[],
               categories:
                 DEFAULT_CATEGORIES.slice(),
-              credits: [],
-              invoices: [],
-              settings: {
-                currency: 'COP'
+              credits:[],
+              invoices:[],
+              settings:{
+                currency:'COP'
               }
             }
           );
@@ -914,11 +1021,13 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       TABS
-       ------------------------------------------------------------ */
+    /* ======================================================
+       NAVEGACIÓN
+       ====================================================== */
 
-    if (action === 'set-tab') {
+    if (
+      action === 'set-tab'
+    ){
 
       UI.tab =
         t.dataset.tab;
@@ -932,11 +1041,9 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       FILTRO MOVIMIENTOS
-       ------------------------------------------------------------ */
-
-    if (action === 'set-filter') {
+    if (
+      action === 'set-filter'
+    ){
 
       UI.txFilter =
         t.dataset.filter;
@@ -947,11 +1054,9 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       FILTRO CRÉDITOS
-       ------------------------------------------------------------ */
-
-    if (action === 'set-credit-filter') {
+    if (
+      action === 'set-credit-filter'
+    ){
 
       UI.creditFilter =
         t.dataset.filter;
@@ -962,16 +1067,18 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       FAB
-       ------------------------------------------------------------ */
+    /* ======================================================
+       MENÚ DEL +
+       ====================================================== */
 
     if (
       action ===
       'toggle-fab-menu'
-    ) {
+    ){
 
-      if (UI.fabMenuOpen) {
+      if (
+        UI.fabMenuOpen
+      ){
 
         closeFabMenu();
 
@@ -981,129 +1088,156 @@ document.addEventListener(
           'pulse-light'
         );
 
-        setTimeout(() => {
+        setTimeout(
+          () => {
 
-          t.classList.remove(
-            'pulse-light'
-          );
+            t.classList.remove(
+              'pulse-light'
+            );
 
-          UI.fabMenuOpen =
-            true;
+            UI.fabMenuOpen =
+              true;
 
-          renderAppContent();
+            renderAppContent();
 
-        }, 400);
+          },
+          400
+        );
       }
 
       return;
     }
 
 
-    /* ------------------------------------------------------------
-       ACCIONES FAB
-       ------------------------------------------------------------ */
-
     if (
-      action.startsWith('fab-')
-    ) {
+      action.startsWith(
+        'fab-'
+      )
+    ){
 
       t.classList.add(
         'selected-pulse'
       );
 
-      setTimeout(() => {
+      setTimeout(
+        () => {
 
-        if (
-          action ===
-          'fab-new-tx'
-        ) {
+          if (
+            action ===
+            'fab-new-tx'
+          ){
 
-          closeFabMenu(() => {
+            closeFabMenu(
+              () => {
 
-            sheet = {
-              kind: 'tx',
-              mode: 'new',
-              id: null,
-              type: 'expense',
+                sheet = {
+                  kind:'tx',
+                  mode:'new',
+                  id:null,
+                  type:'expense',
+                  categoryId:
+                    (
+                      DB.categories.find(
+                        c =>
+                          c.type ===
+                          'expense'
+                      ) || {}
+                    ).id || '',
+                  amount:'',
+                  date:
+                    todayStr(),
+                  note:''
+                };
 
-              categoryId:
-                (
-                  DB.categories.find(
-                    c =>
-                      c.type ===
-                      'expense'
-                  ) || {}
-                ).id || '',
+                renderOverlays();
+              }
+            );
 
-              amount: '',
-              date: todayStr(),
-              note: ''
-            };
+          } else if (
+            action ===
+            'fab-new-credit'
+          ){
 
-            renderOverlays();
-          });
+            closeFabMenu(
+              () => {
 
-        }
+                sheet = {
+                  kind:'credit',
+                  mode:'new',
+                  id:null,
+                  title:'',
+                  type:
+                    UI.creditFilter ||
+                    'against',
+                  total:''
+                };
 
-        else if (
-          action ===
-          'fab-scan-invoice'
-        ) {
+                renderOverlays();
+              }
+            );
 
-          closeFabMenu(() => {
+          } else if (
+            action ===
+            'fab-scan-invoice'
+          ){
 
-            const input =
-              document.getElementById(
-                'global-camera-input'
-              );
+            closeFabMenu(
+              () => {
 
-            if (input) {
-              input.click();
-            }
-          });
+                document
+                  .getElementById(
+                    'global-camera-input'
+                  )
+                  .click();
+              }
+            );
 
-        }
+          } else if (
+            action ===
+            'fab-invoices'
+          ){
 
-        else if (
-          action ===
-          'fab-invoices'
-        ) {
+            closeFabMenu(
+              () => {
 
-          closeFabMenu(() => {
+                UI.tab =
+                  'invoices';
 
-            UI.tab =
-              'invoices';
+                renderAppContent();
+              }
+            );
 
-            renderAppContent();
-          });
+          } else if (
+            action ===
+            'fab-settings'
+          ){
 
-        }
+            closeFabMenu(
+              () => {
 
-        else if (
-          action ===
-          'fab-settings'
-        ) {
+                UI.tab =
+                  'settings';
 
-          closeFabMenu(() => {
+                renderAppContent();
+              }
+            );
+          }
 
-            UI.tab =
-              'settings';
-
-            renderAppContent();
-          });
-        }
-
-      }, 220);
+        },
+        220
+      );
 
       return;
     }
 
 
-    /* ------------------------------------------------------------
-       EDITAR MOVIMIENTO
-       ------------------------------------------------------------ */
+    /* ======================================================
+       MOVIMIENTOS
+       ====================================================== */
 
-    if (action === 'edit-tx') {
+    if (
+      action === 'edit-tx'
+    ){
 
       const tx =
         DB.transactions.find(
@@ -1112,20 +1246,20 @@ document.addEventListener(
             t.dataset.id
         );
 
-      if (tx) {
+      if (
+        tx
+      ){
 
         sheet = {
-
-          kind: 'tx',
-          mode: 'edit',
-          id: tx.id,
-          type: tx.type,
+          kind:'tx',
+          mode:'edit',
+          id:tx.id,
+          type:tx.type,
           categoryId:
             tx.categoryId,
           amount:
             String(tx.amount),
-          date:
-            tx.date,
+          date:tx.date,
           note:
             tx.note || ''
         };
@@ -1137,22 +1271,20 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       QUICK CATEGORY
-       ------------------------------------------------------------ */
-
-    if (action === 'quick-cat') {
+    if (
+      action === 'quick-cat'
+    ){
 
       sheet = {
-
-        kind: 'quick',
+        kind:'quick',
         categoryId:
           t.dataset.id,
-        amount: '',
-        note: '',
-        date: todayStr(),
-        showNote: false,
-        showDate: false
+        amount:'',
+        note:'',
+        date:
+          todayStr(),
+        showNote:false,
+        showDate:false
       };
 
       renderOverlays();
@@ -1161,9 +1293,16 @@ document.addEventListener(
     }
 
 
-    if (action === 'show-note') {
+    if (
+      action === 'show-note'
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       sheet.showNote =
         true;
@@ -1174,9 +1313,16 @@ document.addEventListener(
     }
 
 
-    if (action === 'show-date') {
+    if (
+      action === 'show-date'
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       sheet.showDate =
         true;
@@ -1187,46 +1333,45 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       GUARDAR QUICK
-       ------------------------------------------------------------ */
-
     if (
-      action ===
-      'save-quick'
-    ) {
+      action === 'save-quick'
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       const amt =
         Number(sheet.amount);
 
-      if (amt > 0) {
+      if (
+        amt > 0
+      ){
 
         DB.transactions.push({
-
-          id: uid(),
-
-          type: 'expense',
-
-          amount: amt,
-
+          id:uid(),
+          type:'expense',
+          amount:amt,
           categoryId:
             sheet.categoryId,
-
           date:
             todayStr(),
-
           note:
-            (sheet.note || '')
-              .trim()
+            (
+              sheet.note ||
+              ''
+            ).trim()
         });
 
         saveDB();
 
         safeSync();
 
-        sheet = null;
+        sheet =
+          null;
 
         renderAppContent();
       }
@@ -1235,13 +1380,16 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       TIPO MOVIMIENTO
-       ------------------------------------------------------------ */
+    if (
+      action === 'tx-type'
+    ){
 
-    if (action === 'tx-type') {
+      if (
+        !sheet
+      ){
 
-      if (!sheet) return;
+        return;
+      }
 
       sheet.type =
         t.dataset.type;
@@ -1261,16 +1409,16 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       CATEGORÍA MOVIMIENTO
-       ------------------------------------------------------------ */
-
     if (
-      action ===
-      'pick-tx-cat'
-    ) {
+      action === 'pick-tx-cat'
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       sheet.categoryId =
         t.dataset.id;
@@ -1280,7 +1428,9 @@ document.addEventListener(
           'chipList'
         );
 
-      if (chipContainer) {
+      if (
+        chipContainer
+      ){
 
         chipContainer.innerHTML =
           renderTxCatChips(
@@ -1297,16 +1447,16 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       GUARDAR MOVIMIENTO
-       ------------------------------------------------------------ */
-
     if (
-      action ===
-      'save-tx'
-    ) {
+      action === 'save-tx'
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       const amt =
         Number(sheet.amount);
@@ -1322,30 +1472,27 @@ document.addEventListener(
         ).id ||
         '';
 
-      if (amt > 0) {
+      if (
+        amt > 0
+      ){
 
         const tx = {
-
           id:
             sheet.id ||
             uid(),
-
           type:
             sheet.type,
-
-          amount:
-            amt,
-
+          amount:amt,
           categoryId:
             catId,
-
           date:
             sheet.date ||
             todayStr(),
-
           note:
-            (sheet.note || '')
-              .trim()
+            (
+              sheet.note ||
+              ''
+            ).trim()
         };
 
         const exists =
@@ -1357,14 +1504,12 @@ document.addEventListener(
 
         DB.transactions =
           exists
-
             ? DB.transactions.map(
                 x =>
                   x.id === tx.id
                     ? tx
                     : x
               )
-
             : DB.transactions.concat([
                 tx
               ]);
@@ -1373,7 +1518,8 @@ document.addEventListener(
 
         safeSync();
 
-        sheet = null;
+        sheet =
+          null;
 
         renderAppContent();
       }
@@ -1382,16 +1528,16 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       ELIMINAR MOVIMIENTO
-       ------------------------------------------------------------ */
-
     if (
-      action ===
-      'delete-tx'
-    ) {
+      action === 'delete-tx'
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       confirmState = {
 
@@ -1411,7 +1557,8 @@ document.addEventListener(
 
           safeSync();
 
-          sheet = null;
+          sheet =
+            null;
 
           confirmState =
             null;
@@ -1426,24 +1573,25 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       NUEVA CATEGORÍA
-       ------------------------------------------------------------ */
+    /* ======================================================
+       CATEGORÍAS
+       ====================================================== */
 
-    if (action === 'new-cat') {
+    if (
+      action === 'new-cat'
+    ){
 
       sheet = {
-
-        kind: 'cat',
-        mode: 'new',
-        id: null,
-        name: '',
-        type: 'expense',
-        color: '#06B6D4',
-        icon: 'food',
-        budget: '',
-        primary: false,
-        isFixed: false
+        kind:'cat',
+        mode:'new',
+        id:null,
+        name:'',
+        type:'expense',
+        color:'#06B6D4',
+        icon:'food',
+        budget:'',
+        primary:false,
+        isFixed:false
       };
 
       renderOverlays();
@@ -1452,14 +1600,9 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       EDITAR CATEGORÍA
-       ------------------------------------------------------------ */
-
     if (
-      action ===
-      'edit-cat'
-    ) {
+      action === 'edit-cat'
+    ){
 
       const c =
         DB.categories.find(
@@ -1468,32 +1611,24 @@ document.addEventListener(
             t.dataset.id
         );
 
-      if (c) {
+      if (
+        c
+      ){
 
         sheet = {
-
-          kind: 'cat',
-
-          mode: 'edit',
-
-          id: c.id,
-
-          name: c.name,
-
-          type: c.type,
-
-          color: c.color,
-
-          icon: c.icon,
-
+          kind:'cat',
+          mode:'edit',
+          id:c.id,
+          name:c.name,
+          type:c.type,
+          color:c.color,
+          icon:c.icon,
           budget:
             c.budget
               ? String(c.budget)
               : '',
-
           primary:
             !!c.primary,
-
           isFixed:
             !!c.isFixed
         };
@@ -1505,64 +1640,56 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       TIPO CATEGORÍA
-       ------------------------------------------------------------ */
-
     if (
-      action ===
-      'cat-type'
-    ) {
+      action === 'cat-type'
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       sheet.type =
         t.dataset.type;
 
-      document
-        .getElementById(
-          'budgetField'
-        )
-        .style.display =
-          sheet.type ===
-          'expense'
-            ? 'block'
-            : 'none';
+      document.getElementById(
+        'budgetField'
+      ).style.display =
+        sheet.type === 'expense'
+          ? 'block'
+          : 'none';
 
-      document
-        .getElementById(
-          'primaryField'
-        )
-        .style.display =
-          sheet.type ===
-          'income'
-            ? 'block'
-            : 'none';
+      document.getElementById(
+        'primaryField'
+      ).style.display =
+        sheet.type === 'income'
+          ? 'block'
+          : 'none';
 
-      document
-        .getElementById(
-          'fixedField'
-        )
-        .style.display =
-          sheet.type ===
-          'expense'
-            ? 'block'
-            : 'none';
+      document.getElementById(
+        'fixedField'
+      ).style.display =
+        sheet.type === 'expense'
+          ? 'block'
+          : 'none';
 
       return;
     }
 
 
-    /* ------------------------------------------------------------
-       PRIMARY
-       ------------------------------------------------------------ */
-
     if (
       action ===
       'toggle-primary'
-    ) {
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       sheet.primary =
         !sheet.primary;
@@ -1580,16 +1707,17 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       FIJO
-       ------------------------------------------------------------ */
-
     if (
       action ===
       'toggle-fixed'
-    ) {
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       sheet.isFixed =
         !sheet.isFixed;
@@ -1607,16 +1735,16 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       COLOR
-       ------------------------------------------------------------ */
-
     if (
-      action ===
-      'pick-color'
-    ) {
+      action === 'pick-color'
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       sheet.color =
         t.dataset.color;
@@ -1630,7 +1758,7 @@ document.addEventListener(
             s.classList.toggle(
               'selected',
               s.dataset.color ===
-              sheet.color
+                sheet.color
             )
         );
 
@@ -1638,16 +1766,16 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       ICONO
-       ------------------------------------------------------------ */
-
     if (
-      action ===
-      'pick-icon'
-    ) {
+      action === 'pick-icon'
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       sheet.icon =
         t.dataset.icon;
@@ -1661,7 +1789,7 @@ document.addEventListener(
             b.classList.toggle(
               'selected',
               b.dataset.icon ===
-              sheet.icon
+                sheet.icon
             )
         );
 
@@ -1669,23 +1797,22 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       GUARDAR CATEGORÍA
-       ------------------------------------------------------------ */
-
     if (
-      action ===
-      'save-cat'
-    ) {
+      action === 'save-cat'
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       if (
         sheet.name.trim()
-      ) {
+      ){
 
         const cat = {
-
           id:
             sheet.id ||
             uid(),
@@ -1713,13 +1840,13 @@ document.addEventListener(
 
           primary:
             sheet.type ===
-            'income'
+              'income'
               ? !!sheet.primary
               : false,
 
           isFixed:
             sheet.type ===
-            'expense'
+              'expense'
               ? !!sheet.isFixed
               : false
         };
@@ -1733,14 +1860,13 @@ document.addEventListener(
 
         DB.categories =
           exists
-
             ? DB.categories.map(
                 x =>
-                  x.id === cat.id
+                  x.id ===
+                    cat.id
                     ? cat
                     : x
               )
-
             : DB.categories.concat([
                 cat
               ]);
@@ -1749,7 +1875,8 @@ document.addEventListener(
 
         safeSync();
 
-        sheet = null;
+        sheet =
+          null;
 
         renderAppContent();
       }
@@ -1758,16 +1885,17 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       ELIMINAR CATEGORÍA
-       ------------------------------------------------------------ */
-
     if (
       action ===
       'delete-cat'
-    ) {
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       confirmState = {
 
@@ -1787,7 +1915,8 @@ document.addEventListener(
 
           safeSync();
 
-          sheet = null;
+          sheet =
+            null;
 
           confirmState =
             null;
@@ -1802,30 +1931,24 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       NUEVO CRÉDITO
-       ------------------------------------------------------------ */
+    /* ======================================================
+       CRÉDITOS
+       ====================================================== */
 
     if (
       action ===
       'new-credit'
-    ) {
+    ){
 
       sheet = {
-
-        kind: 'credit',
-
-        mode: 'new',
-
-        id: null,
-
-        title: '',
-
+        kind:'credit',
+        mode:'new',
+        id:null,
+        title:'',
         type:
           UI.creditFilter ||
           'against',
-
-        total: ''
+        total:''
       };
 
       renderOverlays();
@@ -1834,14 +1957,10 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       EDITAR CRÉDITO
-       ------------------------------------------------------------ */
-
     if (
       action ===
       'edit-credit'
-    ) {
+    ){
 
       const c =
         DB.credits.find(
@@ -1850,22 +1969,16 @@ document.addEventListener(
             t.dataset.id
         );
 
-      if (c) {
+      if (
+        c
+      ){
 
         sheet = {
-
-          kind: 'credit',
-
-          mode: 'edit',
-
-          id: c.id,
-
-          title:
-            c.title,
-
-          type:
-            c.type,
-
+          kind:'credit',
+          mode:'edit',
+          id:c.id,
+          title:c.title,
+          type:c.type,
           total:
             String(c.total)
         };
@@ -1877,16 +1990,17 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       TIPO CRÉDITO
-       ------------------------------------------------------------ */
-
     if (
       action ===
       'credit-type'
-    ) {
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       sheet.type =
         t.dataset.type;
@@ -1897,16 +2011,17 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       GUARDAR CRÉDITO
-       ------------------------------------------------------------ */
-
     if (
       action ===
       'save-credit'
-    ) {
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       const tot =
         Number(sheet.total);
@@ -1914,14 +2029,25 @@ document.addEventListener(
       if (
         sheet.title.trim() &&
         tot > 0
-      ) {
+      ){
 
-        if (!DB.credits) {
+        if (
+          !DB.credits
+        ){
+
           DB.credits = [];
         }
 
-        const credit = {
+        const existing =
+          sheet.id
+            ? DB.credits.find(
+                x =>
+                  x.id ===
+                  sheet.id
+              )
+            : null;
 
+        const credit = {
           id:
             sheet.id ||
             uid(),
@@ -1938,13 +2064,9 @@ document.addEventListener(
           payments:
             sheet.id
               ? (
-                  DB.credits.find(
-                    x =>
-                      x.id ===
-                      sheet.id
-                  ) || {}
-                ).payments || []
-
+                  existing?.payments ||
+                  []
+                )
               : []
         };
 
@@ -1957,15 +2079,13 @@ document.addEventListener(
 
         DB.credits =
           exists
-
             ? DB.credits.map(
                 x =>
                   x.id ===
-                  credit.id
+                    credit.id
                     ? credit
                     : x
               )
-
             : DB.credits.concat([
                 credit
               ]);
@@ -1974,7 +2094,8 @@ document.addEventListener(
 
         safeSync();
 
-        sheet = null;
+        sheet =
+          null;
 
         renderAppContent();
       }
@@ -1983,16 +2104,17 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       ELIMINAR CRÉDITO
-       ------------------------------------------------------------ */
-
     if (
       action ===
       'delete-credit'
-    ) {
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       confirmState = {
 
@@ -2012,7 +2134,8 @@ document.addEventListener(
 
           safeSync();
 
-          sheet = null;
+          sheet =
+            null;
 
           confirmState =
             null;
@@ -2027,32 +2150,25 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       NUEVO PAGO
-       ------------------------------------------------------------ */
+    /* ======================================================
+       APORTES DE CRÉDITOS
+       ====================================================== */
 
     if (
       action ===
       'new-payment'
-    ) {
+    ){
 
       sheet = {
-
-        kind: 'payment',
-
-        mode: 'new',
-
+        kind:'payment',
+        mode:'new',
         creditId:
           t.dataset.id,
-
-        paymentId: null,
-
-        amount: '',
-
+        paymentId:null,
+        amount:'',
         date:
           todayStr(),
-
-        note: ''
+        note:''
       };
 
       renderOverlays();
@@ -2061,14 +2177,10 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       EDITAR PAGO
-       ------------------------------------------------------------ */
-
     if (
       action ===
       'edit-payment'
-    ) {
+    ){
 
       const c =
         DB.credits.find(
@@ -2079,35 +2191,32 @@ document.addEventListener(
 
       const p =
         (
-          c?.payments || []
+          c?.payments ||
+          []
         ).find(
           x =>
             x.id ===
             t.dataset.pid
         );
 
-      if (p) {
+      if (
+        p
+      ){
 
         sheet = {
-
-          kind: 'payment',
-
-          mode: 'edit',
-
+          kind:'payment',
+          mode:'edit',
           creditId:
             t.dataset.cid,
-
           paymentId:
             p.id,
-
           amount:
             String(p.amount),
-
           date:
             p.date,
-
           note:
-            p.note || ''
+            p.note ||
+            ''
         };
 
         renderOverlays();
@@ -2117,24 +2226,26 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       GUARDAR PAGO
-       ------------------------------------------------------------ */
-
     if (
       action ===
       'save-payment'
-    ) {
+    ){
 
-      if (!sheet) return;
+      if (
+        !sheet
+      ){
+
+        return;
+      }
 
       const amt =
         Number(sheet.amount);
 
-      if (amt > 0) {
+      if (
+        amt > 0
+      ){
 
         const pay = {
-
           id:
             sheet.paymentId ||
             uid(),
@@ -2147,8 +2258,10 @@ document.addEventListener(
             todayStr(),
 
           note:
-            (sheet.note || '')
-              .trim()
+            (
+              sheet.note ||
+              ''
+            ).trim()
         };
 
         DB.credits =
@@ -2158,7 +2271,7 @@ document.addEventListener(
               if (
                 c.id ===
                 sheet.creditId
-              ) {
+              ){
 
                 let pays =
                   c.payments ||
@@ -2173,15 +2286,13 @@ document.addEventListener(
 
                 pays =
                   exists
-
                     ? pays.map(
                         x =>
                           x.id ===
-                          pay.id
+                            pay.id
                             ? pay
                             : x
                       )
-
                     : pays.concat([
                         pay
                       ]);
@@ -2201,7 +2312,8 @@ document.addEventListener(
 
         safeSync();
 
-        sheet = null;
+        sheet =
+          null;
 
         renderAppContent();
       }
@@ -2210,350 +2322,58 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       FACTURAS
-       ------------------------------------------------------------ */
-
     if (
       action ===
-      'toggle-invoice'
-    ) {
-
-      UI.openInvoiceId =
-        UI.openInvoiceId ===
-        t.dataset.id
-
-          ? null
-
-          : t.dataset.id;
-
-      renderAppContent();
-
-      return;
-    }
-
-
-    if (
-      action ===
-      'edit-invoice'
-    ) {
-
-      const inv =
-        DB.invoices.find(
-          x =>
-            x.id ===
-            t.dataset.id
-        );
-
-      if (inv) {
-
-        sheet = {
-
-          kind: 'invoice',
-
-          mode: 'edit',
-
-          id: inv.id,
-
-          title:
-            inv.title,
-
-          date:
-            inv.date,
-
-          items:
-            inv.items.map(
-              it => ({
-                ...it,
-                price:
-                  String(it.price)
-              })
-            ),
-
-          registered:
-            !!inv.registered
-        };
-
-        renderOverlays();
-      }
-
-      return;
-    }
-
-
-    /* ------------------------------------------------------------
-       REGISTRAR FACTURA
-       ------------------------------------------------------------ */
-
-    if (
-      action ===
-      'register-invoice'
-    ) {
-
-      const inv =
-        DB.invoices.find(
-          x =>
-            x.id ===
-            t.dataset.id
-        );
-
-      if (inv) {
-
-        sheet = {
-
-          kind: 'tx',
-
-          mode: 'new',
-
-          id: null,
-
-          type: 'expense',
-
-          categoryId:
-            (
-              DB.categories.find(
-                c =>
-                  c.type ===
-                  'expense'
-              ) || {}
-            ).id || '',
-
-          amount:
-            String(inv.total),
-
-          date:
-            inv.date ||
-            todayStr(),
-
-          note:
-            inv.title || '',
-
-          sourceInvoiceId:
-            inv.id
-        };
-
-        renderOverlays();
-      }
-
-      return;
-    }
-
-
-    /* ------------------------------------------------------------
-       ÍTEM FACTURA
-       ------------------------------------------------------------ */
-
-    if (
-      action ===
-      'add-invoice-item'
-    ) {
-
-      if (!sheet) return;
-
-      sheet.items.push({
-        id: uid(),
-        name: '',
-        price: ''
-      });
-
-      const list =
-        document.getElementById(
-          'inv-items-list'
-        );
-
-      if (list) {
-
-        list.innerHTML =
-          renderInvoiceItemsHTML(
-            sheet
-          );
-      }
-
-      return;
-    }
-
-
-    if (
-      action ===
-      'remove-invoice-item'
-    ) {
-
-      if (!sheet) return;
-
-      sheet.items.splice(
-        Number(
-          t.dataset.idx
-        ),
-        1
-      );
+      'delete-payment'
+    ){
 
       if (
-        !sheet.items.length
-      ) {
+        !sheet
+      ){
 
-        sheet.items.push({
-          id: uid(),
-          name: '',
-          price: ''
-        });
+        return;
       }
-
-      const list =
-        document.getElementById(
-          'inv-items-list'
-        );
-
-      if (list) {
-
-        list.innerHTML =
-          renderInvoiceItemsHTML(
-            sheet
-          );
-      }
-
-      return;
-    }
-
-
-    /* ------------------------------------------------------------
-       GUARDAR FACTURA
-       ------------------------------------------------------------ */
-
-    if (
-      action ===
-      'save-invoice'
-    ) {
-
-      if (!sheet) return;
-
-      const items =
-        sheet.items
-
-          .filter(
-            it =>
-              it.name.trim() &&
-              Number(it.price) > 0
-          )
-
-          .map(
-            it => ({
-              id:
-                it.id ||
-                uid(),
-
-              name:
-                it.name
-                  .trim()
-                  .slice(0, 60),
-
-              price:
-                Number(it.price)
-            })
-          );
-
-      if (items.length) {
-
-        const total =
-          items.reduce(
-            (s, it) =>
-              s + it.price,
-            0
-          );
-
-        const invoice = {
-
-          id:
-            sheet.id ||
-            uid(),
-
-          title:
-            (sheet.title || '')
-              .trim() ||
-            (
-              'Factura ' +
-              todayStr()
-            ),
-
-          date:
-            todayStr(),
-
-          items,
-
-          total,
-
-          registered:
-            !!sheet.registered
-        };
-
-        if (!DB.invoices) {
-          DB.invoices = [];
-        }
-
-        const exists =
-          DB.invoices.some(
-            x =>
-              x.id ===
-              invoice.id
-          );
-
-        DB.invoices =
-          exists
-
-            ? DB.invoices.map(
-                x =>
-                  x.id ===
-                  invoice.id
-                    ? invoice
-                    : x
-              )
-
-            : DB.invoices.concat([
-                invoice
-              ]);
-
-        saveDB();
-
-        safeSync();
-
-        sheet = null;
-
-        renderAppContent();
-      }
-
-      return;
-    }
-
-
-    /* ------------------------------------------------------------
-       ELIMINAR FACTURA
-       ------------------------------------------------------------ */
-
-    if (
-      action ===
-      'delete-invoice'
-    ) {
-
-      if (!sheet) return;
 
       confirmState = {
 
         message:
-          '¿Eliminar factura?',
+          '¿Eliminar aporte?',
 
         onConfirm: () => {
 
-          DB.invoices =
-            DB.invoices.filter(
-              x =>
-                x.id !==
-                sheet.id
+          DB.credits =
+            DB.credits.map(
+              c => {
+
+                if (
+                  c.id ===
+                  sheet.creditId
+                ){
+
+                  return {
+                    ...c,
+                    payments:
+                      (
+                        c.payments ||
+                        []
+                      ).filter(
+                        p =>
+                          p.id !==
+                          sheet.paymentId
+                      )
+                  };
+                }
+
+                return c;
+              }
             );
 
           saveDB();
 
           safeSync();
 
-          sheet = null;
+          sheet =
+            null;
 
           confirmState =
             null;
@@ -2568,16 +2388,116 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       CERRAR SHEET
-       ------------------------------------------------------------ */
+    /* ======================================================
+       FACTURAS
+       ====================================================== */
 
     if (
       action ===
-      'close-sheet'
-    ) {
+      'toggle-invoice'
+    ){
 
-      sheet = null;
+      UI.openInvoiceId =
+        UI.openInvoiceId ===
+          t.dataset.id
+          ? null
+          : t.dataset.id;
+
+      renderAppContent();
+
+      return;
+    }
+
+
+    if (
+      action ===
+      'edit-invoice'
+    ){
+
+      const inv =
+        DB.invoices.find(
+          x =>
+            x.id ===
+            t.dataset.id
+        );
+
+      if (
+        inv
+      ){
+
+        sheet = {
+          kind:'invoice',
+          mode:'edit',
+          id:inv.id,
+          title:inv.title,
+          date:inv.date,
+          items:
+            inv.items.map(
+              it => ({
+                ...it,
+                price:
+                  String(
+                    it.price
+                  )
+              })
+            ),
+          registered:
+            !!inv.registered
+        };
+
+        renderOverlays();
+      }
+
+      return;
+    }
+
+
+    if (
+      action ===
+      'register-invoice'
+    ){
+
+      const inv =
+        DB.invoices.find(
+          x =>
+            x.id ===
+            t.dataset.id
+        );
+
+      if (
+        !inv
+      ){
+
+        return;
+      }
+
+      const firstExpense =
+        DB.categories.find(
+          c =>
+            c.type ===
+            'expense'
+        );
+
+      sheet = {
+        kind:'tx',
+        mode:'new',
+        id:null,
+        type:'expense',
+        categoryId:
+          firstExpense
+            ? firstExpense.id
+            : '',
+        amount:
+          String(inv.total),
+        date:
+          inv.date ||
+          todayStr(),
+        note:
+          inv.title ||
+          '',
+        sourceInvoiceId:
+          inv.id
+      };
 
       renderOverlays();
 
@@ -2585,14 +2505,131 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       CANCELAR CONFIRMACIÓN
-       ------------------------------------------------------------ */
+    if (
+      action ===
+      'add-invoice-item'
+    ){
+
+      if (
+        !sheet
+      ){
+
+        return;
+      }
+
+      sheet.items.push({
+        id:uid(),
+        name:'',
+        price:''
+      });
+
+      refreshInvoiceItemsUI();
+
+      return;
+    }
+
+
+    if (
+      action ===
+      'remove-invoice-item'
+    ){
+
+      if (
+        !sheet
+      ){
+
+        return;
+      }
+
+      const idx =
+        Number(
+          t.dataset.idx
+        );
+
+      sheet.items.splice(
+        idx,
+        1
+      );
+
+      if (
+        !sheet.items.length
+      ){
+
+        sheet.items.push({
+          id:uid(),
+          name:'',
+          price:''
+        });
+      }
+
+      refreshInvoiceItemsUI();
+
+      return;
+    }
+
+
+    if (
+      action ===
+      'save-invoice'
+    ){
+
+      saveInvoiceSheet();
+
+      return;
+    }
+
+
+    if (
+      action ===
+      'delete-invoice'
+    ){
+
+      if (
+        !sheet
+      ){
+
+        return;
+      }
+
+      confirmState = {
+
+        message:
+          '¿Eliminar esta factura?',
+
+        onConfirm: () =>
+          deleteInvoice(
+            sheet.id
+          )
+      };
+
+      renderOverlays();
+
+      return;
+    }
+
+
+    /* ======================================================
+       GENERAL
+       ====================================================== */
+
+    if (
+      action ===
+      'close-sheet'
+    ){
+
+      sheet =
+        null;
+
+      renderOverlays();
+
+      return;
+    }
+
 
     if (
       action ===
       'cancel-confirm'
-    ) {
+    ){
 
       confirmState =
         null;
@@ -2603,18 +2640,10 @@ document.addEventListener(
     }
 
 
-    /* ------------------------------------------------------------
-       CONFIRMAR
-       ------------------------------------------------------------ */
-
     if (
       action ===
       'confirm-ok'
-    ) {
-
-      if (!confirmState) {
-        return;
-      }
+    ){
 
       const fn =
         confirmState.onConfirm;
@@ -2622,22 +2651,16 @@ document.addEventListener(
       confirmState =
         null;
 
-      renderOverlays();
-
       fn();
 
       return;
     }
 
 
-    /* ------------------------------------------------------------
-       MONEDA
-       ------------------------------------------------------------ */
-
     if (
       action ===
       'set-currency'
-    ) {
+    ){
 
       DB.settings.currency =
         t.dataset.code;
@@ -2651,27 +2674,92 @@ document.addEventListener(
       return;
     }
 
+
+    if (
+      action ===
+      'export-backup'
+    ){
+
+      exportBackup();
+
+      return;
+    }
+
+
+    if (
+      action ===
+      'import-backup'
+    ){
+
+      document
+        .getElementById(
+          'import-file'
+        )
+        .click();
+
+      return;
+    }
+
+
+    if (
+      action ===
+      'reset-data'
+    ){
+
+      confirmState = {
+
+        message:
+          'Borrar todos los movimientos.',
+
+        onConfirm: () => {
+
+          DB.transactions = [];
+
+          DB.categories =
+            DEFAULT_CATEGORIES.slice();
+
+          DB.credits = [];
+
+          DB.invoices = [];
+
+          DB.settings = {
+            currency:
+              DB.settings.currency
+          };
+
+          saveDB();
+
+          safeSync();
+
+          confirmState =
+            null;
+
+          renderAppContent();
+        }
+      };
+
+      renderOverlays();
+
+      return;
+    }
   }
 );
 
 
-/* ========================================================================
-   SINCRONIZACIÓN DE CAMPOS DE SHEETS
-   ======================================================================== */
+function attachSheetFieldSync(){
 
-function attachSheetFieldSync() {
+  if (
+    !sheet
+  ){
 
-  if (!sheet) return;
+    return;
+  }
 
-
-  /*
-    MOVIMIENTO / QUICK
-  */
 
   if (
     sheet.kind === 'tx' ||
     sheet.kind === 'quick'
-  ) {
+  ){
 
     const prefix =
       sheet.kind === 'tx'
@@ -2680,21 +2768,26 @@ function attachSheetFieldSync() {
 
     const a =
       document.getElementById(
-        prefix + '-amount'
+        prefix +
+        '-amount'
       );
 
     const d =
       document.getElementById(
-        prefix + '-date'
+        prefix +
+        '-date'
       );
 
     const n =
       document.getElementById(
-        prefix + '-note'
+        prefix +
+        '-note'
       );
 
 
-    if (a) {
+    if (
+      a
+    ){
 
       a.addEventListener(
         'input',
@@ -2710,19 +2803,19 @@ function attachSheetFieldSync() {
               sheet.amount
             );
 
-
           const saveBtn =
             document.querySelector(
               'button[data-action="save-tx"], button[data-action="save-quick"]'
             );
 
-          if (saveBtn) {
+          if (
+            saveBtn
+          ){
 
             if (
-              Number(
-                sheet.amount
-              ) > 0
-            ) {
+              Number(sheet.amount) >
+              0
+            ){
 
               saveBtn.removeAttribute(
                 'disabled'
@@ -2750,7 +2843,9 @@ function attachSheetFieldSync() {
     }
 
 
-    if (d) {
+    if (
+      d
+    ){
 
       d.addEventListener(
         'input',
@@ -2762,7 +2857,9 @@ function attachSheetFieldSync() {
     }
 
 
-    if (n) {
+    if (
+      n
+    ){
 
       n.addEventListener(
         'input',
@@ -2774,17 +2871,9 @@ function attachSheetFieldSync() {
     }
 
 
-  }
-
-
-  /*
-    CATEGORÍA
-  */
-
-  else if (
-    sheet.kind ===
-    'cat'
-  ) {
+  } else if (
+    sheet.kind === 'cat'
+  ){
 
     const nm =
       document.getElementById(
@@ -2797,7 +2886,9 @@ function attachSheetFieldSync() {
       );
 
 
-    if (nm) {
+    if (
+      nm
+    ){
 
       nm.addEventListener(
         'input',
@@ -2809,7 +2900,9 @@ function attachSheetFieldSync() {
     }
 
 
-    if (b) {
+    if (
+      b
+    ){
 
       b.addEventListener(
         'input',
@@ -2827,17 +2920,11 @@ function attachSheetFieldSync() {
         }
       );
     }
-  }
 
 
-  /*
-    CRÉDITO
-  */
-
-  else if (
-    sheet.kind ===
-    'credit'
-  ) {
+  } else if (
+    sheet.kind === 'credit'
+  ){
 
     const title =
       document.getElementById(
@@ -2850,11 +2937,14 @@ function attachSheetFieldSync() {
       );
 
 
-    if (title) {
+    if (
+      title
+    ){
 
       title.addEventListener(
         'input',
         () => {
+
           sheet.title =
             title.value;
         }
@@ -2862,7 +2952,9 @@ function attachSheetFieldSync() {
     }
 
 
-    if (tot) {
+    if (
+      tot
+    ){
 
       tot.addEventListener(
         'input',
@@ -2880,17 +2972,11 @@ function attachSheetFieldSync() {
         }
       );
     }
-  }
 
 
-  /*
-    PAGO
-  */
-
-  else if (
-    sheet.kind ===
-    'payment'
-  ) {
+  } else if (
+    sheet.kind === 'payment'
+  ){
 
     const a =
       document.getElementById(
@@ -2908,7 +2994,9 @@ function attachSheetFieldSync() {
       );
 
 
-    if (a) {
+    if (
+      a
+    ){
 
       a.addEventListener(
         'input',
@@ -2928,7 +3016,9 @@ function attachSheetFieldSync() {
     }
 
 
-    if (d) {
+    if (
+      d
+    ){
 
       d.addEventListener(
         'input',
@@ -2940,7 +3030,9 @@ function attachSheetFieldSync() {
     }
 
 
-    if (n) {
+    if (
+      n
+    ){
 
       n.addEventListener(
         'input',
@@ -2950,17 +3042,11 @@ function attachSheetFieldSync() {
         }
       );
     }
-  }
 
 
-  /*
-    FACTURA
-  */
-
-  else if (
-    sheet.kind ===
-    'invoice'
-  ) {
+  } else if (
+    sheet.kind === 'invoice'
+  ){
 
     const ti =
       document.getElementById(
@@ -2973,7 +3059,9 @@ function attachSheetFieldSync() {
       );
 
 
-    if (ti) {
+    if (
+      ti
+    ){
 
       ti.addEventListener(
         'input',
@@ -2985,7 +3073,9 @@ function attachSheetFieldSync() {
     }
 
 
-    if (da) {
+    if (
+      da
+    ){
 
       da.addEventListener(
         'input',
@@ -3003,7 +3093,9 @@ function attachSheetFieldSync() {
       );
 
 
-    if (list) {
+    if (
+      list
+    ){
 
       list.addEventListener(
         'input',
@@ -3018,15 +3110,15 @@ function attachSheetFieldSync() {
           if (
             idx === undefined ||
             !field
-          ) {
+          ){
+
             return;
           }
 
 
           if (
-            field ===
-            'price'
-          ) {
+            field === 'price'
+          ){
 
             sheet.items[idx].price =
               parseFormattedNumber(
@@ -3047,34 +3139,33 @@ function attachSheetFieldSync() {
 
           const totalVal =
             sheet.items.reduce(
-              (s, it) =>
+              (s,it) =>
                 s +
-                (Number(it.price) || 0),
+                (
+                  Number(it.price) ||
+                  0
+                ),
               0
             );
-
 
           const totalEl =
             document.getElementById(
               'inv-total-val'
             );
 
-
-          if (totalEl) {
+          if (
+            totalEl
+          ){
 
             totalEl.textContent =
               new Intl.NumberFormat(
                 'es-CO',
                 {
-                  style:
-                    'currency',
-
+                  style:'currency',
                   currency:
                     DB.settings.currency ||
                     'COP',
-
-                  maximumFractionDigits:
-                    0
+                  maximumFractionDigits:0
                 }
               ).format(
                 totalVal
@@ -3087,15 +3178,497 @@ function attachSheetFieldSync() {
 }
 
 
-/* ========================================================================
-   COMPRESIÓN DE IMAGEN
-   ======================================================================== */
+function refreshInvoiceItemsUI(){
+
+  const container =
+    document.getElementById(
+      'inv-items-list'
+    );
+
+  if (
+    container
+  ){
+
+    container.innerHTML =
+      renderInvoiceItemsHTML(
+        sheet
+      );
+  }
+
+
+  const totalEl =
+    document.getElementById(
+      'inv-total-val'
+    );
+
+  if (
+    totalEl
+  ){
+
+    totalEl.textContent =
+      new Intl.NumberFormat(
+        'es-CO',
+        {
+          style:'currency',
+          currency:
+            DB.settings.currency ||
+            'COP',
+          maximumFractionDigits:0
+        }
+      ).format(
+        sheet.items.reduce(
+          (s,it) =>
+            s +
+            (
+              Number(it.price) ||
+              0
+            ),
+          0
+        )
+      );
+  }
+}
+
+
+function saveInvoiceSheet(){
+
+  if (
+    !sheet
+  ){
+
+    return;
+  }
+
+
+  const items =
+    sheet.items
+      .filter(
+        it =>
+          it.name.trim() &&
+          Number(it.price) > 0
+      )
+      .map(
+        it => ({
+          id:
+            it.id ||
+            uid(),
+
+          name:
+            it.name
+              .trim()
+              .slice(0,60),
+
+          price:
+            Number(it.price)
+        })
+      );
+
+
+  if (
+    !items.length
+  ){
+
+    return;
+  }
+
+
+  const total =
+    items.reduce(
+      (s,it) =>
+        s +
+        it.price,
+      0
+    );
+
+
+  const invoice = {
+
+    id:
+      sheet.id ||
+      uid(),
+
+    title:
+      (
+        sheet.title ||
+        ''
+      ).trim() ||
+      (
+        'Factura ' +
+        (
+          sheet.date ||
+          todayStr()
+        )
+      ),
+
+    date:
+      sheet.date ||
+      todayStr(),
+
+    items,
+
+    total,
+
+    registered:
+      !!sheet.registered,
+
+    categoryId:
+      sheet.categoryId ||
+      null,
+
+    txId:
+      sheet.txId ||
+      null
+  };
+
+
+  if (
+    !DB.invoices
+  ){
+
+    DB.invoices = [];
+  }
+
+
+  const exists =
+    DB.invoices.some(
+      i =>
+        i.id ===
+        invoice.id
+    );
+
+
+  DB.invoices =
+    exists
+      ? DB.invoices.map(
+          i =>
+            i.id ===
+              invoice.id
+              ? invoice
+              : i
+        )
+      : DB.invoices.concat([
+          invoice
+        ]);
+
+
+  saveDB();
+
+  safeSync();
+
+  sheet =
+    null;
+
+  renderAppContent();
+}
+
+
+function deleteInvoice(id){
+
+  DB.invoices =
+    (
+      DB.invoices ||
+      []
+    ).filter(
+      i =>
+        i.id !==
+        id
+    );
+
+  saveDB();
+
+  safeSync();
+
+  sheet =
+    null;
+
+  confirmState =
+    null;
+
+  renderAppContent();
+}
+
+
+function exportBackup(){
+
+  const blob =
+    new Blob(
+      [
+        JSON.stringify(
+          DB,
+          null,
+          2
+        )
+      ],
+      {
+        type:
+          'application/json'
+      }
+    );
+
+  const url =
+    URL.createObjectURL(
+      blob
+    );
+
+  const a =
+    document.createElement(
+      'a'
+    );
+
+  a.href =
+    url;
+
+  a.download =
+    'finanzas-backup-' +
+    todayStr() +
+    '.json';
+
+  document.body.appendChild(
+    a
+  );
+
+  a.click();
+
+  document.body.removeChild(
+    a
+  );
+
+  URL.revokeObjectURL(
+    url
+  );
+}
+
+
+function importBackupFile(
+  file
+){
+
+  const reader =
+    new FileReader();
+
+
+  reader.onload =
+    e => {
+
+      try {
+
+        const parsed =
+          JSON.parse(
+            e.target.result
+          );
+
+        if (
+          !parsed ||
+          !Array.isArray(
+            parsed.transactions
+          ) ||
+          !Array.isArray(
+            parsed.categories
+          )
+        ){
+
+          throw new Error(
+            'formato inválido'
+          );
+        }
+
+
+        DB.transactions =
+          (
+            parsed.transactions ||
+            []
+          ).map(
+            t => ({
+              ...t,
+              amount:
+                Number(t.amount) ||
+                0
+            })
+          );
+
+
+        DB.categories =
+          parsed.categories;
+
+
+        DB.credits =
+          (
+            parsed.credits ||
+            []
+          ).map(
+            c => ({
+              ...c,
+              total:
+                Number(c.total) ||
+                0,
+              payments:
+                (
+                  c.payments ||
+                  []
+                ).map(
+                  p => ({
+                    ...p,
+                    amount:
+                      Number(p.amount) ||
+                      0
+                  })
+                )
+            })
+          );
+
+
+        DB.invoices =
+          (
+            parsed.invoices ||
+            []
+          ).map(
+            inv => ({
+              ...inv,
+              total:
+                Number(inv.total) ||
+                0,
+              items:
+                (
+                  inv.items ||
+                  []
+                ).map(
+                  it => ({
+                    ...it,
+                    price:
+                      Number(it.price) ||
+                      0
+                  })
+                )
+            })
+          );
+
+
+        DB.settings =
+          parsed.settings ||
+          {
+            currency:'COP'
+          };
+
+
+        saveDB();
+
+        safeSync();
+
+        renderAppContent();
+
+      } catch(err){
+
+        alert(
+          'Copia de seguridad no válida.'
+        );
+      }
+    };
+
+
+  reader.readAsText(
+    file
+  );
+}
+
+
+document.addEventListener(
+  'change',
+  e => {
+
+    if (
+      e.target.id ===
+      'import-file' &&
+      e.target.files[0]
+    ){
+
+      importBackupFile(
+        e.target.files[0]
+      );
+    }
+
+
+    if (
+      e.target.id ===
+      'global-camera-input' &&
+      e.target.files[0]
+    ){
+
+      const file =
+        e.target.files[0];
+
+      scanningOverlay = {
+        message:
+          'Optimizando y analizando factura con IA...'
+      };
+
+      renderOverlays();
+
+
+      compressImage(
+        file
+      )
+      .then(
+        result =>
+          API.scanInvoiceViaProxy(
+            result.base64,
+            result.mimeType
+          )
+      )
+      .then(
+        items => {
+
+          scanningOverlay =
+            null;
+
+          sheet = {
+            kind:'invoice',
+            mode:'new',
+            id:null,
+            title:
+              'Factura ' +
+              todayStr(),
+            date:
+              todayStr(),
+            items:
+              items.length
+                ? items
+                : [
+                    {
+                      id:uid(),
+                      name:'',
+                      price:''
+                    }
+                  ],
+            registered:false
+          };
+
+          renderOverlays();
+        }
+      )
+      .catch(
+        error => {
+
+          scanningOverlay =
+            null;
+
+          renderOverlays();
+
+          alert(
+            error.message ||
+            'No se pudo procesar la factura.'
+          );
+        }
+      );
+    }
+  }
+);
+
 
 function compressImage(
   file,
   maxWidth = 800,
   quality = 0.7
-) {
+){
 
   return new Promise(
     resolve => {
@@ -3130,11 +3703,10 @@ function compressImage(
               let height =
                 img.height;
 
-
               if (
                 width >
                 maxWidth
-              ) {
+              ){
 
                 height =
                   Math.round(
@@ -3149,13 +3721,11 @@ function compressImage(
                   maxWidth;
               }
 
-
               canvas.width =
                 width;
 
               canvas.height =
                 height;
-
 
               const ctx =
                 canvas.getContext(
@@ -3170,24 +3740,20 @@ function compressImage(
                 height
               );
 
-
               const dataUrl =
                 canvas.toDataURL(
                   'image/jpeg',
                   quality
                 );
 
-
               const match =
                 dataUrl.match(
                   /^data:([^;]+);base64,(.*)$/
                 );
 
-
               resolve({
                 mimeType:
                   match[1],
-
                 base64:
                   match[2]
               });
@@ -3197,112 +3763,5 @@ function compressImage(
   );
 }
 
-
-/* ========================================================================
-   ESCANEO DE FACTURAS
-   ======================================================================== */
-
-document.addEventListener(
-  'change',
-  e => {
-
-    if (
-      e.target.id ===
-      'global-camera-input' &&
-      e.target.files[0]
-    ) {
-
-      const file =
-        e.target.files[0];
-
-      scanningOverlay = {
-        message:
-          'Optimizando y analizando factura con IA...'
-      };
-
-      renderOverlays();
-
-
-      compressImage(
-        file,
-        800,
-        0.7
-      )
-      .then(
-        async ({
-          base64,
-          mimeType
-        }) => {
-
-          try {
-
-            const items =
-              API.scanInvoiceViaProxy
-                ? await API.scanInvoiceViaProxy(
-                    base64,
-                    mimeType
-                  )
-                : [];
-
-
-            scanningOverlay =
-              null;
-
-
-            sheet = {
-
-              kind: 'invoice',
-
-              mode: 'new',
-
-              id: null,
-
-              title:
-                'Factura ' +
-                todayStr(),
-
-              date:
-                todayStr(),
-
-              items:
-                items.length
-                  ? items
-                  : [
-                      {
-                        id: uid(),
-                        name: '',
-                        price: ''
-                      }
-                    ],
-
-              registered:
-                false
-            };
-
-
-            renderOverlays();
-
-          } catch (err) {
-
-            scanningOverlay =
-              null;
-
-            renderOverlays();
-
-            alert(
-              err.message ||
-              'Error al procesar la factura.'
-            );
-          }
-        }
-      );
-    }
-  }
-);
-
-
-/* ========================================================================
-   ARRANQUE
-   ======================================================================== */
 
 render();
