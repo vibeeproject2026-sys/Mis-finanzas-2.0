@@ -885,8 +885,7 @@ function renderAppContent(){
 
       if (id === 'center'){
 
-        return
-          '<div class="center-fab-container">' +
+        return '<div class="center-fab-container">' +
           '<button class="fab-center" data-action="toggle-fab-menu">' +
           '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' +
           '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">' +
@@ -897,8 +896,7 @@ function renderAppContent(){
           '</div>';
       }
 
-      return
-        '<button class="tab-btn ' +
+      return '<button class="tab-btn ' +
         (
           UI.tab === id
             ? 'active'
