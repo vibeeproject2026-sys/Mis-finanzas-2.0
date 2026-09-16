@@ -43,7 +43,7 @@ export function render(){
             <div class="card" style="width:100%;max-width:380px;padding:32px 24px;text-align:center;">
               <div style="font-size:36px;margin-bottom:12px;">☁️</div>
               <h2 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;">Terminal Cloud</h2>
-              <p style="font-size:13px;color:var(--ink-muted);margin-bottom:24px;">Gestión financiera para negocios</p>
+              <p style="font-size:13px;color:var(--ink-muted);margin-bottom:24px;">Gestión financiera en la nube</p>
               
               <div class="field" style="text-align:left;margin-bottom:14px;">
                 <div class="field-label">Correo electrónico</div>
@@ -68,15 +68,14 @@ export function render(){
       return;
     }
 
-    // DESCARGA INTELIGENTE: Si ya hay sesión, dibujamos la app rápido y buscamos en la nube
     if (!window.hasLoadedCloudData) {
       window.hasLoadedCloudData = true;
       if (API.fetchUserData) {
         API.fetchUserData(token, userId).then(cloudDB => {
           if (cloudDB) {
-            Object.assign(DB, cloudDB); // Mezclamos la info de la nube
+            Object.assign(DB, cloudDB);
             saveDB();
-            renderAppContent(); // Refrescamos pantalla con los datos nuevos
+            renderAppContent();
           }
         });
       }
@@ -107,7 +106,7 @@ function attachAuthEvents(){
       const data = await API.signInUser(email, password);
       localStorage.setItem('supabase_token', data.access_token);
       localStorage.setItem('supabase_user_id', data.user.id);
-      window.hasLoadedCloudData = false; // Forzar descarga
+      window.hasLoadedCloudData = false;
       render();
     } catch (err) {
       if (errorDiv) errorDiv.textContent = err.message;
@@ -138,7 +137,6 @@ function attachAuthEvents(){
 function renderAppContent(){
   const viewEl = document.getElementById('view');
   if (viewEl) {
-    // Aquí inyectamos el botón de cerrar sesión debajo de los ajustes
     viewEl.innerHTML =
       '<div class="hero"><div class="hero-content">' +
       '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
@@ -237,18 +235,16 @@ document.addEventListener('click',(e)=>{
   if(!t) return;
   const action = t.dataset.action;
 
-  // NUEVO: SISTEMA DE CERRAR SESIÓN
   if(action==='logout'){
     confirmState={message:'¿Seguro que quieres cerrar sesión?', onConfirm:()=>{
       localStorage.removeItem('supabase_token');
       localStorage.removeItem('supabase_user_id');
       window.hasLoadedCloudData = false;
-      // Vaciamos la BD local para que el siguiente usuario no vea nada ajeno
       Object.assign(DB, {transactions:[], categories:DEFAULT_CATEGORIES.slice(), credits:[], invoices:[], settings:{currency:'COP'}});
       saveDB(); 
       UI.tab = 'dashboard';
       confirmState=null; 
-      render(); // Nos devuelve al login
+      render(); 
     }};
     renderOverlays(); return;
   }
@@ -283,9 +279,10 @@ document.addEventListener('click',(e)=>{
     sheet = {kind:'quick', categoryId:t.dataset.id, amount:'', note:'', date:todayStr(), showNote:false, showDate:false};
     renderOverlays(); return;
   }
-  if(action==='show-note'){ sheet.showNote=true; renderOverlays(); return; }
-  if(action==='show-date'){ sheet.showDate=true; renderOverlays(); return; }
+  if(action==='show-note'){ if(!sheet) return; sheet.showNote=true; renderOverlays(); return; }
+  if(action==='show-date'){ if(!sheet) return; sheet.showDate=true; renderOverlays(); return; }
   if(action==='save-quick'){
+    if(!sheet) return;
     const amt = Number(sheet.amount);
     if(amt > 0){ 
       DB.transactions.push({id:uid(), type:'expense', amount:amt, categoryId:sheet.categoryId, date:todayStr(), note:(sheet.note||'').trim()}); 
@@ -296,17 +293,20 @@ document.addEventListener('click',(e)=>{
     return;
   }
   if(action==='tx-type'){
+    if(!sheet) return;
     sheet.type = t.dataset.type;
     sheet.categoryId = (DB.categories.find(c=>c.type===sheet.type)||{}).id || '';
     renderOverlays(); return;
   }
   if(action==='pick-tx-cat'){
+    if(!sheet) return;
     sheet.categoryId = t.dataset.id;
     const chipContainer = document.getElementById('chipList');
     if(chipContainer) chipContainer.innerHTML = renderTxCatChips(DB.categories.filter(c => c.type === sheet.type), sheet.categoryId);
     return;
   }
   if(action==='save-tx'){
+    if(!sheet) return;
     const amt = Number(sheet.amount);
     if(amt > 0 && sheet.categoryId){
       const tx = {id:sheet.id||uid(), type:sheet.type, amount:amt, categoryId:sheet.categoryId, date:sheet.date||todayStr(), note:(sheet.note||'').trim()};
@@ -318,7 +318,7 @@ document.addEventListener('click',(e)=>{
     }
     return;
   }
-  if(action==='delete-tx'){ confirmState={message:'¿Eliminar este movimiento?', onConfirm:()=>{ DB.transactions=DB.transactions.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
+  if(action==='delete-tx'){ if(!sheet) return; confirmState={message:'¿Eliminar este movimiento?', onConfirm:()=>{ DB.transactions=DB.transactions.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
   if(action==='new-cat'){ sheet={kind:'cat',mode:'new',id:null,name:'',type:'expense',color:'#06B6D4',icon:'food',budget:'',primary:false,isFixed:false}; renderOverlays(); return; }
   if(action==='edit-cat'){
@@ -327,17 +327,19 @@ document.addEventListener('click',(e)=>{
     return;
   }
   if(action==='cat-type'){
+    if(!sheet) return;
     sheet.type = t.dataset.type;
     document.getElementById('budgetField').style.display = sheet.type==='expense'?'block':'none';
     document.getElementById('primaryField').style.display = sheet.type==='income'?'block':'none';
     document.getElementById('fixedField').style.display = sheet.type==='expense'?'block':'none';
     return;
   }
-  if(action==='toggle-primary'){ sheet.primary=!sheet.primary; document.getElementById('primarySwitch').classList.toggle('on',sheet.primary); return; }
-  if(action==='toggle-fixed'){ sheet.isFixed=!sheet.isFixed; document.getElementById('fixedSwitch').classList.toggle('on-violet',sheet.isFixed); return; }
-  if(action==='pick-color'){ sheet.color=t.dataset.color; document.querySelectorAll('#swatchList .swatch').forEach(s=>s.classList.toggle('selected',s.dataset.color===sheet.color)); return; }
-  if(action==='pick-icon'){ sheet.icon=t.dataset.icon; document.querySelectorAll('#iconList .emoji-btn').forEach(b=>b.classList.toggle('selected',b.dataset.icon===sheet.icon)); return; }
+  if(action==='toggle-primary'){ if(!sheet) return; sheet.primary=!sheet.primary; document.getElementById('primarySwitch').classList.toggle('on',sheet.primary); return; }
+  if(action==='toggle-fixed'){ if(!sheet) return; sheet.isFixed=!sheet.isFixed; document.getElementById('fixedSwitch').classList.toggle('on-violet',sheet.isFixed); return; }
+  if(action==='pick-color'){ if(!sheet) return; sheet.color=t.dataset.color; document.querySelectorAll('#swatchList .swatch').forEach(s=>s.classList.toggle('selected',s.dataset.color===sheet.color)); return; }
+  if(action==='pick-icon'){ if(!sheet) return; sheet.icon=t.dataset.icon; document.querySelectorAll('#iconList .emoji-btn').forEach(b=>b.classList.toggle('selected',b.dataset.icon===sheet.icon)); return; }
   if(action==='save-cat'){
+    if(!sheet) return;
     if(sheet.name.trim()){
       const cat={id:sheet.id||uid(), name:sheet.name.trim(), type:sheet.type, color:sheet.color, icon:sheet.icon, budget:sheet.type==='expense'&&sheet.budget?Number(sheet.budget):null, primary:sheet.type==='income'?!!sheet.primary:false, isFixed:sheet.type==='expense'?!!sheet.isFixed:false};
       const exists=DB.categories.some(x=>x.id===cat.id);
@@ -348,12 +350,13 @@ document.addEventListener('click',(e)=>{
     }
     return;
   }
-  if(action==='delete-cat'){ confirmState={message:'¿Eliminar categoría?', onConfirm:()=>{ DB.categories=DB.categories.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
+  if(action==='delete-cat'){ if(!sheet) return; confirmState={message:'¿Eliminar categoría?', onConfirm:()=>{ DB.categories=DB.categories.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
   if(action==='new-credit'){ sheet={kind:'credit', mode:'new', id:null, title:'', type:UI.creditFilter||'against', total:''}; renderOverlays(); return; }
   if(action==='edit-credit'){ const c=DB.credits.find(x=>x.id===t.dataset.id); if(c){ sheet={kind:'credit', mode:'edit', id:c.id, title:c.title, type:c.type, total:String(c.total)}; renderOverlays(); } return; }
-  if(action==='credit-type'){ sheet.type=t.dataset.type; renderOverlays(); return; }
+  if(action==='credit-type'){ if(!sheet) return; sheet.type=t.dataset.type; renderOverlays(); return; }
   if(action==='save-credit'){
+    if(!sheet) return;
     const tot = Number(sheet.total);
     if(sheet.title.trim() && tot > 0){
       if(!DB.credits) DB.credits=[];
@@ -366,7 +369,7 @@ document.addEventListener('click',(e)=>{
     }
     return;
   }
-  if(action==='delete-credit'){ confirmState={message:'¿Eliminar crédito?', onConfirm:()=>{ DB.credits=DB.credits.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
+  if(action==='delete-credit'){ if(!sheet) return; confirmState={message:'¿Eliminar crédito?', onConfirm:()=>{ DB.credits=DB.credits.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
   if(action==='new-payment'){ sheet={kind:'payment', mode:'new', creditId:t.dataset.id, paymentId:null, amount:'', date:todayStr(), note:''}; renderOverlays(); return; }
   if(action==='edit-payment'){
@@ -375,6 +378,7 @@ document.addEventListener('click',(e)=>{
     return;
   }
   if(action==='save-payment'){
+    if(!sheet) return;
     const amt=Number(sheet.amount);
     if(amt>0){
       const pay={id:sheet.paymentId||uid(), amount:amt, date:sheet.date||todayStr(), note:(sheet.note||'').trim()};
@@ -405,9 +409,10 @@ document.addEventListener('click',(e)=>{
     if(inv){ sheet={kind:'tx', mode:'new', id:null, type:'expense', categoryId:(DB.categories.find(c=>c.type==='expense')||{}).id||'', amount:String(inv.total), date:inv.date||todayStr(), note:inv.title||'', sourceInvoiceId:inv.id}; renderOverlays(); }
     return;
   }
-  if(action==='add-invoice-item'){ sheet.items.push({id:uid(), name:'', price:''}); document.getElementById('inv-items-list').innerHTML=renderInvoiceItemsHTML(sheet); return; }
-  if(action==='remove-invoice-item'){ sheet.items.splice(Number(t.dataset.idx),1); if(!sheet.items.length) sheet.items.push({id:uid(), name:'', price:''}); document.getElementById('inv-items-list').innerHTML=renderInvoiceItemsHTML(sheet); return; }
+  if(action==='add-invoice-item'){ if(!sheet) return; sheet.items.push({id:uid(), name:'', price:''}); document.getElementById('inv-items-list').innerHTML=renderInvoiceItemsHTML(sheet); return; }
+  if(action==='remove-invoice-item'){ if(!sheet) return; sheet.items.splice(Number(t.dataset.idx),1); if(!sheet.items.length) sheet.items.push({id:uid(), name:'', price:''}); document.getElementById('inv-items-list').innerHTML=renderInvoiceItemsHTML(sheet); return; }
   if(action==='save-invoice'){
+    if(!sheet) return;
     const items = sheet.items.filter(it=>it.name.trim()&&Number(it.price)>0).map(it=>({id:it.id||uid(), name:it.name.trim().slice(0,60), price:Number(it.price)}));
     if(items.length){
       const total = items.reduce((s,it)=>s+it.price,0);
@@ -421,28 +426,20 @@ document.addEventListener('click',(e)=>{
     }
     return;
   }
-  if(action==='delete-invoice'){ confirmState={message:'¿Eliminar factura?', onConfirm:()=>{ DB.invoices=DB.invoices.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
+  if(action==='delete-invoice'){ if(!sheet) return; confirmState={message:'¿Eliminar factura?', onConfirm:()=>{ DB.invoices=DB.invoices.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
   if(action==='close-sheet'){ sheet=null; renderOverlays(); return; }
   if(action==='cancel-confirm'){ confirmState=null; renderOverlays(); return; }
-  if(action==='confirm-ok'){ const fn=confirmState.onConfirm; confirmState=null; fn(); return; }
+  if(action==='confirm-ok'){ 
+    if(!confirmState) return; 
+    const fn=confirmState.onConfirm; 
+    confirmState=null; 
+    fn(); 
+    return; 
+  }
 
   if(action==='set-currency'){ DB.settings.currency=t.dataset.code; saveDB(); safeSync(); renderAppContent(); return; }
-  if(action==='export-backup'){
-    const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
-    const url=URL.createObjectURL(blob), a=document.createElement('a');
-    a.href=url; a.download='finanzas-backup-'+todayStr()+'.json';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-    return;
-  }
-  if(action==='import-backup'){ document.getElementById('import-file').click(); return; }
-  if(action==='reset-data'){
-    confirmState={message:'¿Borrar todos los datos?', onConfirm:()=>{
-      DB={transactions:[], categories:DEFAULT_CATEGORIES.slice(), credits:[], invoices:[], settings:{currency:DB.settings.currency, geminiApiKey:DB.settings.geminiApiKey}};
-      saveDB(); safeSync(); confirmState=null; renderAppContent();
-    }};
-    renderOverlays(); return;
-  }
+  // (Botones locales de backup eliminados para orientar la app 100% a la nube SaaS)
 });
 
 function attachSheetFieldSync(){
@@ -485,39 +482,51 @@ function attachSheetFieldSync(){
   }
 }
 
-document.addEventListener('change',(e)=>{
-  if(e.target.id==='import-file'&&e.target.files[0]){
-    const reader=new FileReader();
-    reader.onload=(evt)=>{
-      try{
-        const parsed=JSON.parse(evt.target.result);
-        if(!parsed||!Array.isArray(parsed.transactions)||!Array.isArray(parsed.categories)) throw new Error();
-        DB={transactions:parsed.transactions, categories:parsed.categories, credits:parsed.credits||[], invoices:parsed.invoices||[], settings:parsed.settings||{currency:'COP'}};
-        saveDB(); 
-        safeSync();
-        renderAppContent();
-      }catch(err){alert('Copia no válida.');}
+// FUNCIÓN PARA COMPRIMIR IMÁGENES AL VUELO ANTES DE ENVIARLAS A GEMINI (SUPER RÁPIDO)
+function compressImage(file, maxWidth = 800, quality = 0.7) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+        resolve({ mimeType: match[1], base64: match[2] });
+      };
     };
-    reader.readAsText(e.target.files[0]);
-  }
+  });
+}
+
+document.addEventListener('change',(e)=>{
   if(e.target.id==='global-camera-input'&&e.target.files[0]){
     const file = e.target.files[0];
-    scanningOverlay = {message:'Analizando factura con IA...'};
+    scanningOverlay = {message:'Optimizando y analizando factura con IA...'};
     renderOverlays();
-    const reader = new FileReader();
-    reader.onload = async () => {
+    
+    // Comprimimos la imagen localmente para que suba en un par de segundos exactos
+    compressImage(file, 800, 0.7).then(async ({ base64, mimeType }) => {
       try {
-        const dataUrl = reader.result;
-        const match = String(dataUrl).match(/^data:([^;]+);base64,(.*)$/);
-        const items = (API.scanInvoiceViaProxy) ? await API.scanInvoiceViaProxy(match[2], match[1]) : [];
+        const items = (API.scanInvoiceViaProxy) ? await API.scanInvoiceViaProxy(base64, mimeType) : [];
         scanningOverlay = null;
         sheet = {kind:'invoice', mode:'new', id:null, title:'Factura '+todayStr(), date:todayStr(), items:items.length?items:[{id:uid(), name:'', price:''}], registered:false};
         renderOverlays();
       } catch(err){
-        scanningOverlay = null; renderOverlays(); alert(err.message || 'Error al procesar la imagen.');
+        scanningOverlay = null; renderOverlays(); alert(err.message || 'Error al procesar la factura.');
       }
-    };
-    reader.readAsDataURL(file);
+    });
   }
 });
 
