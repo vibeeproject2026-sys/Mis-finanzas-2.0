@@ -2,23 +2,12 @@ window.onerror = function(msg, url, line) {
   document.body.innerHTML =
     '<div style="padding:40px; color:#ff4444; background:#111; height:100vh; text-align:center;">' +
     '<h2>⚠️ Error de Código</h2>' +
-    '<p>' +
-    msg +
-    '</p>' +
-    '<p>Línea: ' +
-    line +
-    '</p>' +
+    '<p>' + msg + '</p>' +
+    '<p>Línea: ' + line + '</p>' +
     '</div>';
 };
 
-
-import {
-  DB,
-  saveDB,
-  todayStr,
-  DEFAULT_CATEGORIES
-} from './state.js';
-
+import { DB, saveDB, todayStr, DEFAULT_CATEGORIES } from './state.js';
 
 import {
   renderDashboard,
@@ -38,66 +27,53 @@ import {
   renderScanningOverlay,
   filteredTx,
   renderTxRow,
+  renderInvoiceItemsHTML,
   renderTxCatChips,
   formatThousandInput,
   parseFormattedNumber
 } from './ui.js';
 
-
 import * as API from './api.js';
 
-
 let UI = {
-  tab:'dashboard',
-  txFilter:'all',
-  creditFilter:'against',
-  search:'',
-  openInvoiceId:null,
-  fabMenuOpen:false
+  tab: 'dashboard',
+  txFilter: 'all',
+  creditFilter: 'against',
+  search: '',
+  openInvoiceId: null,
+  fabMenuOpen: false
 };
-
 
 let sheet = null;
 let confirmState = null;
 let scanningOverlay = null;
 
-
 const uid = () =>
   Date.now().toString(36) +
-  Math.random()
-    .toString(36)
-    .slice(2,8);
+  Math.random().toString(36).slice(2, 8);
 
+
+/* ==========================================================
+   SINCRONIZACIÓN SEGURA
+   ========================================================== */
 
 const safeSync = () => {
-
   try {
-
-    const token =
-      localStorage.getItem(
-        'supabase_token'
-      );
-
-    const userId =
-      localStorage.getItem(
-        'supabase_user_id'
-      );
+    const token = localStorage.getItem('supabase_token');
+    const userId = localStorage.getItem('supabase_user_id');
 
     if (
       API.syncWithSupabase &&
       token &&
       userId
-    ){
-
+    ) {
       return API.syncWithSupabase(
         token,
         userId,
         DB
       );
     }
-
-  } catch(e){
-
+  } catch (e) {
     console.error(
       'Error preparando sincronización:',
       e
@@ -105,83 +81,110 @@ const safeSync = () => {
   }
 
   return Promise.resolve({
-    ok:false,
-    skipped:true
+    ok: false,
+    skipped: true
   });
 };
 
 
-export function render(){
+/* ==========================================================
+   RENDER PRINCIPAL
+   ========================================================== */
 
+export function render() {
   try {
-
     let token = null;
     let userId = null;
 
     try {
+      token = localStorage.getItem(
+        'supabase_token'
+      );
 
-      token =
-        localStorage.getItem(
-          'supabase_token'
-        );
-
-      userId =
-        localStorage.getItem(
-          'supabase_user_id'
-        );
-
-    } catch(e){
-
+      userId = localStorage.getItem(
+        'supabase_user_id'
+      );
+    } catch (e) {
       console.warn(
         'Modo privado estricto'
       );
     }
 
-
     const viewEl =
-      document.getElementById(
-        'view'
-      );
+      document.getElementById('view');
 
     const tabbarEl =
-      document.getElementById(
-        'tabbar'
-      );
+      document.getElementById('tabbar');
 
 
-    if (
-      !token ||
-      !userId
-    ){
+    /* --------------------------------------------------------
+       AUTENTICACIÓN
+       -------------------------------------------------------- */
 
-      if (
-        viewEl
-      ){
+    if (!token || !userId) {
+
+      if (viewEl) {
 
         viewEl.innerHTML = `
           <div style="display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:75vh;">
             <div class="card" style="width:100%;max-width:380px;padding:32px 24px;text-align:center;">
-              <div style="font-size:36px;margin-bottom:12px;">☁️</div>
-              <h2 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;">Terminal Cloud</h2>
-              <p style="font-size:13px;color:var(--ink-muted);margin-bottom:24px;">Gestión financiera en la nube</p>
+
+              <div style="font-size:36px;margin-bottom:12px;">
+                ☁️
+              </div>
+
+              <h2 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;">
+                Terminal Cloud
+              </h2>
+
+              <p style="font-size:13px;color:var(--ink-muted);margin-bottom:24px;">
+                Gestión financiera en la nube
+              </p>
 
               <div class="field" style="text-align:left;margin-bottom:14px;">
-                <div class="field-label">Correo electrónico</div>
-                <input id="auth-email" type="email" placeholder="usuario@correo.com" style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;">
+                <div class="field-label">
+                  Correo electrónico
+                </div>
+
+                <input
+                  id="auth-email"
+                  type="email"
+                  placeholder="usuario@correo.com"
+                  style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;"
+                >
               </div>
 
               <div class="field" style="text-align:left;margin-bottom:16px;">
-                <div class="field-label">Contraseña</div>
-                <input id="auth-password" type="password" placeholder="••••••••" style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;">
+                <div class="field-label">
+                  Contraseña
+                </div>
+
+                <input
+                  id="auth-password"
+                  type="password"
+                  placeholder="••••••••"
+                  style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;"
+                >
               </div>
 
-              <div id="auth-error" style="color:var(--expense);font-size:13px;margin-bottom:14px;min-height:16px;"></div>
+              <div
+                id="auth-error"
+                style="color:var(--expense);font-size:13px;margin-bottom:14px;min-height:16px;"
+              ></div>
 
-              <button class="save-btn" id="btn-login" style="width:100%;margin-bottom:10px;padding:14px;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;border:none;cursor:pointer;">
+              <button
+                class="save-btn"
+                id="btn-login"
+                style="width:100%;margin-bottom:10px;padding:14px;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;border:none;cursor:pointer;"
+              >
                 Iniciar Sesión
               </button>
 
-              <button class="secondary-btn" id="btn-signup" style="width:100%;padding:14px;border-radius:12px;background:transparent;border:1px solid var(--border);color:#fff;font-weight:600;cursor:pointer;">
+              <button
+                class="secondary-btn"
+                id="btn-signup"
+                style="width:100%;padding:14px;border-radius:12px;background:transparent;border:1px solid var(--border);color:#fff;font-weight:600;cursor:pointer;"
+              >
                 Crear Cuenta Nueva
               </button>
 
@@ -190,12 +193,8 @@ export function render(){
         `;
       }
 
-      if (
-        tabbarEl
-      ){
-
-        tabbarEl.innerHTML =
-          '';
+      if (tabbarEl) {
+        tabbarEl.innerHTML = '';
       }
 
       setTimeout(
@@ -207,49 +206,104 @@ export function render(){
     }
 
 
-    if (
-      !window.hasLoadedCloudData
-    ){
+    /* --------------------------------------------------------
+       CARGA DE DATOS DE LA NUBE
+       -------------------------------------------------------- */
 
-      window.hasLoadedCloudData =
-        true;
+    if (!window.hasLoadedCloudData) {
 
-      if (
-        API.fetchUserData
-      ){
+      window.hasLoadedCloudData = true;
+
+      if (API.fetchUserData) {
 
         API.fetchUserData(
           token,
           userId
         )
-        .then(
-          cloudDB => {
+        .then(cloudDB => {
 
-            if (
-              cloudDB
-            ){
-
-              Object.assign(
-                DB,
-                cloudDB
-              );
-
-              saveDB();
-
-              renderAppContent();
-            }
+          if (
+            !cloudDB ||
+            typeof cloudDB !== 'object'
+          ) {
+            return;
           }
-        );
+
+          /*
+           * Solo sustituimos colecciones que realmente
+           * existan en la respuesta.
+           * Esto evita dejar DB incompleta.
+           */
+
+          if (
+            Array.isArray(
+              cloudDB.transactions
+            )
+          ) {
+            DB.transactions =
+              cloudDB.transactions;
+          }
+
+          if (
+            Array.isArray(
+              cloudDB.categories
+            )
+          ) {
+            DB.categories =
+              cloudDB.categories;
+          }
+
+          if (
+            Array.isArray(
+              cloudDB.credits
+            )
+          ) {
+            DB.credits =
+              cloudDB.credits;
+          }
+
+          if (
+            Array.isArray(
+              cloudDB.invoices
+            )
+          ) {
+            DB.invoices =
+              cloudDB.invoices;
+          }
+
+          if (
+            cloudDB.settings &&
+            typeof cloudDB.settings === 'object'
+          ) {
+            DB.settings = {
+              ...DB.settings,
+              ...cloudDB.settings
+            };
+          }
+
+          saveDB();
+
+          renderAppContent();
+
+        })
+        .catch(err => {
+
+          console.error(
+            'Error cargando datos de la nube:',
+            err
+          );
+
+        });
       }
     }
 
 
     renderAppContent();
 
-  } catch(err){
+  } catch (err) {
 
     document.body.innerHTML =
-      '<div style="padding:40px; color:#ff4444; background:#111; height:100vh;">' +
+      '<div style="padding:40px;color:#ff4444;background:#111;height:100vh;">' +
       '<h2>Error visual</h2>' +
       '<p>' +
       err.message +
@@ -259,7 +313,11 @@ export function render(){
 }
 
 
-function attachAuthEvents(){
+/* ==========================================================
+   AUTENTICACIÓN
+   ========================================================== */
+
+function attachAuthEvents() {
 
   const emailInput =
     document.getElementById(
@@ -306,12 +364,9 @@ function attachAuthEvents(){
         if (
           !email ||
           !password
-        ){
+        ) {
 
-          if (
-            errorDiv
-          ){
-
+          if (errorDiv) {
             errorDiv.textContent =
               'Completa todos los campos.';
           }
@@ -319,10 +374,7 @@ function attachAuthEvents(){
           return;
         }
 
-        if (
-          errorDiv
-        ){
-
+        if (errorDiv) {
           errorDiv.textContent =
             'Iniciando sesión...';
         }
@@ -331,8 +383,7 @@ function attachAuthEvents(){
 
           if (
             !API.signInUser
-          ){
-
+          ) {
             throw new Error(
               'Faltan funciones de API.'
             );
@@ -359,12 +410,9 @@ function attachAuthEvents(){
 
           render();
 
-        } catch(err){
+        } catch (err) {
 
-          if (
-            errorDiv
-          ){
-
+          if (errorDiv) {
             errorDiv.textContent =
               err.message;
           }
@@ -389,12 +437,9 @@ function attachAuthEvents(){
         if (
           !email ||
           !password
-        ){
+        ) {
 
-          if (
-            errorDiv
-          ){
-
+          if (errorDiv) {
             errorDiv.textContent =
               'Completa todos los campos.';
           }
@@ -402,10 +447,7 @@ function attachAuthEvents(){
           return;
         }
 
-        if (
-          errorDiv
-        ){
-
+        if (errorDiv) {
           errorDiv.textContent =
             'Registrando cuenta...';
         }
@@ -414,8 +456,7 @@ function attachAuthEvents(){
 
           if (
             !API.signUpUser
-          ){
-
+          ) {
             throw new Error(
               'Faltan funciones de API.'
             );
@@ -429,7 +470,7 @@ function attachAuthEvents(){
 
           if (
             data.access_token
-          ){
+          ) {
 
             localStorage.setItem(
               'supabase_token',
@@ -448,21 +489,15 @@ function attachAuthEvents(){
 
           } else {
 
-            if (
-              errorDiv
-            ){
-
+            if (errorDiv) {
               errorDiv.textContent =
                 '¡Cuenta creada con éxito! Inicia sesión ahora.';
             }
           }
 
-        } catch(err){
+        } catch (err) {
 
-          if (
-            errorDiv
-          ){
-
+          if (errorDiv) {
             errorDiv.textContent =
               err.message;
           }
@@ -472,149 +507,218 @@ function attachAuthEvents(){
 }
 
 
-function renderAppContent(){
+/* ==========================================================
+   CONTENIDO PRINCIPAL
+   ========================================================== */
+
+function renderAppContent() {
 
   const viewEl =
     document.getElementById(
       'view'
     );
 
+  if (viewEl) {
 
-  if (
-    viewEl
-  ){
+    try {
 
-    viewEl.innerHTML =
-      '<div class="hero"><div class="hero-content">' +
+      viewEl.innerHTML =
+        '<div class="hero">' +
+          '<div class="hero-content">' +
 
-      '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
+            '<div class="hero-badge">' +
+              '<span class="hero-dot"></span>' +
+              '<span>Terminal Cloud Active</span>' +
+            '</div>' +
 
-      '<div class="hero-main"><div><h1>Mis Finanzas</h1><p>Control y analítica en tiempo real</p></div><div class="hero-avatar">⚡</div></div>' +
+            '<div class="hero-main">' +
 
-      '</div></div>' +
+              '<div>' +
+                '<h1>Mis Finanzas</h1>' +
+                '<p>Control y analítica en tiempo real</p>' +
+              '</div>' +
 
-      (
-        UI.tab === 'dashboard'
-          ? renderDashboard()
-          : UI.tab === 'transactions'
-            ? renderTransactions(
-                UI.search,
-                UI.txFilter
-              )
-            : UI.tab === 'invoices'
-              ? renderInvoices(
-                  UI.openInvoiceId
+              '<div class="hero-avatar">⚡</div>' +
+
+            '</div>' +
+
+          '</div>' +
+        '</div>' +
+
+        (
+          UI.tab === 'dashboard'
+            ? renderDashboard()
+
+            : UI.tab === 'transactions'
+              ? renderTransactions(
+                  UI.search,
+                  UI.txFilter
                 )
-              : UI.tab === 'credits'
-                ? renderCredits(
-                    UI.creditFilter
+
+              : UI.tab === 'invoices'
+                ? renderInvoices(
+                    UI.openInvoiceId
                   )
-                : UI.tab === 'categories'
-                  ? renderCategories()
-                  : (
-                      renderSettings() +
-                      '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'
+
+                : UI.tab === 'credits'
+                  ? renderCredits(
+                      UI.creditFilter
                     )
-      );
+
+                  : UI.tab === 'categories'
+                    ? renderCategories()
+
+                    : (
+                        renderSettings() +
+
+                        '<div style="padding:16px 0;">' +
+
+                          '<button ' +
+                            'class="save-btn" ' +
+                            'data-action="logout" ' +
+                            'style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;"' +
+                          '>' +
+                            'Cerrar Sesión' +
+                          '</button>' +
+
+                        '</div>'
+                      )
+        );
 
 
-    if (
-      UI.tab === 'settings'
-    ){
+      if (
+        UI.tab === 'settings'
+      ) {
 
-      setTimeout(
-        () => {
+        setTimeout(
+          () => {
 
-          const headers =
-            document.querySelectorAll(
-              'h2, h3, .section-title'
+            const headers =
+              document.querySelectorAll(
+                'h2, h3, .section-title'
+              );
+
+            headers.forEach(
+              h => {
+
+                if (
+                  h.textContent.includes(
+                    'Moneda'
+                  ) ||
+                  h.textContent.includes(
+                    'Configuración'
+                  )
+                ) {
+                  h.textContent =
+                    'Ajustes';
+                }
+              }
             );
 
-          headers.forEach(
-            h => {
+          },
+          10
+        );
+      }
 
-              if (
-                h.textContent.includes(
-                  'Moneda'
-                ) ||
-                h.textContent.includes(
-                  'Configuración'
-                )
-              ){
+    } catch (err) {
 
-                h.textContent =
-                  'Ajustes';
-              }
-            }
-          );
-
-        },
-        10
+      console.error(
+        'Error renderizando la aplicación:',
+        err
       );
+
+      viewEl.innerHTML =
+        '<div class="empty-state" style="padding:48px 20px;">' +
+          '<b>No se pudo cargar la vista.</b>' +
+          '<br>' +
+          '<span style="font-size:12px;">' +
+            (err?.message || 'Error inesperado') +
+          '</span>' +
+        '</div>';
     }
   }
 
 
-  const tabbarHTML =
-    [
-      ['dashboard','wallet','Resumen'],
-      ['transactions','list','Movimientos'],
-      ['center','plus',''],
-      ['credits','credit','Créditos'],
-      ['categories','tag','Categorías']
-    ]
-    .map(
-      ([id,ic,label]) => {
+  /* --------------------------------------------------------
+     BARRA INFERIOR
+     -------------------------------------------------------- */
 
-        if (
-          id === 'center'
-        ){
+  const tabbarHTML = [
 
-          return (
-            '<div class="center-fab-container">' +
+    ['dashboard','wallet','Resumen'],
 
-            '<button class="fab-center" data-action="toggle-fab-menu">' +
+    ['transactions','list','Movimientos'],
 
-            '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' +
+    ['center','plus',''],
 
-            '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">' +
+    ['credits','credit','Créditos'],
 
-            '<path d="M12 5v14M5 12h14"/>' +
+    ['categories','tag','Categorías']
 
-            '</svg>' +
+  ]
+  .map(
+    ([id, ic, label]) => {
 
-            '</span>' +
+      if (
+        id === 'center'
+      ) {
+
+        return (
+          '<div class="center-fab-container">' +
+
+            '<button ' +
+              'class="fab-center" ' +
+              'data-action="toggle-fab-menu"' +
+            '>' +
+
+              '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' +
+
+                '<svg ' +
+                  'fill="none" ' +
+                  'stroke="currentColor" ' +
+                  'viewBox="0 0 24 24" ' +
+                  'stroke-width="2.5"' +
+                '>' +
+
+                  '<path d="M12 5v14M5 12h14"/>' +
+
+                '</svg>' +
+
+              '</span>' +
 
             '</button>' +
 
-            '</div>'
-          );
-        }
+          '</div>'
+        );
+      }
 
-        return (
-          '<button class="tab-btn ' +
+      return (
+        '<button ' +
+          'class="tab-btn ' +
           (
             UI.tab === id
               ? 'active'
               : ''
           ) +
-          '" data-action="set-tab" data-tab="' +
+          '"' +
+          ' data-action="set-tab"' +
+          ' data-tab="' +
           id +
-          '">' +
+        '">' +
 
           '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' +
-          getIconSvg(ic) +
+            getIconSvg(ic) +
           '</span>' +
 
           '<span>' +
-          label +
+            label +
           '</span>' +
 
-          '</button>'
-        );
-      }
-    )
-    .join('');
+        '</button>'
+      );
+    }
+  )
+  .join('');
 
 
   const tabbarEl =
@@ -622,10 +726,7 @@ function renderAppContent(){
       'tabbar'
     );
 
-  if (
-    tabbarEl
-  ){
-
+  if (tabbarEl) {
     tabbarEl.innerHTML =
       tabbarHTML;
   }
@@ -633,8 +734,7 @@ function renderAppContent(){
 
   if (
     UI.tab === 'transactions'
-  ){
-
+  ) {
     attachSearchListener();
   }
 
@@ -643,41 +743,54 @@ function renderAppContent(){
 }
 
 
-function getIconSvg(name){
+/* ==========================================================
+   ICONOS DE LA BARRA
+   ========================================================== */
+
+function getIconSvg(name) {
 
   const svgs = {
 
     wallet:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
+        '<path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/>' +
+        '<path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/>' +
+        '<path d="M16 14h.01"/>' +
+      '</svg>',
 
     list:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
+        '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>' +
+      '</svg>',
 
     credit:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
+        '<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/>' +
+      '</svg>',
 
     tag:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>'
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
+        '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/>' +
+      '</svg>'
+
   };
 
-  return (
-    svgs[name] ||
-    ''
-  );
+  return svgs[name] || '';
 }
 
 
-function renderOverlays(){
+/* ==========================================================
+   OVERLAYS
+   ========================================================== */
+
+function renderOverlays() {
 
   const el =
     document.getElementById(
       'overlays'
     );
 
-  if (
-    !el
-  ){
-
+  if (!el) {
     return;
   }
 
@@ -686,115 +799,81 @@ function renderOverlays(){
 
   if (
     UI.fabMenuOpen
-  ){
-
-    html +=
-      renderFabMenu();
+  ) {
+    html += renderFabMenu();
   }
 
 
   if (
     sheet &&
     sheet.kind === 'tx'
-  ){
-
-    html +=
-      renderTxSheet(
-        sheet
-      );
+  ) {
+    html += renderTxSheet(sheet);
   }
 
 
   if (
     sheet &&
     sheet.kind === 'quick'
-  ){
-
-    html +=
-      renderQuickSheet(
-        sheet
-      );
+  ) {
+    html += renderQuickSheet(sheet);
   }
 
 
   if (
     sheet &&
     sheet.kind === 'cat'
-  ){
-
-    html +=
-      renderCatSheet(
-        sheet
-      );
+  ) {
+    html += renderCatSheet(sheet);
   }
 
 
   if (
     sheet &&
     sheet.kind === 'credit'
-  ){
-
-    html +=
-      renderCreditSheet(
-        sheet
-      );
+  ) {
+    html += renderCreditSheet(sheet);
   }
 
 
   if (
     sheet &&
     sheet.kind === 'payment'
-  ){
-
-    html +=
-      renderPaymentSheet(
-        sheet
-      );
+  ) {
+    html += renderPaymentSheet(sheet);
   }
 
 
   if (
     sheet &&
     sheet.kind === 'invoice'
-  ){
-
-    html +=
-      renderInvoiceSheet(
-        sheet
-      );
+  ) {
+    html += renderInvoiceSheet(sheet);
   }
 
 
   if (
     confirmState
-  ){
-
-    html +=
-      renderConfirmDialog(
-        confirmState
-      );
+  ) {
+    html += renderConfirmDialog(
+      confirmState
+    );
   }
 
 
   if (
     scanningOverlay
-  ){
-
-    html +=
-      renderScanningOverlay(
-        scanningOverlay
-      );
+  ) {
+    html += renderScanningOverlay(
+      scanningOverlay
+    );
   }
 
 
-  el.innerHTML =
-    html;
+  el.innerHTML = html;
 
 
-  if (
-    sheet
-  ){
-
+  if (sheet) {
     attachSheetFieldSync();
   }
 
@@ -807,14 +886,14 @@ function renderOverlays(){
   if (
     saveBtn &&
     sheet
-  ){
+  ) {
 
     const amt =
       Number(sheet.amount);
 
     if (
       amt > 0
-    ){
+    ) {
 
       saveBtn.removeAttribute(
         'disabled'
@@ -830,7 +909,11 @@ function renderOverlays(){
 }
 
 
-function refreshTxList(){
+/* ==========================================================
+   MOVIMIENTOS
+   ========================================================== */
+
+function refreshTxList() {
 
   const list =
     filteredTx(
@@ -843,33 +926,30 @@ function refreshTxList(){
       'tx-list'
     );
 
-  if (
-    container
-  ){
+  if (container) {
 
     container.innerHTML =
       list.length
+
         ? list
             .map(
-              t =>
-                renderTxRow(t)
+              renderTxRow
             )
             .join('')
+
         : '<div class="empty-state">No hay movimientos registrados.</div>';
   }
 }
 
 
-function attachSearchListener(){
+function attachSearchListener() {
 
   const input =
     document.getElementById(
       'search-input'
     );
 
-  if (
-    input
-  ){
+  if (input) {
 
     input.addEventListener(
       'input',
@@ -885,18 +965,21 @@ function attachSearchListener(){
 }
 
 
+/* ==========================================================
+   MENÚ DEL +
+   ========================================================== */
+
 function closeFabMenu(
   callback
-){
+) {
 
   const backdrop =
     document.getElementById(
       'fab-backdrop'
     );
 
-  if (
-    backdrop
-  ){
+
+  if (backdrop) {
 
     backdrop.classList.add(
       'closing'
@@ -910,10 +993,7 @@ function closeFabMenu(
 
         renderAppContent();
 
-        if (
-          callback
-        ){
-
+        if (callback) {
           callback();
         }
 
@@ -927,9 +1007,17 @@ function closeFabMenu(
       false;
 
     renderAppContent();
+
+    if (callback) {
+      callback();
+    }
   }
 }
 
+
+/* ==========================================================
+   EVENTOS PRINCIPALES
+   ========================================================== */
 
 document.addEventListener(
   'click',
@@ -938,7 +1026,7 @@ document.addEventListener(
     if (
       e.target.id ===
       'fab-backdrop'
-    ){
+    ) {
 
       closeFabMenu();
 
@@ -951,10 +1039,7 @@ document.addEventListener(
         '[data-action]'
       );
 
-    if (
-      !t
-    ){
-
+    if (!t) {
       return;
     }
 
@@ -969,7 +1054,7 @@ document.addEventListener(
 
     if (
       action === 'logout'
-    ){
+    ) {
 
       confirmState = {
 
@@ -992,13 +1077,13 @@ document.addEventListener(
           Object.assign(
             DB,
             {
-              transactions:[],
+              transactions: [],
               categories:
                 DEFAULT_CATEGORIES.slice(),
-              credits:[],
-              invoices:[],
-              settings:{
-                currency:'COP'
+              credits: [],
+              invoices: [],
+              settings: {
+                currency: 'COP'
               }
             }
           );
@@ -1027,7 +1112,7 @@ document.addEventListener(
 
     if (
       action === 'set-tab'
-    ){
+    ) {
 
       UI.tab =
         t.dataset.tab;
@@ -1043,7 +1128,7 @@ document.addEventListener(
 
     if (
       action === 'set-filter'
-    ){
+    ) {
 
       UI.txFilter =
         t.dataset.filter;
@@ -1056,7 +1141,7 @@ document.addEventListener(
 
     if (
       action === 'set-credit-filter'
-    ){
+    ) {
 
       UI.creditFilter =
         t.dataset.filter;
@@ -1068,17 +1153,17 @@ document.addEventListener(
 
 
     /* ======================================================
-       MENÚ DEL +
+       ABRIR / CERRAR MENÚ +
        ====================================================== */
 
     if (
       action ===
       'toggle-fab-menu'
-    ){
+    ) {
 
       if (
         UI.fabMenuOpen
-      ){
+      ) {
 
         closeFabMenu();
 
@@ -1109,11 +1194,15 @@ document.addEventListener(
     }
 
 
+    /* ======================================================
+       ACCIONES DEL MENÚ +
+       ====================================================== */
+
     if (
       action.startsWith(
         'fab-'
       )
-    ){
+    ) {
 
       t.classList.add(
         'selected-pulse'
@@ -1125,16 +1214,17 @@ document.addEventListener(
           if (
             action ===
             'fab-new-tx'
-          ){
+          ) {
 
             closeFabMenu(
               () => {
 
                 sheet = {
-                  kind:'tx',
-                  mode:'new',
-                  id:null,
-                  type:'expense',
+                  kind: 'tx',
+                  mode: 'new',
+                  id: null,
+                  type: 'expense',
+
                   categoryId:
                     (
                       DB.categories.find(
@@ -1143,43 +1233,48 @@ document.addEventListener(
                           'expense'
                       ) || {}
                     ).id || '',
-                  amount:'',
+
+                  amount: '',
                   date:
                     todayStr(),
-                  note:''
+                  note: ''
                 };
 
                 renderOverlays();
               }
             );
 
-          } else if (
+          }
+
+          else if (
             action ===
             'fab-new-credit'
-          ){
+          ) {
 
             closeFabMenu(
               () => {
 
                 sheet = {
-                  kind:'credit',
-                  mode:'new',
-                  id:null,
-                  title:'',
+                  kind: 'credit',
+                  mode: 'new',
+                  id: null,
+                  title: '',
                   type:
                     UI.creditFilter ||
                     'against',
-                  total:''
+                  total: ''
                 };
 
                 renderOverlays();
               }
             );
 
-          } else if (
+          }
+
+          else if (
             action ===
             'fab-scan-invoice'
-          ){
+          ) {
 
             closeFabMenu(
               () => {
@@ -1192,10 +1287,12 @@ document.addEventListener(
               }
             );
 
-          } else if (
+          }
+
+          else if (
             action ===
             'fab-invoices'
-          ){
+          ) {
 
             closeFabMenu(
               () => {
@@ -1207,10 +1304,12 @@ document.addEventListener(
               }
             );
 
-          } else if (
+          }
+
+          else if (
             action ===
             'fab-settings'
-          ){
+          ) {
 
             closeFabMenu(
               () => {
@@ -1237,7 +1336,7 @@ document.addEventListener(
 
     if (
       action === 'edit-tx'
-    ){
+    ) {
 
       const tx =
         DB.transactions.find(
@@ -1246,20 +1345,18 @@ document.addEventListener(
             t.dataset.id
         );
 
-      if (
-        tx
-      ){
+      if (tx) {
 
         sheet = {
-          kind:'tx',
-          mode:'edit',
-          id:tx.id,
-          type:tx.type,
+          kind: 'tx',
+          mode: 'edit',
+          id: tx.id,
+          type: tx.type,
           categoryId:
             tx.categoryId,
           amount:
             String(tx.amount),
-          date:tx.date,
+          date: tx.date,
           note:
             tx.note || ''
         };
@@ -1273,18 +1370,18 @@ document.addEventListener(
 
     if (
       action === 'quick-cat'
-    ){
+    ) {
 
       sheet = {
-        kind:'quick',
+        kind: 'quick',
         categoryId:
           t.dataset.id,
-        amount:'',
-        note:'',
+        amount: '',
+        note: '',
         date:
           todayStr(),
-        showNote:false,
-        showDate:false
+        showNote: false,
+        showDate: false
       };
 
       renderOverlays();
@@ -1295,12 +1392,9 @@ document.addEventListener(
 
     if (
       action === 'show-note'
-    ){
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
@@ -1315,12 +1409,9 @@ document.addEventListener(
 
     if (
       action === 'show-date'
-    ){
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
@@ -1335,26 +1426,21 @@ document.addEventListener(
 
     if (
       action === 'save-quick'
-    ){
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
       const amt =
         Number(sheet.amount);
 
-      if (
-        amt > 0
-      ){
+      if (amt > 0) {
 
         DB.transactions.push({
-          id:uid(),
-          type:'expense',
-          amount:amt,
+          id: uid(),
+          type: 'expense',
+          amount: amt,
           categoryId:
             sheet.categoryId,
           date:
@@ -1382,12 +1468,9 @@ document.addEventListener(
 
     if (
       action === 'tx-type'
-    ){
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
@@ -1411,12 +1494,9 @@ document.addEventListener(
 
     if (
       action === 'pick-tx-cat'
-    ){
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
@@ -1428,9 +1508,7 @@ document.addEventListener(
           'chipList'
         );
 
-      if (
-        chipContainer
-      ){
+      if (chipContainer) {
 
         chipContainer.innerHTML =
           renderTxCatChips(
@@ -1449,12 +1527,9 @@ document.addEventListener(
 
     if (
       action === 'save-tx'
-    ){
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
@@ -1472,9 +1547,7 @@ document.addEventListener(
         ).id ||
         '';
 
-      if (
-        amt > 0
-      ){
+      if (amt > 0) {
 
         const tx = {
           id:
@@ -1482,7 +1555,8 @@ document.addEventListener(
             uid(),
           type:
             sheet.type,
-          amount:amt,
+          amount:
+            amt,
           categoryId:
             catId,
           date:
@@ -1506,7 +1580,8 @@ document.addEventListener(
           exists
             ? DB.transactions.map(
                 x =>
-                  x.id === tx.id
+                  x.id ===
+                  tx.id
                     ? tx
                     : x
               )
@@ -1530,12 +1605,9 @@ document.addEventListener(
 
     if (
       action === 'delete-tx'
-    ){
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
@@ -1579,19 +1651,19 @@ document.addEventListener(
 
     if (
       action === 'new-cat'
-    ){
+    ) {
 
       sheet = {
-        kind:'cat',
-        mode:'new',
-        id:null,
-        name:'',
-        type:'expense',
-        color:'#06B6D4',
-        icon:'food',
-        budget:'',
-        primary:false,
-        isFixed:false
+        kind: 'cat',
+        mode: 'new',
+        id: null,
+        name: '',
+        type: 'expense',
+        color: '#06B6D4',
+        icon: 'food',
+        budget: '',
+        primary: false,
+        isFixed: false
       };
 
       renderOverlays();
@@ -1602,7 +1674,7 @@ document.addEventListener(
 
     if (
       action === 'edit-cat'
-    ){
+    ) {
 
       const c =
         DB.categories.find(
@@ -1611,18 +1683,16 @@ document.addEventListener(
             t.dataset.id
         );
 
-      if (
-        c
-      ){
+      if (c) {
 
         sheet = {
-          kind:'cat',
-          mode:'edit',
-          id:c.id,
-          name:c.name,
-          type:c.type,
-          color:c.color,
-          icon:c.icon,
+          kind: 'cat',
+          mode: 'edit',
+          id: c.id,
+          name: c.name,
+          type: c.type,
+          color: c.color,
+          icon: c.icon,
           budget:
             c.budget
               ? String(c.budget)
@@ -1642,94 +1712,104 @@ document.addEventListener(
 
     if (
       action === 'cat-type'
-    ){
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
       sheet.type =
         t.dataset.type;
 
-      document.getElementById(
-        'budgetField'
-      ).style.display =
-        sheet.type === 'expense'
-          ? 'block'
-          : 'none';
+      const budgetField =
+        document.getElementById(
+          'budgetField'
+        );
 
-      document.getElementById(
-        'primaryField'
-      ).style.display =
-        sheet.type === 'income'
-          ? 'block'
-          : 'none';
+      const primaryField =
+        document.getElementById(
+          'primaryField'
+        );
 
-      document.getElementById(
-        'fixedField'
-      ).style.display =
-        sheet.type === 'expense'
-          ? 'block'
-          : 'none';
+      const fixedField =
+        document.getElementById(
+          'fixedField'
+        );
+
+      if (budgetField) {
+        budgetField.style.display =
+          sheet.type === 'expense'
+            ? 'block'
+            : 'none';
+      }
+
+      if (primaryField) {
+        primaryField.style.display =
+          sheet.type === 'income'
+            ? 'block'
+            : 'none';
+      }
+
+      if (fixedField) {
+        fixedField.style.display =
+          sheet.type === 'expense'
+            ? 'block'
+            : 'none';
+      }
 
       return;
     }
 
 
     if (
-      action ===
-      'toggle-primary'
-    ){
+      action === 'toggle-primary'
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
       sheet.primary =
         !sheet.primary;
 
-      document
-        .getElementById(
+      const sw =
+        document.getElementById(
           'primarySwitch'
-        )
-        .classList.toggle(
+        );
+
+      if (sw) {
+        sw.classList.toggle(
           'on',
           sheet.primary
         );
+      }
 
       return;
     }
 
 
     if (
-      action ===
-      'toggle-fixed'
-    ){
+      action === 'toggle-fixed'
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
       sheet.isFixed =
         !sheet.isFixed;
 
-      document
-        .getElementById(
+      const sw =
+        document.getElementById(
           'fixedSwitch'
-        )
-        .classList.toggle(
+        );
+
+      if (sw) {
+        sw.classList.toggle(
           'on-violet',
           sheet.isFixed
         );
+      }
 
       return;
     }
@@ -1737,12 +1817,9 @@ document.addEventListener(
 
     if (
       action === 'pick-color'
-    ){
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
@@ -1768,12 +1845,9 @@ document.addEventListener(
 
     if (
       action === 'pick-icon'
-    ){
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
@@ -1799,18 +1873,15 @@ document.addEventListener(
 
     if (
       action === 'save-cat'
-    ){
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
       if (
         sheet.name.trim()
-      ){
+      ) {
 
         const cat = {
           id:
@@ -1830,8 +1901,7 @@ document.addEventListener(
             sheet.icon,
 
           budget:
-            sheet.type ===
-              'expense' &&
+            sheet.type === 'expense' &&
             sheet.budget
               ? Number(
                   sheet.budget
@@ -1839,14 +1909,12 @@ document.addEventListener(
               : null,
 
           primary:
-            sheet.type ===
-              'income'
+            sheet.type === 'income'
               ? !!sheet.primary
               : false,
 
           isFixed:
-            sheet.type ===
-              'expense'
+            sheet.type === 'expense'
               ? !!sheet.isFixed
               : false
         };
@@ -1863,7 +1931,7 @@ document.addEventListener(
             ? DB.categories.map(
                 x =>
                   x.id ===
-                    cat.id
+                  cat.id
                     ? cat
                     : x
               )
@@ -1886,14 +1954,10 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'delete-cat'
-    ){
+      action === 'delete-cat'
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
@@ -1936,19 +2000,18 @@ document.addEventListener(
        ====================================================== */
 
     if (
-      action ===
-      'new-credit'
-    ){
+      action === 'new-credit'
+    ) {
 
       sheet = {
-        kind:'credit',
-        mode:'new',
-        id:null,
-        title:'',
+        kind: 'credit',
+        mode: 'new',
+        id: null,
+        title: '',
         type:
           UI.creditFilter ||
           'against',
-        total:''
+        total: ''
       };
 
       renderOverlays();
@@ -1958,27 +2021,25 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'edit-credit'
-    ){
+      action === 'edit-credit'
+    ) {
 
       const c =
-        DB.credits.find(
-          x =>
-            x.id ===
-            t.dataset.id
-        );
+        (DB.credits || [])
+          .find(
+            x =>
+              x.id ===
+              t.dataset.id
+          );
 
-      if (
-        c
-      ){
+      if (c) {
 
         sheet = {
-          kind:'credit',
-          mode:'edit',
-          id:c.id,
-          title:c.title,
-          type:c.type,
+          kind: 'credit',
+          mode: 'edit',
+          id: c.id,
+          title: c.title,
+          type: c.type,
           total:
             String(c.total)
         };
@@ -1991,14 +2052,10 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'credit-type'
-    ){
+      action === 'credit-type'
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
@@ -2012,29 +2069,22 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'save-credit'
-    ){
+      action === 'save-credit'
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
-      const tot =
+      const total =
         Number(sheet.total);
 
       if (
         sheet.title.trim() &&
-        tot > 0
-      ){
+        total > 0
+      ) {
 
-        if (
-          !DB.credits
-        ){
-
+        if (!DB.credits) {
           DB.credits = [];
         }
 
@@ -2059,8 +2109,13 @@ document.addEventListener(
             sheet.type,
 
           total:
-            tot,
+            total,
 
+          /*
+           * Igual que el código original:
+           * al editar un crédito se conservan
+           * todos sus aportes existentes.
+           */
           payments:
             sheet.id
               ? (
@@ -2082,7 +2137,7 @@ document.addEventListener(
             ? DB.credits.map(
                 x =>
                   x.id ===
-                    credit.id
+                  credit.id
                     ? credit
                     : x
               )
@@ -2105,14 +2160,10 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'delete-credit'
-    ){
+      action === 'delete-credit'
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
@@ -2124,11 +2175,12 @@ document.addEventListener(
         onConfirm: () => {
 
           DB.credits =
-            DB.credits.filter(
-              x =>
-                x.id !==
-                sheet.id
-            );
+            (DB.credits || [])
+              .filter(
+                x =>
+                  x.id !==
+                  sheet.id
+              );
 
           saveDB();
 
@@ -2155,20 +2207,19 @@ document.addEventListener(
        ====================================================== */
 
     if (
-      action ===
-      'new-payment'
-    ){
+      action === 'new-payment'
+    ) {
 
       sheet = {
-        kind:'payment',
-        mode:'new',
+        kind: 'payment',
+        mode: 'new',
         creditId:
           t.dataset.id,
-        paymentId:null,
-        amount:'',
+        paymentId: null,
+        amount: '',
         date:
           todayStr(),
-        note:''
+        note: ''
       };
 
       renderOverlays();
@@ -2178,34 +2229,33 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'edit-payment'
-    ){
+      action === 'edit-payment'
+    ) {
 
       const c =
-        DB.credits.find(
-          x =>
-            x.id ===
-            t.dataset.cid
-        );
+        (DB.credits || [])
+          .find(
+            x =>
+              x.id ===
+              t.dataset.cid
+          );
 
       const p =
         (
           c?.payments ||
           []
-        ).find(
+        )
+        .find(
           x =>
             x.id ===
             t.dataset.pid
         );
 
-      if (
-        p
-      ){
+      if (p) {
 
         sheet = {
-          kind:'payment',
-          mode:'edit',
+          kind: 'payment',
+          mode: 'edit',
           creditId:
             t.dataset.cid,
           paymentId:
@@ -2227,31 +2277,27 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'save-payment'
-    ){
+      action === 'save-payment'
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
-      const amt =
+      const amount =
         Number(sheet.amount);
 
       if (
-        amt > 0
-      ){
+        amount > 0
+      ) {
 
-        const pay = {
+        const payment = {
           id:
             sheet.paymentId ||
             uid(),
 
           amount:
-            amt,
+            amount,
 
           date:
             sheet.date ||
@@ -2265,48 +2311,47 @@ document.addEventListener(
         };
 
         DB.credits =
-          DB.credits.map(
-            c => {
+          (DB.credits || [])
+            .map(
+              c => {
 
-              if (
-                c.id ===
-                sheet.creditId
-              ){
+                if (
+                  c.id !==
+                  sheet.creditId
+                ) {
+                  return c;
+                }
 
-                let pays =
+                let payments =
                   c.payments ||
                   [];
 
                 const exists =
-                  pays.some(
+                  payments.some(
                     x =>
                       x.id ===
-                      pay.id
+                      payment.id
                   );
 
-                pays =
+                payments =
                   exists
-                    ? pays.map(
+                    ? payments.map(
                         x =>
                           x.id ===
-                            pay.id
-                            ? pay
+                          payment.id
+                            ? payment
                             : x
                       )
-                    : pays.concat([
-                        pay
+                    : payments.concat([
+                        payment
                       ]);
 
                 return {
                   ...c,
-                  payments:
-                    pays
+                  payments
                 };
               }
-
-              return c;
-            }
-          );
+            );
 
         saveDB();
 
@@ -2322,15 +2367,16 @@ document.addEventListener(
     }
 
 
+    /*
+     * ESTA ACCIÓN EXISTÍA EN EL ORIGINAL
+     * Y AHORA TAMBIÉN ESTÁ CONECTADA.
+     */
+
     if (
-      action ===
-      'delete-payment'
-    ){
+      action === 'delete-payment'
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
@@ -2342,16 +2388,20 @@ document.addEventListener(
         onConfirm: () => {
 
           DB.credits =
-            DB.credits.map(
-              c => {
+            (DB.credits || [])
+              .map(
+                c => {
 
-                if (
-                  c.id ===
-                  sheet.creditId
-                ){
+                  if (
+                    c.id !==
+                    sheet.creditId
+                  ) {
+                    return c;
+                  }
 
                   return {
                     ...c,
+
                     payments:
                       (
                         c.payments ||
@@ -2363,10 +2413,7 @@ document.addEventListener(
                       )
                   };
                 }
-
-                return c;
-              }
-            );
+              );
 
           saveDB();
 
@@ -2393,9 +2440,8 @@ document.addEventListener(
        ====================================================== */
 
     if (
-      action ===
-      'toggle-invoice'
-    ){
+      action === 'toggle-invoice'
+    ) {
 
       UI.openInvoiceId =
         UI.openInvoiceId ===
@@ -2410,37 +2456,38 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'edit-invoice'
-    ){
+      action === 'edit-invoice'
+    ) {
 
       const inv =
-        DB.invoices.find(
-          x =>
-            x.id ===
-            t.dataset.id
-        );
+        (DB.invoices || [])
+          .find(
+            x =>
+              x.id ===
+              t.dataset.id
+          );
 
-      if (
-        inv
-      ){
+      if (inv) {
 
         sheet = {
-          kind:'invoice',
-          mode:'edit',
-          id:inv.id,
-          title:inv.title,
-          date:inv.date,
+          kind: 'invoice',
+          mode: 'edit',
+          id: inv.id,
+          title: inv.title,
+          date: inv.date,
+
           items:
-            inv.items.map(
-              it => ({
-                ...it,
-                price:
-                  String(
-                    it.price
-                  )
-              })
-            ),
+            (inv.items || [])
+              .map(
+                it => ({
+                  ...it,
+                  price:
+                    String(
+                      it.price
+                    )
+                })
+              ),
+
           registered:
             !!inv.registered
         };
@@ -2453,21 +2500,18 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'register-invoice'
-    ){
+      action === 'register-invoice'
+    ) {
 
       const inv =
-        DB.invoices.find(
-          x =>
-            x.id ===
-            t.dataset.id
-        );
+        (DB.invoices || [])
+          .find(
+            x =>
+              x.id ===
+              t.dataset.id
+          );
 
-      if (
-        !inv
-      ){
-
+      if (!inv) {
         return;
       }
 
@@ -2479,22 +2523,27 @@ document.addEventListener(
         );
 
       sheet = {
-        kind:'tx',
-        mode:'new',
-        id:null,
-        type:'expense',
+        kind: 'tx',
+        mode: 'new',
+        id: null,
+        type: 'expense',
+
         categoryId:
           firstExpense
             ? firstExpense.id
             : '',
+
         amount:
           String(inv.total),
+
         date:
           inv.date ||
           todayStr(),
+
         note:
           inv.title ||
           '',
+
         sourceInvoiceId:
           inv.id
       };
@@ -2506,21 +2555,17 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'add-invoice-item'
-    ){
+      action === 'add-invoice-item'
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
       sheet.items.push({
-        id:uid(),
-        name:'',
-        price:''
+        id: uid(),
+        name: '',
+        price: ''
       });
 
       refreshInvoiceItemsUI();
@@ -2530,14 +2575,10 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'remove-invoice-item'
-    ){
+      action === 'remove-invoice-item'
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
@@ -2553,12 +2594,12 @@ document.addEventListener(
 
       if (
         !sheet.items.length
-      ){
+      ) {
 
         sheet.items.push({
-          id:uid(),
-          name:'',
-          price:''
+          id: uid(),
+          name: '',
+          price: ''
         });
       }
 
@@ -2569,37 +2610,151 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'save-invoice'
-    ){
+      action === 'save-invoice'
+    ) {
 
-      saveInvoiceSheet();
+      if (!sheet) {
+        return;
+      }
+
+      const items =
+        sheet.items
+          .filter(
+            it =>
+              it.name.trim() &&
+              Number(it.price) > 0
+          )
+          .map(
+            it => ({
+              id:
+                it.id ||
+                uid(),
+
+              name:
+                it.name
+                  .trim()
+                  .slice(
+                    0,
+                    60
+                  ),
+
+              price:
+                Number(
+                  it.price
+                )
+            })
+          );
+
+      if (items.length) {
+
+        const total =
+          items.reduce(
+            (sum, it) =>
+              sum +
+              it.price,
+            0
+          );
+
+        const invoice = {
+          id:
+            sheet.id ||
+            uid(),
+
+          title:
+            (
+              sheet.title ||
+              ''
+            ).trim() ||
+            (
+              'Factura ' +
+              todayStr()
+            ),
+
+          date:
+            sheet.date ||
+            todayStr(),
+
+          items,
+
+          total,
+
+          registered:
+            !!sheet.registered
+        };
+
+        if (!DB.invoices) {
+          DB.invoices = [];
+        }
+
+        const exists =
+          DB.invoices.some(
+            x =>
+              x.id ===
+              invoice.id
+          );
+
+        DB.invoices =
+          exists
+            ? DB.invoices.map(
+                x =>
+                  x.id ===
+                  invoice.id
+                    ? invoice
+                    : x
+              )
+            : DB.invoices.concat([
+                invoice
+              ]);
+
+        saveDB();
+
+        safeSync();
+
+        sheet =
+          null;
+
+        renderAppContent();
+      }
 
       return;
     }
 
 
     if (
-      action ===
-      'delete-invoice'
-    ){
+      action === 'delete-invoice'
+    ) {
 
-      if (
-        !sheet
-      ){
-
+      if (!sheet) {
         return;
       }
 
       confirmState = {
 
         message:
-          '¿Eliminar esta factura?',
+          '¿Eliminar factura?',
 
-        onConfirm: () =>
-          deleteInvoice(
-            sheet.id
-          )
+        onConfirm: () => {
+
+          DB.invoices =
+            (DB.invoices || [])
+              .filter(
+                x =>
+                  x.id !==
+                  sheet.id
+              );
+
+          saveDB();
+
+          safeSync();
+
+          sheet =
+            null;
+
+          confirmState =
+            null;
+
+          renderAppContent();
+        }
       };
 
       renderOverlays();
@@ -2613,9 +2768,8 @@ document.addEventListener(
        ====================================================== */
 
     if (
-      action ===
-      'close-sheet'
-    ){
+      action === 'close-sheet'
+    ) {
 
       sheet =
         null;
@@ -2627,9 +2781,8 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'cancel-confirm'
-    ){
+      action === 'cancel-confirm'
+    ) {
 
       confirmState =
         null;
@@ -2641,15 +2794,20 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'confirm-ok'
-    ){
+      action === 'confirm-ok'
+    ) {
+
+      if (!confirmState) {
+        return;
+      }
 
       const fn =
         confirmState.onConfirm;
 
       confirmState =
         null;
+
+      renderOverlays();
 
       fn();
 
@@ -2658,9 +2816,14 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'set-currency'
-    ){
+      action === 'set-currency'
+    ) {
+
+      if (!DB.settings) {
+        DB.settings = {
+          currency: 'COP'
+        };
+      }
 
       DB.settings.currency =
         t.dataset.code;
@@ -2676,9 +2839,8 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'export-backup'
-    ){
+      action === 'export-backup'
+    ) {
 
       exportBackup();
 
@@ -2687,24 +2849,22 @@ document.addEventListener(
 
 
     if (
-      action ===
-      'import-backup'
-    ){
+      action === 'import-backup'
+    ) {
 
       document
         .getElementById(
           'import-file'
         )
-        .click();
+        ?.click();
 
       return;
     }
 
 
     if (
-      action ===
-      'reset-data'
-    ){
+      action === 'reset-data'
+    ) {
 
       confirmState = {
 
@@ -2713,18 +2873,22 @@ document.addEventListener(
 
         onConfirm: () => {
 
-          DB.transactions = [];
+          DB.transactions =
+            [];
 
           DB.categories =
             DEFAULT_CATEGORIES.slice();
 
-          DB.credits = [];
+          DB.credits =
+            [];
 
-          DB.invoices = [];
+          DB.invoices =
+            [];
 
           DB.settings = {
             currency:
-              DB.settings.currency
+              DB.settings?.currency ||
+              'COP'
           };
 
           saveDB();
@@ -2742,16 +2906,18 @@ document.addEventListener(
 
       return;
     }
+
   }
 );
 
 
-function attachSheetFieldSync(){
+/* ==========================================================
+   SINCRONIZACIÓN DE CAMPOS DE SHEETS
+   ========================================================== */
 
-  if (
-    !sheet
-  ){
+function attachSheetFieldSync() {
 
+  if (!sheet) {
     return;
   }
 
@@ -2759,7 +2925,7 @@ function attachSheetFieldSync(){
   if (
     sheet.kind === 'tx' ||
     sheet.kind === 'quick'
-  ){
+  ) {
 
     const prefix =
       sheet.kind === 'tx'
@@ -2785,9 +2951,7 @@ function attachSheetFieldSync(){
       );
 
 
-    if (
-      a
-    ){
+    if (a) {
 
       a.addEventListener(
         'input',
@@ -2803,19 +2967,19 @@ function attachSheetFieldSync(){
               sheet.amount
             );
 
+
           const saveBtn =
             document.querySelector(
               'button[data-action="save-tx"], button[data-action="save-quick"]'
             );
 
-          if (
-            saveBtn
-          ){
+          if (saveBtn) {
 
             if (
-              Number(sheet.amount) >
-              0
-            ){
+              Number(
+                sheet.amount
+              ) > 0
+            ) {
 
               saveBtn.removeAttribute(
                 'disabled'
@@ -2843,9 +3007,7 @@ function attachSheetFieldSync(){
     }
 
 
-    if (
-      d
-    ){
+    if (d) {
 
       d.addEventListener(
         'input',
@@ -2857,9 +3019,7 @@ function attachSheetFieldSync(){
     }
 
 
-    if (
-      n
-    ){
+    if (n) {
 
       n.addEventListener(
         'input',
@@ -2871,9 +3031,11 @@ function attachSheetFieldSync(){
     }
 
 
-  } else if (
+  }
+
+  else if (
     sheet.kind === 'cat'
-  ){
+  ) {
 
     const nm =
       document.getElementById(
@@ -2886,9 +3048,7 @@ function attachSheetFieldSync(){
       );
 
 
-    if (
-      nm
-    ){
+    if (nm) {
 
       nm.addEventListener(
         'input',
@@ -2900,9 +3060,7 @@ function attachSheetFieldSync(){
     }
 
 
-    if (
-      b
-    ){
+    if (b) {
 
       b.addEventListener(
         'input',
@@ -2922,24 +3080,24 @@ function attachSheetFieldSync(){
     }
 
 
-  } else if (
+  }
+
+  else if (
     sheet.kind === 'credit'
-  ){
+  ) {
 
     const title =
       document.getElementById(
         'c-title'
       );
 
-    const tot =
+    const total =
       document.getElementById(
         'c-total'
       );
 
 
-    if (
-      title
-    ){
+    if (title) {
 
       title.addEventListener(
         'input',
@@ -2947,16 +3105,16 @@ function attachSheetFieldSync(){
 
           sheet.title =
             title.value;
+
+          updateCreditSaveState();
         }
       );
     }
 
 
-    if (
-      tot
-    ){
+    if (total) {
 
-      tot.addEventListener(
+      total.addEventListener(
         'input',
         e => {
 
@@ -2969,14 +3127,18 @@ function attachSheetFieldSync(){
             formatThousandInput(
               sheet.total
             );
+
+          updateCreditSaveState();
         }
       );
     }
 
 
-  } else if (
+  }
+
+  else if (
     sheet.kind === 'payment'
-  ){
+  ) {
 
     const a =
       document.getElementById(
@@ -2994,9 +3156,7 @@ function attachSheetFieldSync(){
       );
 
 
-    if (
-      a
-    ){
+    if (a) {
 
       a.addEventListener(
         'input',
@@ -3011,14 +3171,14 @@ function attachSheetFieldSync(){
             formatThousandInput(
               sheet.amount
             );
+
+          updatePaymentSaveState();
         }
       );
     }
 
 
-    if (
-      d
-    ){
+    if (d) {
 
       d.addEventListener(
         'input',
@@ -3030,9 +3190,7 @@ function attachSheetFieldSync(){
     }
 
 
-    if (
-      n
-    ){
+    if (n) {
 
       n.addEventListener(
         'input',
@@ -3044,9 +3202,11 @@ function attachSheetFieldSync(){
     }
 
 
-  } else if (
+  }
+
+  else if (
     sheet.kind === 'invoice'
-  ){
+  ) {
 
     const ti =
       document.getElementById(
@@ -3059,9 +3219,7 @@ function attachSheetFieldSync(){
       );
 
 
-    if (
-      ti
-    ){
+    if (ti) {
 
       ti.addEventListener(
         'input',
@@ -3073,9 +3231,7 @@ function attachSheetFieldSync(){
     }
 
 
-    if (
-      da
-    ){
+    if (da) {
 
       da.addEventListener(
         'input',
@@ -3092,10 +3248,7 @@ function attachSheetFieldSync(){
         'inv-items-list'
       );
 
-
-    if (
-      list
-    ){
+    if (list) {
 
       list.addEventListener(
         'input',
@@ -3110,15 +3263,14 @@ function attachSheetFieldSync(){
           if (
             idx === undefined ||
             !field
-          ){
-
+          ) {
             return;
           }
 
 
           if (
             field === 'price'
-          ){
+          ) {
 
             sheet.items[idx].price =
               parseFormattedNumber(
@@ -3139,11 +3291,12 @@ function attachSheetFieldSync(){
 
           const totalVal =
             sheet.items.reduce(
-              (s,it) =>
-                s +
+              (sum, it) =>
+                sum +
                 (
-                  Number(it.price) ||
-                  0
+                  Number(
+                    it.price
+                  ) || 0
                 ),
               0
             );
@@ -3153,24 +3306,26 @@ function attachSheetFieldSync(){
               'inv-total-val'
             );
 
-          if (
-            totalEl
-          ){
+          if (totalEl) {
 
             totalEl.textContent =
               new Intl.NumberFormat(
                 'es-CO',
                 {
-                  style:'currency',
+                  style:
+                    'currency',
                   currency:
-                    DB.settings.currency ||
+                    DB.settings?.currency ||
                     'COP',
-                  maximumFractionDigits:0
+                  maximumFractionDigits:
+                    0
                 }
               ).format(
                 totalVal
               );
           }
+
+          refreshInvoiceSaveState();
         }
       );
     }
@@ -3178,497 +3333,108 @@ function attachSheetFieldSync(){
 }
 
 
-function refreshInvoiceItemsUI(){
+/* ==========================================================
+   ESTADOS DE GUARDADO
+   ========================================================== */
+
+function updateCreditSaveState() {
+
+  if (!sheet) {
+    return;
+  }
+
+  const btn =
+    document.getElementById(
+      'credit-save-btn'
+    );
+
+  if (!btn) {
+    return;
+  }
+
+  const valid =
+    sheet.title.trim().length > 0 &&
+    Number(sheet.total) > 0;
+
+  btn.disabled =
+    !valid;
+}
+
+
+function updatePaymentSaveState() {
+
+  if (!sheet) {
+    return;
+  }
+
+  const btn =
+    document.getElementById(
+      'pay-save-btn'
+    );
+
+  if (!btn) {
+    return;
+  }
+
+  btn.disabled =
+    !(Number(sheet.amount) > 0);
+}
+
+
+function refreshInvoiceItemsUI() {
 
   const container =
     document.getElementById(
       'inv-items-list'
     );
 
-  if (
-    container
-  ){
-
+  if (container) {
     container.innerHTML =
       renderInvoiceItemsHTML(
         sheet
       );
   }
 
+  refreshInvoiceSaveState();
+}
 
-  const totalEl =
+
+function refreshInvoiceSaveState() {
+
+  if (!sheet) {
+    return;
+  }
+
+  const btn =
     document.getElementById(
-      'inv-total-val'
+      'invoice-save-btn'
     );
 
-  if (
-    totalEl
-  ){
-
-    totalEl.textContent =
-      new Intl.NumberFormat(
-        'es-CO',
-        {
-          style:'currency',
-          currency:
-            DB.settings.currency ||
-            'COP',
-          maximumFractionDigits:0
-        }
-      ).format(
-        sheet.items.reduce(
-          (s,it) =>
-            s +
-            (
-              Number(it.price) ||
-              0
-            ),
-          0
-        )
-      );
-  }
-}
-
-
-function saveInvoiceSheet(){
-
-  if (
-    !sheet
-  ){
-
+  if (!btn) {
     return;
   }
 
-
-  const items =
-    sheet.items
-      .filter(
-        it =>
-          it.name.trim() &&
-          Number(it.price) > 0
-      )
-      .map(
-        it => ({
-          id:
-            it.id ||
-            uid(),
-
-          name:
-            it.name
-              .trim()
-              .slice(0,60),
-
-          price:
-            Number(it.price)
-        })
-      );
-
-
-  if (
-    !items.length
-  ){
-
-    return;
-  }
-
-
-  const total =
-    items.reduce(
-      (s,it) =>
-        s +
-        it.price,
-      0
+  const valid =
+    sheet.items.some(
+      it =>
+        it.name.trim() &&
+        Number(it.price) > 0
     );
 
-
-  const invoice = {
-
-    id:
-      sheet.id ||
-      uid(),
-
-    title:
-      (
-        sheet.title ||
-        ''
-      ).trim() ||
-      (
-        'Factura ' +
-        (
-          sheet.date ||
-          todayStr()
-        )
-      ),
-
-    date:
-      sheet.date ||
-      todayStr(),
-
-    items,
-
-    total,
-
-    registered:
-      !!sheet.registered,
-
-    categoryId:
-      sheet.categoryId ||
-      null,
-
-    txId:
-      sheet.txId ||
-      null
-  };
-
-
-  if (
-    !DB.invoices
-  ){
-
-    DB.invoices = [];
-  }
-
-
-  const exists =
-    DB.invoices.some(
-      i =>
-        i.id ===
-        invoice.id
-    );
-
-
-  DB.invoices =
-    exists
-      ? DB.invoices.map(
-          i =>
-            i.id ===
-              invoice.id
-              ? invoice
-              : i
-        )
-      : DB.invoices.concat([
-          invoice
-        ]);
-
-
-  saveDB();
-
-  safeSync();
-
-  sheet =
-    null;
-
-  renderAppContent();
+  btn.disabled =
+    !valid;
 }
 
 
-function deleteInvoice(id){
-
-  DB.invoices =
-    (
-      DB.invoices ||
-      []
-    ).filter(
-      i =>
-        i.id !==
-        id
-    );
-
-  saveDB();
-
-  safeSync();
-
-  sheet =
-    null;
-
-  confirmState =
-    null;
-
-  renderAppContent();
-}
-
-
-function exportBackup(){
-
-  const blob =
-    new Blob(
-      [
-        JSON.stringify(
-          DB,
-          null,
-          2
-        )
-      ],
-      {
-        type:
-          'application/json'
-      }
-    );
-
-  const url =
-    URL.createObjectURL(
-      blob
-    );
-
-  const a =
-    document.createElement(
-      'a'
-    );
-
-  a.href =
-    url;
-
-  a.download =
-    'finanzas-backup-' +
-    todayStr() +
-    '.json';
-
-  document.body.appendChild(
-    a
-  );
-
-  a.click();
-
-  document.body.removeChild(
-    a
-  );
-
-  URL.revokeObjectURL(
-    url
-  );
-}
-
-
-function importBackupFile(
-  file
-){
-
-  const reader =
-    new FileReader();
-
-
-  reader.onload =
-    e => {
-
-      try {
-
-        const parsed =
-          JSON.parse(
-            e.target.result
-          );
-
-        if (
-          !parsed ||
-          !Array.isArray(
-            parsed.transactions
-          ) ||
-          !Array.isArray(
-            parsed.categories
-          )
-        ){
-
-          throw new Error(
-            'formato inválido'
-          );
-        }
-
-
-        DB.transactions =
-          (
-            parsed.transactions ||
-            []
-          ).map(
-            t => ({
-              ...t,
-              amount:
-                Number(t.amount) ||
-                0
-            })
-          );
-
-
-        DB.categories =
-          parsed.categories;
-
-
-        DB.credits =
-          (
-            parsed.credits ||
-            []
-          ).map(
-            c => ({
-              ...c,
-              total:
-                Number(c.total) ||
-                0,
-              payments:
-                (
-                  c.payments ||
-                  []
-                ).map(
-                  p => ({
-                    ...p,
-                    amount:
-                      Number(p.amount) ||
-                      0
-                  })
-                )
-            })
-          );
-
-
-        DB.invoices =
-          (
-            parsed.invoices ||
-            []
-          ).map(
-            inv => ({
-              ...inv,
-              total:
-                Number(inv.total) ||
-                0,
-              items:
-                (
-                  inv.items ||
-                  []
-                ).map(
-                  it => ({
-                    ...it,
-                    price:
-                      Number(it.price) ||
-                      0
-                  })
-                )
-            })
-          );
-
-
-        DB.settings =
-          parsed.settings ||
-          {
-            currency:'COP'
-          };
-
-
-        saveDB();
-
-        safeSync();
-
-        renderAppContent();
-
-      } catch(err){
-
-        alert(
-          'Copia de seguridad no válida.'
-        );
-      }
-    };
-
-
-  reader.readAsText(
-    file
-  );
-}
-
-
-document.addEventListener(
-  'change',
-  e => {
-
-    if (
-      e.target.id ===
-      'import-file' &&
-      e.target.files[0]
-    ){
-
-      importBackupFile(
-        e.target.files[0]
-      );
-    }
-
-
-    if (
-      e.target.id ===
-      'global-camera-input' &&
-      e.target.files[0]
-    ){
-
-      const file =
-        e.target.files[0];
-
-      scanningOverlay = {
-        message:
-          'Optimizando y analizando factura con IA...'
-      };
-
-      renderOverlays();
-
-
-      compressImage(
-        file
-      )
-      .then(
-        result =>
-          API.scanInvoiceViaProxy(
-            result.base64,
-            result.mimeType
-          )
-      )
-      .then(
-        items => {
-
-          scanningOverlay =
-            null;
-
-          sheet = {
-            kind:'invoice',
-            mode:'new',
-            id:null,
-            title:
-              'Factura ' +
-              todayStr(),
-            date:
-              todayStr(),
-            items:
-              items.length
-                ? items
-                : [
-                    {
-                      id:uid(),
-                      name:'',
-                      price:''
-                    }
-                  ],
-            registered:false
-          };
-
-          renderOverlays();
-        }
-      )
-      .catch(
-        error => {
-
-          scanningOverlay =
-            null;
-
-          renderOverlays();
-
-          alert(
-            error.message ||
-            'No se pudo procesar la factura.'
-          );
-        }
-      );
-    }
-  }
-);
-
+/* ==========================================================
+   COMPRESIÓN DE IMÁGENES
+   ========================================================== */
 
 function compressImage(
   file,
   maxWidth = 800,
   quality = 0.7
-){
+) {
 
   return new Promise(
     resolve => {
@@ -3689,79 +3455,193 @@ function compressImage(
           img.src =
             event.target.result;
 
-          img.onload =
-            () => {
+          img.onload = () => {
 
-              const canvas =
-                document.createElement(
-                  'canvas'
-                );
-
-              let width =
-                img.width;
-
-              let height =
-                img.height;
-
-              if (
-                width >
-                maxWidth
-              ){
-
-                height =
-                  Math.round(
-                    (
-                      height *
-                      maxWidth
-                    ) /
-                    width
-                  );
-
-                width =
-                  maxWidth;
-              }
-
-              canvas.width =
-                width;
-
-              canvas.height =
-                height;
-
-              const ctx =
-                canvas.getContext(
-                  '2d'
-                );
-
-              ctx.drawImage(
-                img,
-                0,
-                0,
-                width,
-                height
+            const canvas =
+              document.createElement(
+                'canvas'
               );
 
-              const dataUrl =
-                canvas.toDataURL(
-                  'image/jpeg',
-                  quality
+            let width =
+              img.width;
+
+            let height =
+              img.height;
+
+
+            if (
+              width > maxWidth
+            ) {
+
+              height =
+                Math.round(
+                  (
+                    height *
+                    maxWidth
+                  ) /
+                  width
                 );
 
-              const match =
-                dataUrl.match(
-                  /^data:([^;]+);base64,(.*)$/
-                );
+              width =
+                maxWidth;
+            }
 
-              resolve({
-                mimeType:
-                  match[1],
-                base64:
-                  match[2]
-              });
-            };
+
+            canvas.width =
+              width;
+
+            canvas.height =
+              height;
+
+
+            const ctx =
+              canvas.getContext(
+                '2d'
+              );
+
+            ctx.drawImage(
+              img,
+              0,
+              0,
+              width,
+              height
+            );
+
+
+            const dataUrl =
+              canvas.toDataURL(
+                'image/jpeg',
+                quality
+              );
+
+
+            const match =
+              dataUrl.match(
+                /^data:([^;]+);base64,(.*)$/
+              );
+
+
+            resolve({
+              mimeType:
+                match[1],
+
+              base64:
+                match[2]
+            });
+          };
         };
     }
   );
 }
 
+
+/* ==========================================================
+   ESCANEO DE FACTURAS
+   ========================================================== */
+
+document.addEventListener(
+  'change',
+  e => {
+
+    if (
+      e.target.id ===
+      'global-camera-input' &&
+      e.target.files[0]
+    ) {
+
+      const file =
+        e.target.files[0];
+
+      scanningOverlay = {
+        message:
+          'Optimizando y analizando factura con IA...'
+      };
+
+      renderOverlays();
+
+
+      compressImage(
+        file,
+        800,
+        0.7
+      )
+      .then(
+        async ({
+          base64,
+          mimeType
+        }) => {
+
+          try {
+
+            const items =
+              API.scanInvoiceViaProxy
+                ? await API.scanInvoiceViaProxy(
+                    base64,
+                    mimeType
+                  )
+                : [];
+
+            scanningOverlay =
+              null;
+
+            sheet = {
+              kind:
+                'invoice',
+
+              mode:
+                'new',
+
+              id:
+                null,
+
+              title:
+                'Factura ' +
+                todayStr(),
+
+              date:
+                todayStr(),
+
+              items:
+                items.length
+                  ? items
+                  : [
+                      {
+                        id:
+                          uid(),
+                        name:
+                          '',
+                        price:
+                          ''
+                      }
+                    ],
+
+              registered:
+                false
+            };
+
+            renderOverlays();
+
+          } catch (err) {
+
+            scanningOverlay =
+              null;
+
+            renderOverlays();
+
+            alert(
+              err.message ||
+              'Error al procesar la factura.'
+            );
+          }
+        }
+      );
+    }
+  }
+);
+
+
+/* ==========================================================
+   ARRANQUE
+   ========================================================== */
 
 render();
