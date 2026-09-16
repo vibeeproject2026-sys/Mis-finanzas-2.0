@@ -6,7 +6,7 @@ import {
   renderInvoiceSheet, renderConfirmDialog, renderScanningOverlay, 
   filteredTx, renderTxCatChips, formatThousandInput, parseFormattedNumber 
 } from './ui.js';
-import { scanInvoiceViaProxy, syncWithSupabase } from './api.js';
+import { scanInvoiceViaProxy, signInUser, signUpUser, syncWithSupabase } from './api.js';
 
 let UI = {tab:'dashboard', txFilter:'all', creditFilter:'against', search:'', openInvoiceId:null, fabMenuOpen:false};
 let sheet = null;
@@ -15,6 +15,93 @@ let scanningOverlay = null;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
 
 export function render(){
+  const token = localStorage.getItem('supabase_token');
+  const userId = localStorage.getItem('supabase_user_id');
+
+  const viewEl = document.getElementById('view');
+  const tabbarEl = document.getElementById('tabbar');
+
+  // Si el usuario no ha iniciado sesión, mostramos la pantalla de acceso comercial
+  if (!token || !userId) {
+    if (viewEl) {
+      viewEl.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:75vh;">
+          <div class="card" style="width:100%;max-width:380px;padding:32px 24px;text-align:center;">
+            <div style="font-size:36px;margin-bottom:12px;">☁️</div>
+            <h2 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;">Terminal Cloud</h2>
+            <p style="font-size:13px;color:var(--ink-muted);margin-bottom:24px;">Inicia sesión para gestionar tus finanzas en la nube</p>
+            
+            <div class="field" style="text-align:left;margin-bottom:14px;">
+              <div class="field-label">Correo electrónico</div>
+              <input id="auth-email" type="email" placeholder="usuario@correo.com" style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;">
+            </div>
+
+            <div class="field" style="text-align:left;margin-bottom:16px;">
+              <div class="field-label">Contraseña</div>
+              <input id="auth-password" type="password" placeholder="••••••••" style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;">
+            </div>
+
+            <div id="auth-error" style="color:var(--expense);font-size:12px;margin-bottom:14px;min-height:16px;"></div>
+
+            <button class="save-btn" id="btn-login" style="width:100%;margin-bottom:10px;padding:14px;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;border:none;cursor:pointer;">Iniciar Sesión</button>
+            <button class="secondary-btn" id="btn-signup" style="width:100%;padding:14px;border-radius:12px;background:transparent;border:1px solid var(--border);color:#fff;font-weight:600;cursor:pointer;">Crear Cuenta Nueva</button>
+          </div>
+        </div>
+      `;
+    }
+    if (tabbarEl) tabbarEl.innerHTML = '';
+    setTimeout(attachAuthEvents, 50);
+    return;
+  }
+
+  // Si hay sesión activa, cargamos la app comercial completa
+  renderAppContent();
+}
+
+function attachAuthEvents(){
+  const emailInput = document.getElementById('auth-email');
+  const passInput = document.getElementById('auth-password');
+  const errorDiv = document.getElementById('auth-error');
+
+  const getCreds = () => ({
+    email: emailInput ? emailInput.value.trim() : '',
+    password: passInput ? passInput.value.trim() : ''
+  });
+
+  document.getElementById('btn-login')?.addEventListener('click', async () => {
+    const { email, password } = getCreds();
+    if (!email || !password) { if (errorDiv) errorDiv.textContent = 'Completa todos los campos.'; return; }
+    if (errorDiv) errorDiv.textContent = 'Iniciando sesión...';
+    try {
+      const data = await signInUser(email, password);
+      localStorage.setItem('supabase_token', data.access_token);
+      localStorage.setItem('supabase_user_id', data.user.id);
+      render();
+    } catch (err) {
+      if (errorDiv) errorDiv.textContent = err.message;
+    }
+  });
+
+  document.getElementById('btn-signup')?.addEventListener('click', async () => {
+    const { email, password } = getCreds();
+    if (!email || !password) { if (errorDiv) errorDiv.textContent = 'Completa todos los campos.'; return; }
+    if (errorDiv) errorDiv.textContent = 'Registrando cuenta...';
+    try {
+      const data = await signUpUser(email, password);
+      if (data.access_token) {
+        localStorage.setItem('supabase_token', data.access_token);
+        localStorage.setItem('supabase_user_id', data.user.id);
+        render();
+      } else {
+        if (errorDiv) errorDiv.textContent = '¡Cuenta creada con éxito! Inicia sesión ahora.';
+      }
+    } catch (err) {
+      if (errorDiv) errorDiv.textContent = err.message;
+    }
+  });
+}
+
+function renderAppContent(){
   const viewEl = document.getElementById('view');
   if (viewEl) {
     viewEl.innerHTML =
@@ -105,7 +192,7 @@ function closeFabMenu(callback) {
     backdrop.classList.add('closing'); 
     setTimeout(() => { UI.fabMenuOpen = false; render(); if (callback) callback(); }, 350); 
   } else {
-    UI.fabMenuOpen = false; render(); if (callback) callback();
+    UI.fabMenuOpen = false; render();
   }
 }
 
