@@ -148,18 +148,6 @@ function renderAppContent(){
        UI.tab==='credits' ? renderCredits(UI.creditFilter) :
        UI.tab==='categories' ? renderCategories() :
        (renderSettings() + '<div style="padding:16px 24px;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'));
-  
-    // Ocultar automáticamente los botones locales de respaldo JSON en Ajustes si estamos en esa pestaña
-    if (UI.tab === 'settings') {
-      setTimeout(() => {
-        document.querySelectorAll('button').forEach(btn => {
-          const txt = btn.textContent || '';
-          if (txt.includes('Exportar') || txt.includes('Importar')) {
-            btn.closest('.card, .field, div')?.remove() || (btn.style.display = 'none');
-          }
-        });
-      }, 10);
-    }
   }
 
   let tabbarHTML = [
@@ -255,8 +243,8 @@ document.addEventListener('click',(e)=>{
       Object.assign(DB, {transactions:[], categories:DEFAULT_CATEGORIES.slice(), credits:[], invoices:[], settings:{currency:'COP'}});
       saveDB(); 
       UI.tab = 'dashboard';
-      confirmState = null; // Limpiamos la confirmación para que desaparezca la ventana
-      render(); // Redibuja y muestra el login
+      confirmState = null; 
+      render(); 
     }};
     renderOverlays(); return;
   }
@@ -446,7 +434,7 @@ document.addEventListener('click',(e)=>{
     if(!confirmState) return; 
     const fn=confirmState.onConfirm; 
     confirmState=null; 
-    renderOverlays(); // Limpiamos visualmente el overlay de confirmación al instante
+    renderOverlays(); 
     fn(); 
     return; 
   }
