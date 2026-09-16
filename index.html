@@ -246,7 +246,6 @@
     display:flex;
     justify-content:space-around;
     align-items:center;
-    /* Translúcido sutil: menor opacidad y blur muy ligero */
     background: rgba(11, 19, 38, 0.45);
     backdrop-filter: blur(12px) saturate(150%);
     -webkit-backdrop-filter: blur(12px) saturate(150%);
@@ -273,9 +272,10 @@
   .tab-btn span{font-size:10px;font-weight:600;}
   .tab-btn.active span{font-weight:800;}
 
+  /* Contenedor central simétrico para centrar perfectamente el botón + */
   .center-fab-container {
     position: relative;
-    flex: 1.2;
+    flex: 1;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -283,7 +283,7 @@
   }
   .fab-center {
     position: absolute;
-    top: -8px; /* Ajustado para que no suba tanto y muerda sutilmente el borde */
+    top: -12px; /* Centrado exacto mordiendo sutilmente la parte superior */
     width: 52px;
     height: 52px;
     border-radius: 26px;
@@ -346,16 +346,18 @@
     background: rgba(2, 6, 23, 0.6); 
     border: 1px solid rgba(255, 255, 255, 0.05);
     color: #FFFFFF; font-size: 15px; font-weight: 700; cursor: pointer; text-align: left;
-    transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
     transform: scale(1);
     min-height: 72px;
   }
 
-  .fab-menu-item:active { 
-    transform: scale(0.94); 
-    background: rgba(6, 182, 212, 0.3); 
-    box-shadow: 0 0 25px rgba(6, 182, 212, 0.25); 
-    border-color: rgba(56, 189, 248, 0.6);
+  /* Animación sutil premium al presionar una opción del menú desplegable */
+  .fab-menu-item:active, .fab-menu-item.selected-pulse { 
+    transform: scale(0.93); 
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.4), rgba(59, 130, 246, 0.4));
+    box-shadow: 0 0 30px rgba(6, 182, 212, 0.4); 
+    border-color: rgba(255, 255, 255, 0.8);
+    color: #FFFFFF;
   }
   
   .fab-menu-item * { pointer-events: none; }
@@ -368,7 +370,9 @@
     transition: transform 0.25s, background 0.2s, color 0.2s;
     margin: 0; padding: 0;
   }
-  .fab-menu-item:active .icon-box { transform: scale(1.15); background: rgba(6, 182, 212, 0.5); color:#fff; }
+  .fab-menu-item:active .icon-box, .fab-menu-item.selected-pulse .icon-box { 
+    transform: scale(1.15); background: #ffffff; color:#020617; 
+  }
 
   @keyframes fadeInMenu { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fadeOutMenu { from { opacity: 1; } to { opacity: 0; } }
@@ -465,7 +469,6 @@
 </div>
 <div class="tabbar" id="tabbar"></div>
 <div id="overlays"></div>
-<!-- Input global permanente para garantizar que el escáner funcione siempre por toque directo -->
 <input type="file" id="global-camera-input" accept="image/*" capture="environment" style="display:none">
 
 <script>
@@ -1027,7 +1030,7 @@ async function callGeminiForInvoice(base64Data, mimeType){
 function openInvoiceScan(){
   const input = document.getElementById('global-camera-input');
   if (input) {
-    input.value = ''; // Resetea para permitir re-seleccionar la misma foto si se desea
+    input.value = '';
     input.click();
   }
 }
@@ -1607,10 +1610,17 @@ document.addEventListener('click',(e)=>{
     return;
   }
 
-  if(action==='fab-new-tx'){ closeFabMenu(() => openNewTx()); return; }
-  if(action==='fab-scan-invoice'){ closeFabMenu(() => openInvoiceScan()); return; }
-  if(action==='fab-invoices'){ closeFabMenu(() => { UI.tab='invoices'; render(); }); return; }
-  if(action==='fab-settings'){ closeFabMenu(() => { UI.tab='settings'; render(); }); return; }
+  // Animación sutil al hacer clic en las opciones del menú flotante
+  if(action.startsWith('fab-')){
+    t.classList.add('selected-pulse');
+    setTimeout(() => {
+      if(action==='fab-new-tx'){ closeFabMenu(() => openNewTx()); }
+      else if(action==='fab-scan-invoice'){ closeFabMenu(() => openInvoiceScan()); }
+      else if(action==='fab-invoices'){ closeFabMenu(() => { UI.tab='invoices'; render(); }); }
+      else if(action==='fab-settings'){ closeFabMenu(() => { UI.tab='settings'; render(); }); }
+    }, 220); // Pequeño delay de 220ms para que se aprecie la animación premium
+    return;
+  }
 
   if(action==='edit-tx'){openEditTx(t.dataset.id);return;}
   if(action==='quick-cat'){openQuickAdd(t.dataset.id);return;}
