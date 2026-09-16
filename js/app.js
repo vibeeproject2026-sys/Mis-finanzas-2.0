@@ -1,6 +1,6 @@
 window.onerror = function(msg, url, line) {
   document.body.innerHTML =
-    '<div style="padding:40px; color:#ff4444; background:#111; height:100vh; text-align:center;">' +
+    '<div style="padding:40px;color:#ff4444;background:#111;height:100vh;text-align:center;">' +
     '<h2>⚠️ Error de Código</h2>' +
     '<p>' + msg + '</p>' +
     '<p>Línea: ' + line + '</p>' +
@@ -40,12 +40,17 @@ import {
 
 import * as API from './api.js';
 
+/* ==========================================================
+   ESTADO DE LA INTERFAZ
+   ========================================================== */
+
 let UI = {
   tab:'dashboard',
   txFilter:'all',
   creditFilter:'against',
   search:'',
   openInvoiceId:null,
+  openCreditId:null,
   fabMenuOpen:false
 };
 
@@ -55,7 +60,9 @@ let scanningOverlay = null;
 
 const uid = () =>
   Date.now().toString(36) +
-  Math.random().toString(36).slice(2,8);
+  Math.random()
+    .toString(36)
+    .slice(2,8);
 
 /* ==========================================================
    SINCRONIZACIÓN
@@ -88,7 +95,7 @@ const safeSync = () => {
       );
     }
 
-  } catch(e){
+  } catch(e) {
 
     console.error(
       'Error preparando sincronización:',
@@ -101,204 +108,6 @@ const safeSync = () => {
     skipped:true
   });
 };
-
-/* ==========================================================
-   MOVIMIENTOS AUTOMÁTICOS DE PAGOS A CRÉDITOS
-   ========================================================== */
-
-/*
- * Cada pago de una deuda genera un movimiento técnico enlazado.
- *
- * Esto permite que:
- *
- * 1. El balance disminuya.
- * 2. El gasto mensual incluya el aporte.
- * 3. El movimiento aparezca en Movimientos.
- * 4. La gráfica conozca el valor del pago.
- * 5. Editar/eliminar el aporte actualice automáticamente el movimiento.
- *
- * Los pagos de créditos "A favor" no generan gasto porque representan
- * dinero que la persona está cobrando, no dinero que está saliendo.
- */
-
-function buildCreditPaymentTransaction(
-  credit,
-  payment
-){
-
-  if (
-    !credit ||
-    credit.type !== 'against' ||
-    !payment
-  ){
-    return null;
-  }
-
-  const creditTitle =
-    String(
-      credit.title ||
-      'Crédito'
-    ).trim();
-
-  const note =
-    String(
-      payment.note || ''
-    ).trim();
-
-  const concept =
-    note
-      ? `Pago a créditos · ${creditTitle} · ${note}`
-      : `Pago a créditos · ${creditTitle}`;
-
-  return {
-    id:
-      `credit-payment-${credit.id}-${payment.id}`,
-
-    type:
-      'expense',
-
-    amount:
-      Number(payment.amount) || 0,
-
-    categoryId:
-      '',
-
-    date:
-      payment.date || '',
-
-    note:
-      concept,
-
-    source:
-      'credit-payment',
-
-    sourceCreditId:
-      credit.id,
-
-    sourcePaymentId:
-      payment.id
-  };
-}
-
-/*
- * Reconcilia DB.credits[].payments con DB.transactions.
- *
- * No crea duplicados.
- * Si un pago cambió de monto, fecha o nota, actualiza el movimiento.
- * Si un pago fue eliminado, elimina su movimiento asociado.
- * Si un crédito fue eliminado, elimina sus movimientos asociados.
- */
-function reconcileCreditPaymentTransactions(){
-
-  const expected =
-    new Map();
-
-  (DB.credits || []).forEach(
-    credit => {
-
-      if (
-        credit.type !== 'against'
-      ){
-        return;
-      }
-
-      (credit.payments || [])
-        .forEach(payment => {
-
-          const tx =
-            buildCreditPaymentTransaction(
-              credit,
-              payment
-            );
-
-          if (
-            tx &&
-            tx.amount > 0
-          ){
-            expected.set(
-              tx.id,
-              tx
-            );
-          }
-        });
-    }
-  );
-
-  const currentTransactions =
-    Array.isArray(DB.transactions)
-      ? DB.transactions
-      : [];
-
-  const linked =
-    currentTransactions.filter(
-      t =>
-        t &&
-        (
-          t.source === 'credit-payment' ||
-          t.sourceType === 'credit-payment'
-        )
-    );
-
-  const preserved =
-    currentTransactions.filter(
-      t =>
-        !(
-          t &&
-          (
-            t.source === 'credit-payment' ||
-            t.sourceType === 'credit-payment'
-          )
-        )
-    );
-
-  const currentById =
-    new Map(
-      linked.map(
-        t => [t.id,t]
-      )
-    );
-
-  let changed =
-    linked.length !==
-    expected.size;
-
-  expected.forEach(
-    (tx,id) => {
-
-      const old =
-        currentById.get(id);
-
-      if (
-        !old ||
-        Number(old.amount) !==
-          Number(tx.amount) ||
-        old.date !== tx.date ||
-        old.note !== tx.note
-      ){
-        changed = true;
-      }
-
-      preserved.push(tx);
-    }
-  );
-
-  if (changed){
-
-    DB.transactions =
-      preserved;
-
-    saveDB();
-
-    safeSync();
-
-  } else {
-
-    DB.transactions =
-      currentTransactions;
-  }
-
-  return changed;
-}
 
 /* ==========================================================
    RENDER PRINCIPAL
@@ -323,7 +132,7 @@ export function render(){
           'supabase_user_id'
         );
 
-    } catch(e){
+    } catch(e) {
 
       console.warn(
         'Modo privado estricto'
@@ -345,7 +154,9 @@ export function render(){
       !userId
     ){
 
-      if (viewEl){
+      if (
+        viewEl
+      ){
 
         viewEl.innerHTML = `
           <div style="display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:75vh;">
@@ -375,7 +186,6 @@ export function render(){
               </div>
 
               <div class="field" style="text-align:left;margin-bottom:16px;">
-
                 <div class="field-label">
                   Contraseña
                 </div>
@@ -386,7 +196,6 @@ export function render(){
                   placeholder="••••••••"
                   style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;"
                 >
-
               </div>
 
               <div
@@ -415,7 +224,9 @@ export function render(){
         `;
       }
 
-      if (tabbarEl){
+      if (
+        tabbarEl
+      ){
         tabbarEl.innerHTML = '';
       }
 
@@ -427,9 +238,6 @@ export function render(){
       return;
     }
 
-    /*
-     * Carga inicial desde Supabase.
-     */
     if (
       !window.hasLoadedCloudData
     ){
@@ -437,93 +245,100 @@ export function render(){
       window.hasLoadedCloudData =
         true;
 
-      if (API.fetchUserData){
+      if (
+        API.fetchUserData
+      ){
 
         API.fetchUserData(
           token,
           userId
         )
-        .then(cloudDB => {
+        .then(
+          cloudDB => {
 
-          if (
-            !cloudDB ||
-            typeof cloudDB !== 'object'
-          ){
-            return;
+            if (
+              !cloudDB ||
+              typeof cloudDB !== 'object'
+            ){
+              return;
+            }
+
+            if (
+              Array.isArray(
+                cloudDB.transactions
+              )
+            ){
+
+              DB.transactions =
+                cloudDB.transactions;
+            }
+
+            if (
+              Array.isArray(
+                cloudDB.categories
+              )
+            ){
+
+              DB.categories =
+                cloudDB.categories;
+            }
+
+            if (
+              Array.isArray(
+                cloudDB.credits
+              )
+            ){
+
+              DB.credits =
+                cloudDB.credits;
+            }
+
+            if (
+              Array.isArray(
+                cloudDB.invoices
+              )
+            ){
+
+              DB.invoices =
+                cloudDB.invoices;
+            }
+
+            if (
+              cloudDB.settings &&
+              typeof cloudDB.settings === 'object'
+            ){
+
+              DB.settings = {
+                ...DB.settings,
+                ...cloudDB.settings
+              };
+            }
+
+            saveDB();
+
+            renderAppContent();
           }
-
-          if (
-            Array.isArray(
-              cloudDB.transactions
+        )
+        .catch(
+          err =>
+            console.error(
+              'Error cargando datos de la nube:',
+              err
             )
-          ){
-            DB.transactions =
-              cloudDB.transactions;
-          }
-
-          if (
-            Array.isArray(
-              cloudDB.categories
-            )
-          ){
-            DB.categories =
-              cloudDB.categories;
-          }
-
-          if (
-            Array.isArray(
-              cloudDB.credits
-            )
-          ){
-            DB.credits =
-              cloudDB.credits;
-          }
-
-          if (
-            Array.isArray(
-              cloudDB.invoices
-            )
-          ){
-            DB.invoices =
-              cloudDB.invoices;
-          }
-
-          if (
-            cloudDB.settings &&
-            typeof cloudDB.settings ===
-              'object'
-          ){
-            DB.settings = {
-              ...DB.settings,
-              ...cloudDB.settings
-            };
-          }
-
-          saveDB();
-
-          renderAppContent();
-
-        })
-        .catch(err =>
-          console.error(
-            'Error cargando datos de la nube:',
-            err
-          )
         );
       }
     }
 
     renderAppContent();
 
-  } catch(err){
+  } catch(err) {
 
     document.body.innerHTML =
-      '<div style="padding:40px; color:#ff4444; background:#111; height:100vh;">' +
+      '<div style="padding:40px;color:#ff4444;background:#111;height:100vh;">' +
       '<h2>Error visual</h2>' +
       '<p>' +
       err.message +
-      '</p>' +
-      '</div>';
+      '</p></div>';
   }
 }
 
@@ -548,17 +363,18 @@ function attachAuthEvents(){
       'auth-error'
     );
 
-  const getCreds = () => ({
-    email:
-      emailInput
-        ? emailInput.value.trim()
-        : '',
+  const getCreds =
+    () => ({
+      email:
+        emailInput
+          ? emailInput.value.trim()
+          : '',
 
-    password:
-      passInput
-        ? passInput.value.trim()
-        : ''
-  });
+      password:
+        passInput
+          ? passInput.value.trim()
+          : ''
+    });
 
   document
     .getElementById(
@@ -571,14 +387,18 @@ function attachAuthEvents(){
         const {
           email,
           password
-        } = getCreds();
+        } =
+          getCreds();
 
         if (
           !email ||
           !password
         ){
 
-          if (errorDiv){
+          if (
+            errorDiv
+          ){
+
             errorDiv.textContent =
               'Completa todos los campos.';
           }
@@ -586,7 +406,10 @@ function attachAuthEvents(){
           return;
         }
 
-        if (errorDiv){
+        if (
+          errorDiv
+        ){
+
           errorDiv.textContent =
             'Iniciando sesión...';
         }
@@ -596,6 +419,7 @@ function attachAuthEvents(){
           if (
             !API.signInUser
           ){
+
             throw new Error(
               'Faltan funciones de API.'
             );
@@ -622,9 +446,12 @@ function attachAuthEvents(){
 
           render();
 
-        } catch(err){
+        } catch(err) {
 
-          if (errorDiv){
+          if (
+            errorDiv
+          ){
+
             errorDiv.textContent =
               err.message;
           }
@@ -643,14 +470,18 @@ function attachAuthEvents(){
         const {
           email,
           password
-        } = getCreds();
+        } =
+          getCreds();
 
         if (
           !email ||
           !password
         ){
 
-          if (errorDiv){
+          if (
+            errorDiv
+          ){
+
             errorDiv.textContent =
               'Completa todos los campos.';
           }
@@ -658,7 +489,10 @@ function attachAuthEvents(){
           return;
         }
 
-        if (errorDiv){
+        if (
+          errorDiv
+        ){
+
           errorDiv.textContent =
             'Registrando cuenta...';
         }
@@ -668,6 +502,7 @@ function attachAuthEvents(){
           if (
             !API.signUpUser
           ){
+
             throw new Error(
               'Faltan funciones de API.'
             );
@@ -700,15 +535,21 @@ function attachAuthEvents(){
 
           } else {
 
-            if (errorDiv){
+            if (
+              errorDiv
+            ){
+
               errorDiv.textContent =
                 '¡Cuenta creada con éxito! Inicia sesión ahora.';
             }
           }
 
-        } catch(err){
+        } catch(err) {
 
-          if (errorDiv){
+          if (
+            errorDiv
+          ){
+
             errorDiv.textContent =
               err.message;
           }
@@ -718,7 +559,7 @@ function attachAuthEvents(){
 }
 
 /* ==========================================================
-   CONTENIDO DE LA APP
+   CONTENIDO
    ========================================================== */
 
 function renderAppContent(){
@@ -728,39 +569,17 @@ function renderAppContent(){
       'view'
     );
 
-  /*
-   * Antes de pintar cualquier vista,
-   * reconciliamos los pagos de créditos
-   * con los movimientos.
-   */
-  reconcileCreditPaymentTransactions();
-
-  if (viewEl){
+  if (
+    viewEl
+  ){
 
     try {
 
       viewEl.innerHTML =
-        '<div class="hero">' +
-        '<div class="hero-content">' +
-
-        '<div class="hero-badge">' +
-        '<span class="hero-dot"></span>' +
-        '<span>Terminal Cloud Active</span>' +
-        '</div>' +
-
-        '<div class="hero-main">' +
-
-        '<div>' +
-        '<h1>Mis Finanzas</h1>' +
-        '<p>Control y analítica en tiempo real</p>' +
-        '</div>' +
-
-        '<div class="hero-avatar">⚡</div>' +
-
-        '</div>' +
-
-        '</div>' +
-        '</div>' +
+        '<div class="hero"><div class="hero-content">' +
+        '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
+        '<div class="hero-main"><div><h1>Mis Finanzas</h1><p>Control y analítica en tiempo real</p></div><div class="hero-avatar">⚡</div></div>' +
+        '</div></div>' +
 
         (
           UI.tab === 'dashboard'
@@ -779,7 +598,8 @@ function renderAppContent(){
 
                 : UI.tab === 'credits'
                   ? renderCredits(
-                      UI.creditFilter
+                      UI.creditFilter,
+                      UI.openCreditId
                     )
 
                   : UI.tab === 'categories'
@@ -787,11 +607,7 @@ function renderAppContent(){
 
                     : (
                         renderSettings() +
-                        '<div style="padding:16px 0;">' +
-                        '<button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">' +
-                        'Cerrar Sesión' +
-                        '</button>' +
-                        '</div>'
+                        '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'
                       )
         );
 
@@ -804,30 +620,32 @@ function renderAppContent(){
 
             const headers =
               document.querySelectorAll(
-                'h2, h3, .section-title'
+                'h2,h3,.section-title'
               );
 
-            headers.forEach(h => {
+            headers.forEach(
+              h => {
 
-              if (
-                h.textContent.includes(
-                  'Moneda'
-                ) ||
-                h.textContent.includes(
-                  'Configuración'
-                )
-              ){
-                h.textContent =
-                  'Ajustes';
+                if (
+                  h.textContent.includes(
+                    'Moneda'
+                  ) ||
+                  h.textContent.includes(
+                    'Configuración'
+                  )
+                ){
+
+                  h.textContent =
+                    'Ajustes';
+                }
               }
-            });
-
+            );
           },
           10
         );
       }
 
-    } catch(err){
+    } catch(err) {
 
       console.error(
         'Error renderizando la aplicación:',
@@ -835,96 +653,97 @@ function renderAppContent(){
       );
 
       viewEl.innerHTML =
-        '<div class="empty-state" style="padding:48px 20px;">' +
-        '<b>No se pudo cargar la vista.</b><br>' +
-        '<span style="font-size:12px;">' +
+        '<div class="empty-state" style="padding:48px 20px;"><b>No se pudo cargar la vista.</b><br><span style="font-size:12px;">' +
         (
           err?.message ||
           'Error inesperado'
         ) +
-        '</span>' +
-        '</div>';
+        '</span></div>';
     }
   }
 
-  const tabbarHTML = [
-
+  const tabbarHTML =
     [
-      'dashboard',
-      'wallet',
-      'Resumen'
-    ],
-
-    [
-      'transactions',
-      'list',
-      'Movimientos'
-    ],
-
-    [
-      'center',
-      'plus',
-      ''
-    ],
-
-    [
-      'credits',
-      'credit',
-      'Créditos'
-    ],
-
-    [
-      'categories',
-      'tag',
-      'Categorías'
+      [
+        'dashboard',
+        'wallet',
+        'Resumen'
+      ],
+      [
+        'transactions',
+        'list',
+        'Movimientos'
+      ],
+      [
+        'center',
+        'plus',
+        ''
+      ],
+      [
+        'credits',
+        'credit',
+        'Créditos'
+      ],
+      [
+        'categories',
+        'tag',
+        'Categorías'
+      ]
     ]
+    .map(
+      (
+        [
+          id,
+          ic,
+          label
+        ]
+      ) => {
 
-  ]
-  .map(
-    ([id,ic,label]) => {
+        if (
+          id === 'center'
+        ){
 
-      if (id === 'center'){
+          return (
+            '<div class="center-fab-container"><button class="fab-center" data-action="toggle-fab-menu"><span class="icon" style="stroke-linecap:round;stroke-linejoin:round"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></span></button></div>'
+          );
+        }
 
-        return '<div class="center-fab-container">' +
-          '<button class="fab-center" data-action="toggle-fab-menu">' +
+        return (
+          '<button class="tab-btn ' +
+          (
+            UI.tab === id
+              ? 'active'
+              : ''
+          ) +
+          '" data-action="set-tab" data-tab="' +
+          id +
+          '">' +
+
           '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' +
-          '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">' +
-          '<path d="M12 5v14M5 12h14"/>' +
-          '</svg>' +
+          getIconSvg(
+            ic
+          ) +
           '</span>' +
-          '</button>' +
-          '</div>';
+
+          '<span>' +
+          label +
+          '</span>' +
+
+          '</button>'
+        );
       }
-
-      return '<button class="tab-btn ' +
-        (
-          UI.tab === id
-            ? 'active'
-            : ''
-        ) +
-        '" data-action="set-tab" data-tab="' +
-        id +
-        '">' +
-
-        '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' +
-        getIconSvg(ic) +
-        '</span>' +
-
-        '<span>' +
-        label +
-        '</span>' +
-
-        '</button>';
-    }
-  )
-  .join('');
+    )
+    .join('');
 
   const tabbarEl =
     document.getElementById(
       'tabbar'
     );
 
-  if (tabbarEl){
+  if (
+    tabbarEl
+  ){
+
     tabbarEl.innerHTML =
       tabbarHTML;
   }
@@ -932,6 +751,7 @@ function renderAppContent(){
   if (
     UI.tab === 'transactions'
   ){
+
     attachSearchListener();
   }
 
@@ -946,30 +766,23 @@ function getIconSvg(name){
 
   const svgs = {
 
-    'wallet':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/>' +
-      '<path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/>' +
-      '<path d="M16 14h.01"/>' +
-      '</svg>',
+    wallet:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
 
-    'list':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>' +
-      '</svg>',
+    list:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
 
-    'credit':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/>' +
-      '</svg>',
+    credit:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
 
-    'tag':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/>' +
-      '</svg>'
+    tag:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>'
   };
 
-  return svgs[name] || '';
+  return (
+    svgs[name] ||
+    ''
+  );
 }
 
 /* ==========================================================
@@ -983,13 +796,18 @@ function renderOverlays(){
       'overlays'
     );
 
-  if (!el) return;
+  if (
+    !el
+  ){
+    return;
+  }
 
   let html = '';
 
   if (
     UI.fabMenuOpen
   ){
+
     html +=
       renderFabMenu();
   }
@@ -998,58 +816,82 @@ function renderOverlays(){
     sheet &&
     sheet.kind === 'tx'
   ){
+
     html +=
-      renderTxSheet(sheet);
+      renderTxSheet(
+        sheet
+      );
   }
 
   if (
     sheet &&
     sheet.kind === 'quick'
   ){
+
     html +=
-      renderQuickSheet(sheet);
+      renderQuickSheet(
+        sheet
+      );
   }
 
   if (
     sheet &&
     sheet.kind === 'cat'
   ){
+
     html +=
-      renderCatSheet(sheet);
+      renderCatSheet(
+        sheet
+      );
   }
 
   if (
     sheet &&
     sheet.kind === 'credit'
   ){
+
     html +=
-      renderCreditSheet(sheet);
+      renderCreditSheet(
+        sheet
+      );
   }
 
   if (
     sheet &&
     sheet.kind === 'payment'
   ){
+
     html +=
-      renderPaymentSheet(sheet);
+      renderPaymentSheet(
+        sheet
+      );
   }
 
   if (
     sheet &&
     sheet.kind === 'invoice'
   ){
+
     html +=
-      renderInvoiceSheet(sheet);
+      renderInvoiceSheet(
+        sheet
+      );
   }
 
-  if (confirmState){
+  if (
+    confirmState
+  ){
+
     html +=
       renderConfirmDialog(
         confirmState
       );
   }
 
-  if (scanningOverlay){
+  if (
+    scanningOverlay
+  ){
+
     html +=
       renderScanningOverlay(
         scanningOverlay
@@ -1059,13 +901,16 @@ function renderOverlays(){
   el.innerHTML =
     html;
 
-  if (sheet){
+  if (
+    sheet
+  ){
+
     attachSheetFieldSync();
   }
 
   const saveBtn =
     document.querySelector(
-      'button[data-action="save-tx"], button[data-action="save-quick"]'
+      'button[data-action="save-tx"],button[data-action="save-quick"]'
     );
 
   if (
@@ -1074,9 +919,13 @@ function renderOverlays(){
   ){
 
     const amt =
-      Number(sheet.amount);
+      Number(
+        sheet.amount
+      );
 
-    if (amt > 0){
+    if (
+      amt > 0
+    ){
 
       saveBtn.removeAttribute(
         'disabled'
@@ -1091,6 +940,10 @@ function renderOverlays(){
   }
 }
 
+/* ==========================================================
+   MOVIMIENTOS
+   ========================================================== */
+
 function refreshTxList(){
 
   const list =
@@ -1104,12 +957,16 @@ function refreshTxList(){
       'tx-list'
     );
 
-  if (container){
+  if (
+    container
+  ){
 
     container.innerHTML =
       list.length
         ? list
-            .map(renderTxRow)
+            .map(
+              renderTxRow
+            )
             .join('')
         : '<div class="empty-state">No hay movimientos registrados.</div>';
   }
@@ -1122,7 +979,9 @@ function attachSearchListener(){
       'search-input'
     );
 
-  if (input){
+  if (
+    input
+  ){
 
     input.addEventListener(
       'input',
@@ -1137,6 +996,10 @@ function attachSearchListener(){
   }
 }
 
+/* ==========================================================
+   FAB
+   ========================================================== */
+
 function closeFabMenu(
   callback
 ){
@@ -1146,7 +1009,9 @@ function closeFabMenu(
       'fab-backdrop'
     );
 
-  if (backdrop){
+  if (
+    backdrop
+  ){
 
     backdrop.classList.add(
       'closing'
@@ -1160,7 +1025,9 @@ function closeFabMenu(
 
         renderAppContent();
 
-        if (callback){
+        if (
+          callback
+        ){
           callback();
         }
 
@@ -1174,11 +1041,17 @@ function closeFabMenu(
       false;
 
     renderAppContent();
+
+    if (
+      callback
+    ){
+      callback();
+    }
   }
 }
 
 /* ==========================================================
-   EVENTOS PRINCIPALES
+   EVENTOS
    ========================================================== */
 
 document.addEventListener(
@@ -1200,7 +1073,11 @@ document.addEventListener(
         '[data-action]'
       );
 
-    if (!t) return;
+    if (
+      !t
+    ){
+      return;
+    }
 
     const action =
       t.dataset.action;
@@ -1210,50 +1087,52 @@ document.addEventListener(
        ====================================================== */
 
     if (
-      action === 'logout'
+      action ===
+      'logout'
     ){
 
       confirmState = {
         message:
           '¿Seguro que quieres cerrar sesión?',
 
-        onConfirm:() => {
+        onConfirm:
+          () => {
 
-          localStorage.removeItem(
-            'supabase_token'
-          );
+            localStorage.removeItem(
+              'supabase_token'
+            );
 
-          localStorage.removeItem(
-            'supabase_user_id'
-          );
+            localStorage.removeItem(
+              'supabase_user_id'
+            );
 
-          window.hasLoadedCloudData =
-            false;
+            window.hasLoadedCloudData =
+              false;
 
-          Object.assign(
-            DB,
-            {
-              transactions:[],
-              categories:
-                DEFAULT_CATEGORIES.slice(),
-              credits:[],
-              invoices:[],
-              settings:{
-                currency:'COP'
+            Object.assign(
+              DB,
+              {
+                transactions:[],
+                categories:
+                  DEFAULT_CATEGORIES.slice(),
+                credits:[],
+                invoices:[],
+                settings:{
+                  currency:'COP'
+                }
               }
-            }
-          );
+            );
 
-          saveDB();
+            saveDB();
 
-          UI.tab =
-            'dashboard';
+            UI.tab =
+              'dashboard';
 
-          confirmState =
-            null;
+            confirmState =
+              null;
 
-          render();
-        }
+            render();
+          }
       };
 
       renderOverlays();
@@ -1262,11 +1141,12 @@ document.addEventListener(
     }
 
     /* ======================================================
-       NAVEGACIÓN
+       TABS
        ====================================================== */
 
     if (
-      action === 'set-tab'
+      action ===
+      'set-tab'
     ){
 
       UI.tab =
@@ -1281,7 +1161,8 @@ document.addEventListener(
     }
 
     if (
-      action === 'set-filter'
+      action ===
+      'set-filter'
     ){
 
       UI.txFilter =
@@ -1293,11 +1174,31 @@ document.addEventListener(
     }
 
     if (
-      action === 'set-credit-filter'
+      action ===
+      'set-credit-filter'
     ){
 
       UI.creditFilter =
         t.dataset.filter;
+
+      UI.openCreditId =
+        null;
+
+      renderAppContent();
+
+      return;
+    }
+
+    if (
+      action ===
+      'toggle-credit-detail'
+    ){
+
+      UI.openCreditId =
+        UI.openCreditId ===
+        t.dataset.id
+          ? null
+          : t.dataset.id;
 
       renderAppContent();
 
@@ -1380,8 +1281,7 @@ document.addEventListener(
                       ) || {}
                     ).id || '',
                   amount:'',
-                  date:
-                    todayStr(),
+                  date:todayStr(),
                   note:''
                 };
 
@@ -1389,9 +1289,7 @@ document.addEventListener(
               }
             );
 
-          }
-
-          else if (
+          } else if (
             action ===
             'fab-new-credit'
           ){
@@ -1407,16 +1305,19 @@ document.addEventListener(
                   type:
                     UI.creditFilter ||
                     'against',
-                  total:''
+                  total:'',
+                  hasInterest:false,
+                  interestRate:'',
+                  interestPeriod:'monthly',
+                  termMonths:'',
+                  startDate:todayStr()
                 };
 
                 renderOverlays();
               }
             );
 
-          }
-
-          else if (
+          } else if (
             action ===
             'fab-scan-invoice'
           ){
@@ -1429,13 +1330,10 @@ document.addEventListener(
                     'global-camera-input'
                   )
                   .click();
-
               }
             );
 
-          }
-
-          else if (
+          } else if (
             action ===
             'fab-invoices'
           ){
@@ -1447,13 +1345,10 @@ document.addEventListener(
                   'invoices';
 
                 renderAppContent();
-
               }
             );
 
-          }
-
-          else if (
+          } else if (
             action ===
             'fab-settings'
           ){
@@ -1465,7 +1360,6 @@ document.addEventListener(
                   'settings';
 
                 renderAppContent();
-
               }
             );
           }
@@ -1493,7 +1387,9 @@ document.addEventListener(
             t.dataset.id
         );
 
-      if (tx){
+      if (
+        tx
+      ){
 
         sheet = {
           kind:'tx',
@@ -1503,7 +1399,9 @@ document.addEventListener(
           categoryId:
             tx.categoryId,
           amount:
-            String(tx.amount),
+            String(
+              tx.amount
+            ),
           date:
             tx.date,
           note:
@@ -1527,8 +1425,7 @@ document.addEventListener(
           t.dataset.id,
         amount:'',
         note:'',
-        date:
-          todayStr(),
+        date:todayStr(),
         showNote:false,
         showDate:false
       };
@@ -1576,9 +1473,13 @@ document.addEventListener(
       if (!sheet) return;
 
       const amt =
-        Number(sheet.amount);
+        Number(
+          sheet.amount
+        );
 
-      if (amt > 0){
+      if (
+        amt > 0
+      ){
 
         DB.transactions.push({
           id:uid(),
@@ -1590,12 +1491,12 @@ document.addEventListener(
             todayStr(),
           note:
             (
-              sheet.note || ''
+              sheet.note ||
+              ''
             ).trim()
         });
 
         saveDB();
-
         safeSync();
 
         sheet =
@@ -1646,7 +1547,9 @@ document.addEventListener(
           'chipList'
         );
 
-      if (chipContainer){
+      if (
+        chipContainer
+      ){
 
         chipContainer.innerHTML =
           renderTxCatChips(
@@ -1670,7 +1573,9 @@ document.addEventListener(
       if (!sheet) return;
 
       const amt =
-        Number(sheet.amount);
+        Number(
+          sheet.amount
+        );
 
       const catId =
         sheet.categoryId ||
@@ -1683,7 +1588,9 @@ document.addEventListener(
         ).id ||
         '';
 
-      if (amt > 0){
+      if (
+        amt > 0
+      ){
 
         const tx = {
           id:
@@ -1730,7 +1637,6 @@ document.addEventListener(
               );
 
         saveDB();
-
         safeSync();
 
         sheet =
@@ -1753,27 +1659,27 @@ document.addEventListener(
         message:
           '¿Eliminar este movimiento?',
 
-        onConfirm:() => {
+        onConfirm:
+          () => {
 
-          DB.transactions =
-            DB.transactions.filter(
-              x =>
-                x.id !==
-                sheet.id
-            );
+            DB.transactions =
+              DB.transactions.filter(
+                x =>
+                  x.id !==
+                  sheet.id
+              );
 
-          saveDB();
+            saveDB();
+            safeSync();
 
-          safeSync();
+            sheet =
+              null;
 
-          sheet =
-            null;
+            confirmState =
+              null;
 
-          confirmState =
-            null;
-
-          renderAppContent();
-        }
+            renderAppContent();
+          }
       };
 
       renderOverlays();
@@ -1820,7 +1726,9 @@ document.addEventListener(
             t.dataset.id
         );
 
-      if (c){
+      if (
+        c
+      ){
 
         sheet = {
           kind:'cat',
@@ -1832,7 +1740,9 @@ document.addEventListener(
           icon:c.icon,
           budget:
             c.budget
-              ? String(c.budget)
+              ? String(
+                  c.budget
+                )
               : '',
           primary:
             !!c.primary,
@@ -1856,32 +1766,26 @@ document.addEventListener(
       sheet.type =
         t.dataset.type;
 
-      document
-        .getElementById(
-          'budgetField'
-        )
-        .style.display =
-          sheet.type === 'expense'
-            ? 'block'
-            : 'none';
+      document.getElementById(
+        'budgetField'
+      ).style.display =
+        sheet.type === 'expense'
+          ? 'block'
+          : 'none';
 
-      document
-        .getElementById(
-          'primaryField'
-        )
-        .style.display =
-          sheet.type === 'income'
-            ? 'block'
-            : 'none';
+      document.getElementById(
+        'primaryField'
+      ).style.display =
+        sheet.type === 'income'
+          ? 'block'
+          : 'none';
 
-      document
-        .getElementById(
-          'fixedField'
-        )
-        .style.display =
-          sheet.type === 'expense'
-            ? 'block'
-            : 'none';
+      document.getElementById(
+        'fixedField'
+      ).style.display =
+        sheet.type === 'expense'
+          ? 'block'
+          : 'none';
 
       return;
     }
@@ -2011,8 +1915,7 @@ document.addEventListener(
             sheet.icon,
 
           budget:
-            sheet.type ===
-              'expense' &&
+            sheet.type === 'expense' &&
             sheet.budget
               ? Number(
                   sheet.budget
@@ -2020,14 +1923,12 @@ document.addEventListener(
               : null,
 
           primary:
-            sheet.type ===
-              'income'
+            sheet.type === 'income'
               ? !!sheet.primary
               : false,
 
           isFixed:
-            sheet.type ===
-              'expense'
+            sheet.type === 'expense'
               ? !!sheet.isFixed
               : false
         };
@@ -2052,7 +1953,6 @@ document.addEventListener(
               );
 
         saveDB();
-
         safeSync();
 
         sheet =
@@ -2075,27 +1975,27 @@ document.addEventListener(
         message:
           '¿Eliminar categoría?',
 
-        onConfirm:() => {
+        onConfirm:
+          () => {
 
-          DB.categories =
-            DB.categories.filter(
-              x =>
-                x.id !==
-                sheet.id
-            );
+            DB.categories =
+              DB.categories.filter(
+                x =>
+                  x.id !==
+                  sheet.id
+              );
 
-          saveDB();
+            saveDB();
+            safeSync();
 
-          safeSync();
+            sheet =
+              null;
 
-          sheet =
-            null;
+            confirmState =
+              null;
 
-          confirmState =
-            null;
-
-          renderAppContent();
-        }
+            renderAppContent();
+          }
       };
 
       renderOverlays();
@@ -2120,7 +2020,12 @@ document.addEventListener(
         type:
           UI.creditFilter ||
           'against',
-        total:''
+        total:'',
+        hasInterest:false,
+        interestRate:'',
+        interestPeriod:'monthly',
+        termMonths:'',
+        startDate:todayStr()
       };
 
       renderOverlays();
@@ -2140,16 +2045,56 @@ document.addEventListener(
             t.dataset.id
         );
 
-      if (c){
+      if (
+        c
+      ){
 
         sheet = {
           kind:'credit',
           mode:'edit',
           id:c.id,
-          title:c.title,
-          type:c.type,
+          title:
+            c.title ||
+            '',
+          type:
+            c.type ||
+            'against',
           total:
-            String(c.total)
+            String(
+              c.total ||
+              ''
+            ),
+
+          hasInterest:
+            Boolean(
+              c.interestEnabled
+            ) ||
+            Number(
+              c.interestRate
+            ) > 0,
+
+          interestRate:
+            String(
+              c.interestRate ||
+              ''
+            ),
+
+          interestPeriod:
+            c.interestPeriod ===
+            'annual'
+              ? 'annual'
+              : 'monthly',
+
+          termMonths:
+            String(
+              c.termMonths ||
+              ''
+            ),
+
+          startDate:
+            c.startDate ||
+            c.date ||
+            todayStr()
         };
 
         renderOverlays();
@@ -2175,24 +2120,89 @@ document.addEventListener(
 
     if (
       action ===
+      'toggle-credit-interest'
+    ){
+
+      if (!sheet) return;
+
+      sheet.hasInterest =
+        !sheet.hasInterest;
+
+      renderOverlays();
+
+      return;
+    }
+
+    if (
+      action ===
       'save-credit'
     ){
 
       if (!sheet) return;
 
       const tot =
-        Number(sheet.total);
+        Number(
+          sheet.total
+        );
+
+      const rate =
+        Math.max(
+          0,
+          Number(
+            sheet.interestRate
+          ) || 0
+        );
+
+      const term =
+        Math.max(
+          0,
+          Math.floor(
+            Number(
+              sheet.termMonths
+            ) || 0
+          )
+        );
+
+      const hasInterest =
+        !!sheet.hasInterest &&
+        rate > 0 &&
+        term > 0;
 
       if (
         sheet.title.trim() &&
-        tot > 0
+        tot > 0 &&
+        (
+          !sheet.hasInterest ||
+          (
+            rate > 0 &&
+            term > 0
+          )
+        )
       ){
 
-        if (!DB.credits){
+        if (
+          !DB.credits
+        ){
+
           DB.credits = [];
         }
 
+        const previous =
+          sheet.id
+            ? (
+                DB.credits.find(
+                  x =>
+                    x.id ===
+                    sheet.id
+                ) ||
+                {}
+              )
+            : {};
+
         const credit = {
+
+          ...previous,
+
           id:
             sheet.id ||
             uid(),
@@ -2206,18 +2216,35 @@ document.addEventListener(
           total:
             tot,
 
+          interestEnabled:
+            hasInterest,
+
+          interestRate:
+            hasInterest
+              ? rate
+              : 0,
+
+          interestPeriod:
+            sheet.interestPeriod ===
+            'annual'
+              ? 'annual'
+              : 'monthly',
+
+          termMonths:
+            hasInterest
+              ? term
+              : 0,
+
+          startDate:
+            sheet.startDate ||
+            todayStr(),
+
+          amortization:
+            'french',
+
           payments:
-            sheet.id
-              ? (
-                  (
-                    DB.credits.find(
-                      x =>
-                        x.id ===
-                        sheet.id
-                    ) || {}
-                  ).payments || []
-                )
-              : []
+            previous.payments ||
+            []
         };
 
         const exists =
@@ -2231,7 +2258,8 @@ document.addEventListener(
           exists
             ? DB.credits.map(
                 x =>
-                  x.id === credit.id
+                  x.id ===
+                  credit.id
                     ? credit
                     : x
               )
@@ -2240,7 +2268,6 @@ document.addEventListener(
               );
 
         saveDB();
-
         safeSync();
 
         sheet =
@@ -2263,27 +2290,27 @@ document.addEventListener(
         message:
           '¿Eliminar crédito?',
 
-        onConfirm:() => {
+        onConfirm:
+          () => {
 
-          DB.credits =
-            DB.credits.filter(
-              x =>
-                x.id !==
-                sheet.id
-            );
+            DB.credits =
+              DB.credits.filter(
+                x =>
+                  x.id !==
+                  sheet.id
+              );
 
-          saveDB();
+            saveDB();
+            safeSync();
 
-          safeSync();
+            sheet =
+              null;
 
-          sheet =
-            null;
+            confirmState =
+              null;
 
-          confirmState =
-            null;
-
-          renderAppContent();
-        }
+            renderAppContent();
+          }
       };
 
       renderOverlays();
@@ -2292,7 +2319,7 @@ document.addEventListener(
     }
 
     /* ======================================================
-       PAGOS DE CRÉDITOS
+       APORTES
        ====================================================== */
 
     if (
@@ -2307,8 +2334,7 @@ document.addEventListener(
           t.dataset.id,
         paymentId:null,
         amount:'',
-        date:
-          todayStr(),
+        date:todayStr(),
         note:''
       };
 
@@ -2339,7 +2365,9 @@ document.addEventListener(
             t.dataset.pid
         );
 
-      if (p){
+      if (
+        p
+      ){
 
         sheet = {
           kind:'payment',
@@ -2349,69 +2377,14 @@ document.addEventListener(
           paymentId:
             p.id,
           amount:
-            String(p.amount),
+            String(
+              p.amount
+            ),
           date:
             p.date,
           note:
-            p.note || ''
-        };
-
-        renderOverlays();
-      }
-
-      return;
-    }
-
-    /*
-     * Permite entrar al mismo editor desde el movimiento
-     * "Pago a créditos".
-     */
-    if (
-      action ===
-      'edit-credit-payment'
-    ){
-
-      const creditId =
-        t.dataset.cid;
-
-      const paymentId =
-        t.dataset.pid;
-
-      const c =
-        DB.credits.find(
-          x =>
-            x.id ===
-            creditId
-        );
-
-      const p =
-        (
-          c?.payments ||
-          []
-        ).find(
-          x =>
-            x.id ===
-            paymentId
-        );
-
-      if (
-        c &&
-        p
-      ){
-
-        sheet = {
-          kind:'payment',
-          mode:'edit',
-          creditId:
-            c.id,
-          paymentId:
-            p.id,
-          amount:
-            String(p.amount),
-          date:
-            p.date,
-          note:
-            p.note || ''
+            p.note ||
+            ''
         };
 
         renderOverlays();
@@ -2428,9 +2401,13 @@ document.addEventListener(
       if (!sheet) return;
 
       const amt =
-        Number(sheet.amount);
+        Number(
+          sheet.amount
+        );
 
-      if (amt > 0){
+      if (
+        amt > 0
+      ){
 
         const pay = {
           id:
@@ -2461,7 +2438,8 @@ document.addEventListener(
               ){
 
                 let pays =
-                  c.payments || [];
+                  c.payments ||
+                  [];
 
                 const exists =
                   pays.some(
@@ -2474,7 +2452,8 @@ document.addEventListener(
                   exists
                     ? pays.map(
                         x =>
-                          x.id === pay.id
+                          x.id ===
+                          pay.id
                             ? pay
                             : x
                       )
@@ -2493,13 +2472,7 @@ document.addEventListener(
           );
 
         saveDB();
-
         safeSync();
-
-        /*
-         * renderAppContent() ejecutará la reconciliación.
-         * Por eso el movimiento de salida se crea automáticamente.
-         */
 
         sheet =
           null;
@@ -2521,40 +2494,42 @@ document.addEventListener(
         message:
           '¿Eliminar aporte?',
 
-        onConfirm:() => {
+        onConfirm:
+          () => {
 
-          DB.credits =
-            DB.credits.map(
-              c =>
-                c.id ===
-                sheet.creditId
-                  ? {
-                      ...c,
-                      payments:
-                        (
-                          c.payments ||
-                          []
-                        ).filter(
-                          p =>
-                            p.id !==
-                            sheet.paymentId
-                        )
-                    }
-                  : c
-            );
+            DB.credits =
+              DB.credits.map(
+                c =>
+                  c.id ===
+                  sheet.creditId
 
-          saveDB();
+                    ? {
+                        ...c,
+                        payments:
+                          (
+                            c.payments ||
+                            []
+                          ).filter(
+                            p =>
+                              p.id !==
+                              sheet.paymentId
+                          )
+                      }
 
-          safeSync();
+                    : c
+              );
 
-          sheet =
-            null;
+            saveDB();
+            safeSync();
 
-          confirmState =
-            null;
+            sheet =
+              null;
 
-          renderAppContent();
-        }
+            confirmState =
+              null;
+
+            renderAppContent();
+          }
       };
 
       renderOverlays();
@@ -2572,10 +2547,8 @@ document.addEventListener(
     ){
 
       UI.openInvoiceId =
-        (
-          UI.openInvoiceId ===
-          t.dataset.id
-        )
+        UI.openInvoiceId ===
+        t.dataset.id
           ? null
           : t.dataset.id;
 
@@ -2596,20 +2569,26 @@ document.addEventListener(
             t.dataset.id
         );
 
-      if (inv){
+      if (
+        inv
+      ){
 
         sheet = {
           kind:'invoice',
           mode:'edit',
           id:inv.id,
-          title:inv.title,
-          date:inv.date,
+          title:
+            inv.title,
+          date:
+            inv.date,
           items:
             inv.items.map(
               it => ({
                 ...it,
                 price:
-                  String(it.price)
+                  String(
+                    it.price
+                  )
               })
             ),
           registered:
@@ -2634,7 +2613,9 @@ document.addEventListener(
             t.dataset.id
         );
 
-      if (inv){
+      if (
+        inv
+      ){
 
         sheet = {
           kind:'tx',
@@ -2648,14 +2629,18 @@ document.addEventListener(
                   c.type ===
                   'expense'
               ) || {}
-            ).id || '',
+            ).id ||
+            '',
           amount:
-            String(inv.total),
+            String(
+              inv.total
+            ),
           date:
             inv.date ||
             todayStr(),
           note:
-            inv.title || '',
+            inv.title ||
+            '',
           sourceInvoiceId:
             inv.id
         };
@@ -2679,14 +2664,12 @@ document.addEventListener(
         price:''
       });
 
-      document
-        .getElementById(
-          'inv-items-list'
-        )
-        .innerHTML =
-          renderInvoiceItemsHTML(
-            sheet
-          );
+      document.getElementById(
+        'inv-items-list'
+      ).innerHTML =
+        renderInvoiceItemsHTML(
+          sheet
+        );
 
       return;
     }
@@ -2716,14 +2699,12 @@ document.addEventListener(
         });
       }
 
-      document
-        .getElementById(
-          'inv-items-list'
-        )
-        .innerHTML =
-          renderInvoiceItemsHTML(
-            sheet
-          );
+      document.getElementById(
+        'inv-items-list'
+      ).innerHTML =
+        renderInvoiceItemsHTML(
+          sheet
+        );
 
       return;
     }
@@ -2740,7 +2721,9 @@ document.addEventListener(
           .filter(
             it =>
               it.name.trim() &&
-              Number(it.price) > 0
+              Number(
+                it.price
+              ) > 0
           )
           .map(
             it => ({
@@ -2750,18 +2733,29 @@ document.addEventListener(
               name:
                 it.name
                   .trim()
-                  .slice(0,60),
+                  .slice(
+                    0,
+                    60
+                  ),
               price:
-                Number(it.price)
+                Number(
+                  it.price
+                )
             })
           );
 
-      if (items.length){
+      if (
+        items.length
+      ){
 
         const total =
           items.reduce(
-            (s,it) =>
-              s + it.price,
+            (
+              s,
+              it
+            ) =>
+              s +
+              it.price,
             0
           );
 
@@ -2791,8 +2785,12 @@ document.addEventListener(
             !!sheet.registered
         };
 
-        if (!DB.invoices){
-          DB.invoices = [];
+        if (
+          !DB.invoices
+        ){
+
+          DB.invoices =
+            [];
         }
 
         const exists =
@@ -2806,7 +2804,8 @@ document.addEventListener(
           exists
             ? DB.invoices.map(
                 x =>
-                  x.id === invoice.id
+                  x.id ===
+                  invoice.id
                     ? invoice
                     : x
               )
@@ -2815,7 +2814,6 @@ document.addEventListener(
               );
 
         saveDB();
-
         safeSync();
 
         sheet =
@@ -2838,27 +2836,27 @@ document.addEventListener(
         message:
           '¿Eliminar factura?',
 
-        onConfirm:() => {
+        onConfirm:
+          () => {
 
-          DB.invoices =
-            DB.invoices.filter(
-              x =>
-                x.id !==
-                sheet.id
-            );
+            DB.invoices =
+              DB.invoices.filter(
+                x =>
+                  x.id !==
+                  sheet.id
+              );
 
-          saveDB();
+            saveDB();
+            safeSync();
 
-          safeSync();
+            sheet =
+              null;
 
-          sheet =
-            null;
+            confirmState =
+              null;
 
-          confirmState =
-            null;
-
-          renderAppContent();
-        }
+            renderAppContent();
+          }
       };
 
       renderOverlays();
@@ -2867,7 +2865,7 @@ document.addEventListener(
     }
 
     /* ======================================================
-       CIERRE / CONFIRMACIONES
+       CERRAR
        ====================================================== */
 
     if (
@@ -2901,7 +2899,9 @@ document.addEventListener(
       'confirm-ok'
     ){
 
-      if (!confirmState){
+      if (
+        !confirmState
+      ){
         return;
       }
 
@@ -2931,7 +2931,6 @@ document.addEventListener(
         t.dataset.code;
 
       saveDB();
-
       safeSync();
 
       renderAppContent();
@@ -2949,6 +2948,10 @@ function attachSheetFieldSync(){
 
   if (!sheet) return;
 
+  /* ========================================================
+     MOVIMIENTO / GASTO RÁPIDO
+     ======================================================== */
+
   if (
     sheet.kind === 'tx' ||
     sheet.kind === 'quick'
@@ -2961,20 +2964,25 @@ function attachSheetFieldSync(){
 
     const a =
       document.getElementById(
-        prefix + '-amount'
+        prefix +
+        '-amount'
       );
 
     const d =
       document.getElementById(
-        prefix + '-date'
+        prefix +
+        '-date'
       );
 
     const n =
       document.getElementById(
-        prefix + '-note'
+        prefix +
+        '-note'
       );
 
-    if (a){
+    if (
+      a
+    ){
 
       a.addEventListener(
         'input',
@@ -2992,13 +3000,17 @@ function attachSheetFieldSync(){
 
           const saveBtn =
             document.querySelector(
-              'button[data-action="save-tx"], button[data-action="save-quick"]'
+              'button[data-action="save-tx"],button[data-action="save-quick"]'
             );
 
-          if (saveBtn){
+          if (
+            saveBtn
+          ){
 
             if (
-              Number(sheet.amount) > 0
+              Number(
+                sheet.amount
+              ) > 0
             ){
 
               saveBtn.removeAttribute(
@@ -3026,30 +3038,41 @@ function attachSheetFieldSync(){
       );
     }
 
-    if (d){
+    if (
+      d
+    ){
 
       d.addEventListener(
         'input',
         () => {
+
           sheet.date =
             d.value;
         }
       );
     }
 
-    if (n){
+    if (
+      n
+    ){
 
       n.addEventListener(
         'input',
         () => {
+
           sheet.note =
             n.value;
         }
       );
     }
 
+  /* ========================================================
+     CATEGORÍA
+     ======================================================== */
+
   } else if (
-    sheet.kind === 'cat'
+    sheet.kind ===
+    'cat'
   ){
 
     const nm =
@@ -3062,18 +3085,23 @@ function attachSheetFieldSync(){
         'f-budget'
       );
 
-    if (nm){
+    if (
+      nm
+    ){
 
       nm.addEventListener(
         'input',
         () => {
+
           sheet.name =
             nm.value;
         }
       );
     }
 
-    if (b){
+    if (
+      b
+    ){
 
       b.addEventListener(
         'input',
@@ -3092,8 +3120,13 @@ function attachSheetFieldSync(){
       );
     }
 
+  /* ========================================================
+     CRÉDITO
+     ======================================================== */
+
   } else if (
-    sheet.kind === 'credit'
+    sheet.kind ===
+    'credit'
   ){
 
     const title =
@@ -3106,18 +3139,225 @@ function attachSheetFieldSync(){
         'c-total'
       );
 
-    if (title){
+    const rate =
+      document.getElementById(
+        'c-interest-rate'
+      );
+
+    const period =
+      document.getElementById(
+        'c-interest-period'
+      );
+
+    const term =
+      document.getElementById(
+        'c-term'
+      );
+
+    const startDate =
+      document.getElementById(
+        'c-start-date'
+      );
+
+    /*
+     * Preview en tiempo real.
+     */
+
+    const updateCreditPreview =
+      () => {
+
+        const principal =
+          Number(
+            sheet.total
+          ) || 0;
+
+        const interestEnabled =
+          !!sheet.hasInterest;
+
+        const interestRate =
+          Number(
+            sheet.interestRate
+          ) || 0;
+
+        const interestPeriod =
+          sheet.interestPeriod ||
+          'monthly';
+
+        const termMonths =
+          Number(
+            sheet.termMonths
+          ) || 0;
+
+        const monthlyRate =
+          interestEnabled
+            ? (
+                interestPeriod === 'annual'
+                  ? interestRate /
+                    100 /
+                    12
+                  : interestRate /
+                    100
+              )
+            : 0;
+
+        let installment =
+          0;
+
+        let total =
+          principal;
+
+        let interest =
+          0;
+
+        if (
+          principal > 0 &&
+          termMonths > 0
+        ){
+
+          if (
+            monthlyRate > 0
+          ){
+
+            const factor =
+              Math.pow(
+                1 +
+                monthlyRate,
+                termMonths
+              );
+
+            installment =
+              principal *
+              (
+                monthlyRate *
+                factor
+              ) /
+              (
+                factor -
+                1
+              );
+
+            total =
+              installment *
+              termMonths;
+
+            interest =
+              Math.max(
+                0,
+                total -
+                principal
+              );
+
+          } else {
+
+            installment =
+              principal /
+              termMonths;
+          }
+        }
+
+        const iEl =
+          document.getElementById(
+            'c-preview-interest'
+          );
+
+        const tEl =
+          document.getElementById(
+            'c-preview-total'
+          );
+
+        const pEl =
+          document.getElementById(
+            'c-preview-payment'
+          );
+
+        const saveBtn =
+          document.getElementById(
+            'credit-save-btn'
+          );
+
+        if (
+          iEl
+        ){
+
+          iEl.textContent =
+            fmtMoneyLocal(
+              interest
+            );
+        }
+
+        if (
+          tEl
+        ){
+
+          tEl.textContent =
+            fmtMoneyLocal(
+              total
+            );
+        }
+
+        if (
+          pEl
+        ){
+
+          pEl.textContent =
+            installment > 0
+              ? fmtMoneyLocal(
+                  installment
+                )
+              : '—';
+        }
+
+        if (
+          saveBtn
+        ){
+
+          const ok =
+            String(
+              sheet.title ||
+              ''
+            ).trim().length > 0 &&
+            principal > 0 &&
+            (
+              !sheet.hasInterest ||
+              (
+                Number(
+                  sheet.interestRate
+                ) > 0 &&
+                Number(
+                  sheet.termMonths
+                ) > 0
+              )
+            );
+
+          saveBtn.disabled =
+            !ok;
+
+          saveBtn.style.opacity =
+            ok
+              ? '1'
+              : '0.5';
+        }
+      };
+
+    if (
+      title
+    ){
 
       title.addEventListener(
         'input',
         () => {
+
           sheet.title =
             title.value;
+
+          updateCreditPreview();
         }
       );
     }
 
-    if (tot){
+    if (
+      tot
+    ){
 
       tot.addEventListener(
         'input',
@@ -3132,12 +3372,108 @@ function attachSheetFieldSync(){
             formatThousandInput(
               sheet.total
             );
+
+          updateCreditPreview();
         }
       );
     }
 
+    if (
+      rate
+    ){
+
+      rate.addEventListener(
+        'input',
+        e => {
+
+          sheet.interestRate =
+            Math.min(
+              100,
+              Math.max(
+                0,
+                Number(
+                  e.target.value
+                ) || 0
+              )
+            );
+
+          updateCreditPreview();
+        }
+      );
+    }
+
+    if (
+      period
+    ){
+
+      period.addEventListener(
+        'change',
+        () => {
+
+          sheet.interestPeriod =
+            period.value ===
+            'annual'
+              ? 'annual'
+              : 'monthly';
+
+          updateCreditPreview();
+        }
+      );
+    }
+
+    if (
+      term
+    ){
+
+      term.addEventListener(
+        'input',
+        () => {
+
+          sheet.termMonths =
+            Math.min(
+              600,
+              Math.max(
+                0,
+                Math.floor(
+                  Number(
+                    term.value
+                  ) || 0
+                )
+              )
+            );
+
+          term.value =
+            sheet.termMonths ||
+            '';
+
+          updateCreditPreview();
+        }
+      );
+    }
+
+    if (
+      startDate
+    ){
+
+      startDate.addEventListener(
+        'input',
+        () => {
+
+          sheet.startDate =
+            startDate.value;
+        }
+      );
+    }
+
+    updateCreditPreview();
+
+  /* ========================================================
+     APORTE
+     ======================================================== */
+
   } else if (
-    sheet.kind === 'payment'
+    sheet.kind ===
+    'payment'
   ){
 
     const a =
@@ -3155,7 +3491,14 @@ function attachSheetFieldSync(){
         'p-note'
       );
 
-    if (a){
+    const saveBtn =
+      document.getElementById(
+        'pay-save-btn'
+      );
+
+    if (
+      a
+    ){
 
       a.addEventListener(
         'input',
@@ -3170,34 +3513,63 @@ function attachSheetFieldSync(){
             formatThousandInput(
               sheet.amount
             );
+
+          if (
+            saveBtn
+          ){
+
+            const valid =
+              Number(
+                sheet.amount
+              ) > 0;
+
+            saveBtn.disabled =
+              !valid;
+
+            saveBtn.style.opacity =
+              valid
+                ? '1'
+                : '0.5';
+          }
         }
       );
     }
 
-    if (d){
+    if (
+      d
+    ){
 
       d.addEventListener(
         'input',
         () => {
+
           sheet.date =
             d.value;
         }
       );
     }
 
-    if (n){
+    if (
+      n
+    ){
 
       n.addEventListener(
         'input',
         () => {
+
           sheet.note =
             n.value;
         }
       );
     }
 
+  /* ========================================================
+     FACTURA
+     ======================================================== */
+
   } else if (
-    sheet.kind === 'invoice'
+    sheet.kind ===
+    'invoice'
   ){
 
     const ti =
@@ -3210,22 +3582,28 @@ function attachSheetFieldSync(){
         'inv-date'
       );
 
-    if (ti){
+    if (
+      ti
+    ){
 
       ti.addEventListener(
         'input',
         () => {
+
           sheet.title =
             ti.value;
         }
       );
     }
 
-    if (da){
+    if (
+      da
+    ){
 
       da.addEventListener(
         'input',
         () => {
+
           sheet.date =
             da.value;
         }
@@ -3237,7 +3615,9 @@ function attachSheetFieldSync(){
         'inv-items-list'
       );
 
-    if (list){
+    if (
+      list
+    ){
 
       list.addEventListener(
         'input',
@@ -3278,11 +3658,15 @@ function attachSheetFieldSync(){
 
           const totalVal =
             sheet.items.reduce(
-              (s,it) =>
+              (
+                s,
+                it
+              ) =>
                 s +
                 (
-                  Number(it.price) ||
-                  0
+                  Number(
+                    it.price
+                  ) || 0
                 ),
               0
             );
@@ -3292,19 +3676,12 @@ function attachSheetFieldSync(){
               'inv-total-val'
             );
 
-          if (totalEl){
+          if (
+            totalEl
+          ){
 
             totalEl.textContent =
-              new Intl.NumberFormat(
-                'es-CO',
-                {
-                  style:'currency',
-                  currency:
-                    DB.settings.currency ||
-                    'COP',
-                  maximumFractionDigits:0
-                }
-              ).format(
+              fmtMoneyLocal(
                 totalVal
               );
           }
@@ -3315,7 +3692,54 @@ function attachSheetFieldSync(){
 }
 
 /* ==========================================================
-   COMPRESIÓN DE IMÁGENES
+   FORMATO LOCAL PARA PREVIEWS
+   ========================================================== */
+
+function fmtMoneyLocal(
+  amount
+){
+
+  const cur =
+    DB.settings.currency ||
+    'COP';
+
+  const locales = {
+    COP:'es-CO',
+    USD:'en-US',
+    MXN:'es-MX',
+    EUR:'es-ES'
+  };
+
+  const locale =
+    locales[cur] ||
+    'es-CO';
+
+  try {
+
+    return new Intl.NumberFormat(
+      locale,
+      {
+        style:'currency',
+        currency:cur,
+        maximumFractionDigits:0
+      }
+    ).format(
+      Number(amount) || 0
+    );
+
+  } catch(e) {
+
+    return (
+      Number(amount) ||
+      0
+    ).toFixed(0) +
+    ' ' +
+    cur;
+  }
+}
+
+/* ==========================================================
+   COMPRESIÓN DE IMAGEN
    ========================================================== */
 
 function compressImage(
@@ -3455,14 +3879,12 @@ document.addEventListener(
           try {
 
             const items =
-              (
-                API.scanInvoiceViaProxy
-                  ? await API.scanInvoiceViaProxy(
-                      base64,
-                      mimeType
-                    )
-                  : []
-              );
+              API.scanInvoiceViaProxy
+                ? await API.scanInvoiceViaProxy(
+                    base64,
+                    mimeType
+                  )
+                : [];
 
             scanningOverlay =
               null;
@@ -3491,7 +3913,7 @@ document.addEventListener(
 
             renderOverlays();
 
-          } catch(err){
+          } catch(err) {
 
             scanningOverlay =
               null;
