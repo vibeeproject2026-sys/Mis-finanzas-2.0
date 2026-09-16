@@ -65,6 +65,82 @@ const uid = () =>
     .slice(2,8);
 
 /* ==========================================================
+   RECONCILIACIÓN ROBUSTA DE PAGOS DE CRÉDITOS A TRANSACTIONS
+   ========================================================== */
+
+function reconcileCreditTransactions() {
+  if (!DB.transactions) {
+    DB.transactions = [];
+  }
+  if (!DB.credits) {
+    DB.credits = [];
+  }
+
+  // Mapa de pagos actuales de créditos: key = `${creditId}_${paymentId}` -> payment object
+  const activePaymentsMap = new Map();
+  DB.credits.forEach(c => {
+    if (Array.isArray(c.payments)) {
+      c.payments.forEach(p => {
+        if (p && p.id) {
+          activePaymentsMap.set(`${c.id}_${p.id}`, {
+            creditId: c.id,
+            paymentId: p.id,
+            amount: Number(p.amount) || 0,
+            date: p.date || todayStr(),
+            note: p.note || ''
+          });
+        }
+      });
+    }
+  });
+
+  // Filtrar transacciones existentes que NO sean de tipo credit-payment o mantener las válidas
+  const nonCreditTxs = DB.transactions.filter(t => t.source !== 'credit-payment');
+  const existingCreditTxs = DB.transactions.filter(t => t.source === 'credit-payment');
+
+  const existingCreditTxsMap = new Map();
+  existingCreditTxs.forEach(t => {
+    if (t.creditId && t.paymentId) {
+      existingCreditTxsMap.set(`${t.creditId}_${t.paymentId}`, t);
+    }
+  });
+
+  const reconciledCreditTxs = [];
+
+  activePaymentsMap.forEach((payInfo, key) => {
+    const existingTx = existingCreditTxsMap.get(key);
+    if (existingTx) {
+      // Actualizar si cambió monto, fecha o nota para mantenerse sincronizado
+      reconciledCreditTxs.push({
+        ...existingTx,
+        amount: payInfo.amount,
+        date: payInfo.date,
+        type: 'expense',
+        categoryId: '',
+        source: 'credit-payment',
+        creditId: payInfo.creditId,
+        paymentId: payInfo.paymentId
+      });
+    } else {
+      // Crear movimiento nuevo asociado
+      reconciledCreditTxs.push({
+        id: uid(),
+        type: 'expense',
+        amount: payInfo.amount,
+        categoryId: '',
+        date: payInfo.date,
+        note: payInfo.note ? `Pago a créditos: ${payInfo.note}` : 'Pago a créditos',
+        source: 'credit-payment',
+        creditId: payInfo.creditId,
+        paymentId: payInfo.paymentId
+      });
+    }
+  });
+
+  DB.transactions = [...nonCreditTxs, ...reconciledCreditTxs];
+}
+
+/* ==========================================================
    SINCRONIZACIÓN
    ========================================================== */
 
@@ -314,6 +390,7 @@ export function render(){
               };
             }
 
+            reconcileCreditTransactions();
             saveDB();
 
             renderAppContent();
@@ -329,6 +406,7 @@ export function render(){
       }
     }
 
+    reconcileCreditTransactions();
     renderAppContent();
 
   } catch(err) {
@@ -1390,6 +1468,24 @@ document.addEventListener(
       if (
         tx
       ){
+        // Si el movimiento es un pago de crédito, al editarlo abrimos la hoja de edición del pago correspondiente en el crédito
+        if (tx.source === 'credit-payment' && tx.creditId && tx.paymentId) {
+          const c = DB.credits.find(x => x.id === tx.creditId);
+          const p = (c?.payments || []).find(x => x.id === tx.paymentId);
+          if (p) {
+            sheet = {
+              kind:'payment',
+              mode:'edit',
+              creditId: tx.creditId,
+              paymentId: p.id,
+              amount: String(p.amount),
+              date: p.date,
+              note: p.note || ''
+            };
+            renderOverlays();
+            return;
+          }
+        }
 
         sheet = {
           kind:'tx',
@@ -1496,6 +1592,7 @@ document.addEventListener(
             ).trim()
         });
 
+        reconcileCreditTransactions();
         saveDB();
         safeSync();
 
@@ -1636,6 +1733,7 @@ document.addEventListener(
                 [tx]
               );
 
+        reconcileCreditTransactions();
         saveDB();
         safeSync();
 
@@ -1655,6 +1753,35 @@ document.addEventListener(
 
       if (!sheet) return;
 
+      const txToDelete = DB.transactions.find(x => x.id === sheet.id);
+
+      // Si es un pago de crédito, al eliminar el movimiento desde Movimientos borramos también el pago original del crédito
+      if (txToDelete && txToDelete.source === 'credit-payment' && txToDelete.creditId && txToDelete.paymentId) {
+        confirmState = {
+          message: '¿Eliminar este pago de crédito?',
+          onConfirm: () => {
+            DB.credits = DB.credits.map(c => {
+              if (c.id === txToDelete.creditId) {
+                return {
+                  ...c,
+                  payments: (c.payments || []).filter(p => p.id !== txToDelete.paymentId)
+                };
+              }
+              return c;
+            });
+            DB.transactions = DB.transactions.filter(x => x.id !== sheet.id);
+            reconcileCreditTransactions();
+            saveDB();
+            safeSync();
+            sheet = null;
+            confirmState = null;
+            renderAppContent();
+          }
+        };
+        renderOverlays();
+        return;
+      }
+
       confirmState = {
         message:
           '¿Eliminar este movimiento?',
@@ -1669,6 +1796,7 @@ document.addEventListener(
                   sheet.id
               );
 
+            reconcileCreditTransactions();
             saveDB();
             safeSync();
 
@@ -1952,6 +2080,7 @@ document.addEventListener(
                 [cat]
               );
 
+        reconcileCreditTransactions();
         saveDB();
         safeSync();
 
@@ -1985,6 +2114,7 @@ document.addEventListener(
                   sheet.id
               );
 
+            reconcileCreditTransactions();
             saveDB();
             safeSync();
 
@@ -2267,6 +2397,7 @@ document.addEventListener(
                 [credit]
               );
 
+        reconcileCreditTransactions();
         saveDB();
         safeSync();
 
@@ -2300,6 +2431,7 @@ document.addEventListener(
                   sheet.id
               );
 
+            reconcileCreditTransactions();
             saveDB();
             safeSync();
 
@@ -2471,6 +2603,7 @@ document.addEventListener(
             }
           );
 
+        reconcileCreditTransactions();
         saveDB();
         safeSync();
 
@@ -2519,6 +2652,7 @@ document.addEventListener(
                     : c
               );
 
+            reconcileCreditTransactions();
             saveDB();
             safeSync();
 
@@ -2813,6 +2947,7 @@ document.addEventListener(
                 [invoice]
               );
 
+        reconcileCreditTransactions();
         saveDB();
         safeSync();
 
@@ -2846,6 +2981,7 @@ document.addEventListener(
                   sheet.id
               );
 
+            reconcileCreditTransactions();
             saveDB();
             safeSync();
 
@@ -2930,6 +3066,7 @@ document.addEventListener(
       DB.settings.currency =
         t.dataset.code;
 
+      reconcileCreditTransactions();
       saveDB();
       safeSync();
 
