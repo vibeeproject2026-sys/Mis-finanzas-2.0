@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="./css/variables.css">
   <link rel="stylesheet" href="./css/main.css">
   <style>
-    /* Bloqueo total de scroll horizontal y control estricto de la pantalla */
+    /* Bloqueo estricto de scroll horizontal y control de márgenes seguros */
     html, body {
       overflow-x: hidden !important;
       width: 100%;
@@ -15,22 +15,26 @@
       position: relative;
       touch-action: pan-y;
       box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
 
-    /* Asegurar que las vistas respeten los márgenes del headline */
+    /* Margen lateral limpio para que las tarjetas no toquen los bordes de la pantalla */
     #view {
       width: 100%;
       box-sizing: border-box;
-      padding-left: env(safe-area-inset-left);
-      padding-right: env(safe-area-inset-right);
+      padding-left: 16px;
+      padding-right: 16px;
     }
     
     .hero {
-      max-width: 100%;
+      width: 100%;
       box-sizing: border-box;
+      margin-left: 0;
+      margin-right: 0;
     }
     
-    /* Barra de desplazamiento elegante, delgada y contenida dentro de los límites */
+    /* Barra de desplazamiento elegante, fina y dentro de los límites */
     ::-webkit-scrollbar {
       width: 4px;
     }
@@ -41,13 +45,11 @@
       background: rgba(255, 255, 255, 0.2);
       border-radius: 8px;
     }
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 255, 255, 0.4);
-    }
 
-    /* Ocultar permanentemente cualquier botón de respaldo local en Ajustes por texto */
+    /* Ocultar botones no deseados en modo SaaS comercial (Exportar, Importar y Borrar Datos) */
     button[data-action="export-backup"], 
-    button[data-action="import-backup"] {
+    button[data-action="import-backup"],
+    button[data-action="reset-data"] {
       display: none !important;
     }
   </style>
