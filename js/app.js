@@ -191,17 +191,18 @@ function getIconSvg(name){
   return svgs[name] || '';
 }
 
+// Menú desplegable original restaurado y adaptado para incluir también "Añadir Crédito"
 function renderFabMenuCustom() {
   return `
     <div class="fab-backdrop" id="fab-backdrop">
       <div class="fab-menu-container">
         <button class="fab-menu-item" data-action="fab-new-tx">
           <span class="fab-menu-icon" style="background:var(--expense-bg); color:var(--expense);">💸</span>
-          <span>Registrar Egreso / Ingreso</span>
+          <span>Registrar Transacción</span>
         </button>
         <button class="fab-menu-item" data-action="fab-new-credit">
           <span class="fab-menu-icon" style="background:var(--income-bg); color:var(--income);">💳</span>
-          <span>Añadir Crédito (Deuda/Cobro)</span>
+          <span>Añadir Crédito</span>
         </button>
         <button class="fab-menu-item" data-action="fab-scan-invoice">
           <span class="fab-menu-icon" style="background:var(--violet-bg); color:var(--violet);">📷</span>
@@ -524,22 +525,7 @@ function attachSheetFieldSync(){
   } else if (sheet.kind === 'credit'){
     const title = document.getElementById('c-title'), tot = document.getElementById('c-total');
     if (title) title.addEventListener('input', () => { sheet.title = title.value; });
-    if (tot) tot.addEventListener('input', (e) => { 
-      sheet.total = parseFormattedNumber(e.target.value); 
-      e.target.value = formatThousandInput(sheet.total); 
-      
-      const saveBtn = document.querySelector('button[data-action="save-credit"]');
-      if (saveBtn) {
-        if (sheet.title && sheet.title.trim().length > 0 && Number(sheet.total) > 0) {
-          saveBtn.removeAttribute('disabled');
-          saveBtn.style.opacity = '1';
-          saveBtn.style.cursor = 'pointer';
-        } else {
-          saveBtn.setAttribute('disabled', 'true');
-          saveBtn.style.opacity = '0.5';
-        }
-      }
-    });
+    if (tot) tot.addEventListener('input', (e) => { sheet.total = parseFormattedNumber(e.target.value); e.target.value = formatThousandInput(sheet.total); });
   } else if (sheet.kind === 'payment'){
     const a = document.getElementById('p-amount'), d = document.getElementById('p-date'), n = document.getElementById('p-note');
     if (a) a.addEventListener('input', (e) => { sheet.amount = parseFormattedNumber(e.target.value); e.target.value = formatThousandInput(sheet.amount); });
