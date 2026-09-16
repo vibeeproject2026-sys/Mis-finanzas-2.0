@@ -1,6 +1,6 @@
 import { DB } from './state.js';
 
-const SUPABASE_URL ='https://tblsdheekuagurefhzelf.supabase.co';
+const SUPABASE_URL ='https://blsdheekuagurefhzelf.supabase.co';
 const SUPABASE_ANON_KEY ='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsc2RoZWVrdWFndXJlZmh6ZWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MTg2NjUsImV4cCI6MjEwNTA5NDY2NX0.IwNQo4a_UgI4qVDEtUqA-N1JT7mK9znzq7bQLPIAam0'; // <--- Pega tu Anon Key aquí
 
 export async function signUpUser(email, password) {
