@@ -452,16 +452,11 @@ export function renderDashboard(){
         Number(
           month.expense
         ) || 0
-      ) +
-      (
-        Number(
-          creditsPaid
-        ) || 0
       )
     );
 
   if (
-    totalOutflow > 0
+    totalOutflow > 0 || creditsPaid > 0
   ){
 
     const spentPct =
@@ -536,7 +531,8 @@ export function renderDashboard(){
       new Set([
         '#EF4444',
         '#8B85A3',
-        '#334155'
+        '#334155',
+        '#8B1E3F'
       ]);
 
     const colorMap =
@@ -674,10 +670,10 @@ export function renderDashboard(){
       r => {
 
         const pct =
-          totalOutflow > 0
+          (month.income > 0 ? month.income : totalOutflow) > 0
             ? (
                 r.total /
-                totalOutflow
+                (month.income > 0 ? month.income : totalOutflow)
               ) * 100
             : 0;
 
@@ -708,7 +704,7 @@ export function renderDashboard(){
       const pct =
         (
           uncategorizedExpense /
-          totalOutflow
+          (month.income > 0 ? month.income : totalOutflow)
         ) * 100;
 
       html +=
@@ -731,13 +727,13 @@ export function renderDashboard(){
       const pct =
         (
           creditsPaid /
-          totalOutflow
+          (month.income > 0 ? month.income : totalOutflow)
         ) * 100;
 
       html +=
         '<div class="pie-legend-row">' +
-        '<span class="pie-dot" style="background:#EF4444"></span>' +
-        '<span class="pie-name">Abonado a créditos</span>' +
+        '<span class="pie-dot" style="background:#8B1E3F"></span>' +
+        '<span class="pie-name">Pago a créditos</span>' +
         '<span class="pie-pct">' +
         (
           pct < 0.1
@@ -748,13 +744,12 @@ export function renderDashboard(){
     }
 
     if (
-      month.income > 0 &&
-      remainingPct > 0
+      month.income > 0
     ){
 
       html +=
         '<div class="pie-legend-row">' +
-        '<span class="pie-dot" style="background:#334155"></span>' +
+        '<span class="pie-dot" style="background:#94A3B8"></span>' +
         '<span class="pie-name">Disponible</span>' +
         '<span class="pie-pct">' +
         remainingPct +
@@ -1085,12 +1080,11 @@ export function expensePieSVG(
       ) || 0
     );
 
-  const totalOutflow =
-    expense +
-    credits;
+  const ringBase =
+    income > 0 ? income : (expense + credits);
 
   if (
-    totalOutflow <= 0
+    ringBase <= 0
   ){
     return '';
   }
@@ -1107,26 +1101,6 @@ export function expensePieSVG(
 
   const gap =
     2.8;
-
-  const spentRatio =
-    income > 0
-      ? totalOutflow /
-        income
-      : 0;
-
-  const remainingRatio =
-    income > 0
-      ? Math.max(
-          0,
-          1 -
-          spentRatio
-        )
-      : 0;
-
-  const ringBase =
-    income > totalOutflow
-      ? income
-      : totalOutflow;
 
   const palette = [
     '#38BDF8',
@@ -1147,7 +1121,8 @@ export function expensePieSVG(
     new Set([
       '#EF4444',
       '#8B85A3',
-      '#334155'
+      '#334155',
+      '#8B1E3F'
     ]);
 
   const colorMap =
@@ -1328,40 +1303,9 @@ export function expensePieSVG(
 
     addSlice(
       credits,
-      '#EF4444',
-      'Abonado a créditos'
+      '#8B1E3F',
+      'Pago a créditos'
     );
-  }
-
-  if (
-    remainingRatio > 0.005
-  ){
-
-    const rawDash =
-      remainingRatio *
-      (
-        circumference -
-        gap
-      );
-
-    const dash =
-      Math.max(
-        0,
-        rawDash -
-        gap * 0.25
-      );
-
-    if (
-      dash > 0.5
-    ){
-
-      slices.push({
-        color:'#334155',
-        dash,
-        offset,
-        label:'Disponible'
-      });
-    }
   }
 
   let svg =
@@ -1403,28 +1347,12 @@ export function expensePieSVG(
 
 export function renderTxRow(t){
 
-  const cat =
-    catById(
-      t.categoryId
-    );
+  const isCreditPayment = t.source === 'credit-payment';
+  const cat = isCreditPayment ? null : catById(t.categoryId);
 
-  const emoji =
-    cat
-      ? (
-          ICON_EMOJI[
-            cat.icon
-          ] ||
-          '⭐'
-        )
-      : '⭐';
-
-  const bg =
-    (
-      cat
-        ? cat.color
-        : '#8B85A3'
-    ) +
-    '22';
+  const emoji = isCreditPayment ? '💳' : (cat ? (ICON_EMOJI[cat.icon] || '⭐') : '⭐');
+  const bg = isCreditPayment ? '#8B1E3F22' : ((cat ? cat.color : '#8B85A3') + '22');
+  const titleText = isCreditPayment ? 'Pago a créditos' : (cat ? cat.name : 'Sin categoría');
 
   return (
     '<button class="tx-item" data-action="edit-tx" data-id="' +
@@ -1438,11 +1366,7 @@ export function renderTxRow(t){
     '</div>' +
 
     '<div class="tx-main"><div class="tx-title">' +
-    esc(
-      cat
-        ? cat.name
-        : 'Sin categoría'
-    ) +
+    esc(titleText) +
     '</div><div class="tx-sub">' +
     esc(
       t.date
@@ -1501,6 +1425,9 @@ export function filteredTx(
             t.categoryId
           );
 
+        const isCreditPayment = t.source === 'credit-payment';
+        const titleText = isCreditPayment ? 'pago a créditos' : (cat ? cat.name.toLowerCase() : 'sin categoría');
+
         return (
           (
             t.note ||
@@ -1509,12 +1436,7 @@ export function filteredTx(
             .toLowerCase()
             .includes(s)
         ) ||
-        (
-          cat &&
-          cat.name
-            .toLowerCase()
-            .includes(s)
-        );
+        titleText.includes(s);
       }
     )
     .sort(
@@ -2374,7 +2296,7 @@ export function renderSettings(){
 
   html +=
     '<div class="data-box"><div class="row"><span class="muted">Movimientos</span><span>' +
-    DB.transactions.length +
+    DB.transactions.filter(t => t.source !== 'credit-payment').length +
     '</span></div>' +
 
     '<div class="row"><span class="muted">Categorías</span><span>' +
@@ -3169,7 +3091,13 @@ export function renderPaymentSheet(
     ) +
     '"></div>' +
 
-    '<div class="sheet-actions"><button class="save-btn" id="pay-save-btn" data-action="save-payment" ' +
+    '<div class="sheet-actions">' +
+    (
+      sheet.mode === 'edit'
+        ? '<button class="del-btn" data-action="delete-payment">' + icon('trash') + '</button>'
+        : ''
+    ) +
+    '<button class="save-btn" id="pay-save-btn" data-action="save-payment" ' +
     (
       valid
         ? ''
