@@ -1,4 +1,3 @@
-// ATTRAPADOR DE ERRORES: Si algo colapsa, lo verás en pantalla en vez de negro.
 window.onerror = function(msg, url, line) {
   document.body.innerHTML = '<div style="padding:40px; color:#ff4444; background:#111; height:100vh; text-align:center;"><h2>⚠️ Error de Código</h2><p>' + msg + '</p><p>Línea: ' + line + '</p></div>';
 };
@@ -11,7 +10,7 @@ import {
   renderInvoiceSheet, renderConfirmDialog, renderScanningOverlay, 
   filteredTx, renderTxCatChips, formatThousandInput, parseFormattedNumber 
 } from './ui.js';
-import * as API from './api.js'; // Importación segura, a prueba de colapsos
+import * as API from './api.js';
 
 let UI = {tab:'dashboard', txFilter:'all', creditFilter:'against', search:'', openInvoiceId:null, fabMenuOpen:false};
 let sheet = null;
@@ -32,7 +31,7 @@ export function render(){
     try {
       token = localStorage.getItem('supabase_token');
       userId = localStorage.getItem('supabase_user_id');
-    } catch(e) { console.warn("Modo privado estricto detectado."); }
+    } catch(e) { console.warn("Modo privado estricto"); }
 
     const viewEl = document.getElementById('view');
     const tabbarEl = document.getElementById('tabbar');
@@ -69,6 +68,20 @@ export function render(){
       return;
     }
 
+    // DESCARGA INTELIGENTE: Si ya hay sesión, dibujamos la app rápido y buscamos en la nube
+    if (!window.hasLoadedCloudData) {
+      window.hasLoadedCloudData = true;
+      if (API.fetchUserData) {
+        API.fetchUserData(token, userId).then(cloudDB => {
+          if (cloudDB) {
+            Object.assign(DB, cloudDB); // Mezclamos la info de la nube
+            saveDB();
+            renderAppContent(); // Refrescamos pantalla con los datos nuevos
+          }
+        });
+      }
+    }
+    
     renderAppContent();
   } catch (err) {
     document.body.innerHTML = '<div style="padding:40px; color:#ff4444; background:#111; height:100vh;"><h2>Error visual</h2><p>' + err.message + '</p></div>';
@@ -90,10 +103,11 @@ function attachAuthEvents(){
     if (!email || !password) { if (errorDiv) errorDiv.textContent = 'Completa todos los campos.'; return; }
     if (errorDiv) errorDiv.textContent = 'Iniciando sesión...';
     try {
-      if (!API.signInUser) throw new Error("⚠️ Parece que api.js no tiene la configuración completa. Faltan funciones.");
+      if (!API.signInUser) throw new Error("Faltan funciones de API.");
       const data = await API.signInUser(email, password);
       localStorage.setItem('supabase_token', data.access_token);
       localStorage.setItem('supabase_user_id', data.user.id);
+      window.hasLoadedCloudData = false; // Forzar descarga
       render();
     } catch (err) {
       if (errorDiv) errorDiv.textContent = err.message;
@@ -105,11 +119,12 @@ function attachAuthEvents(){
     if (!email || !password) { if (errorDiv) errorDiv.textContent = 'Completa todos los campos.'; return; }
     if (errorDiv) errorDiv.textContent = 'Registrando cuenta...';
     try {
-      if (!API.signUpUser) throw new Error("⚠️ Parece que api.js no tiene la configuración completa. Faltan funciones.");
+      if (!API.signUpUser) throw new Error("Faltan funciones de API.");
       const data = await API.signUpUser(email, password);
       if (data.access_token) {
         localStorage.setItem('supabase_token', data.access_token);
         localStorage.setItem('supabase_user_id', data.user.id);
+        window.hasLoadedCloudData = false;
         render();
       } else {
         if (errorDiv) errorDiv.textContent = '¡Cuenta creada con éxito! Inicia sesión ahora.';
@@ -123,6 +138,7 @@ function attachAuthEvents(){
 function renderAppContent(){
   const viewEl = document.getElementById('view');
   if (viewEl) {
+    // Aquí inyectamos el botón de cerrar sesión debajo de los ajustes
     viewEl.innerHTML =
       '<div class="hero"><div class="hero-content">' +
       '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
@@ -133,7 +149,7 @@ function renderAppContent(){
        UI.tab==='invoices' ? renderInvoices(UI.openInvoiceId) :
        UI.tab==='credits' ? renderCredits(UI.creditFilter) :
        UI.tab==='categories' ? renderCategories() :
-       renderSettings());
+       (renderSettings() + '<div style="padding:16px 24px;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'));
   }
 
   let tabbarHTML = [
@@ -220,6 +236,22 @@ document.addEventListener('click',(e)=>{
   const t = e.target.closest('[data-action]');
   if(!t) return;
   const action = t.dataset.action;
+
+  // NUEVO: SISTEMA DE CERRAR SESIÓN
+  if(action==='logout'){
+    confirmState={message:'¿Seguro que quieres cerrar sesión?', onConfirm:()=>{
+      localStorage.removeItem('supabase_token');
+      localStorage.removeItem('supabase_user_id');
+      window.hasLoadedCloudData = false;
+      // Vaciamos la BD local para que el siguiente usuario no vea nada ajeno
+      Object.assign(DB, {transactions:[], categories:DEFAULT_CATEGORIES.slice(), credits:[], invoices:[], settings:{currency:'COP'}});
+      saveDB(); 
+      UI.tab = 'dashboard';
+      confirmState=null; 
+      render(); // Nos devuelve al login
+    }};
+    renderOverlays(); return;
+  }
 
   if(action==='set-tab'){ UI.tab = t.dataset.tab; UI.fabMenuOpen = false; renderAppContent(); return; }
   if(action==='set-filter'){ UI.txFilter = t.dataset.filter; refreshTxList(); return; }
