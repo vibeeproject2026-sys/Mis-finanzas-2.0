@@ -10,28 +10,17 @@
 
   <title>Terminal Cloud</title>
 
-  <!-- =========================================================
-       ESTILOS
-       v=20260916-0300 fuerza al navegador a descargar
-       la versión actual y evita usar archivos antiguos en caché.
-       ========================================================= -->
-
   <link
     rel="stylesheet"
-    href="./css/variables.css?v=20260916-0300"
+    href="./css/variables.css?v=20260916"
   >
 
   <link
     rel="stylesheet"
-    href="./css/main.css?v=20260916-0300"
+    href="./css/main.css?v=20260916"
   >
 
   <style>
-
-    /* =========================================================
-       CONTROL DE SCROLL Y MÁRGENES
-       ========================================================= */
-
     html,
     body {
       overflow-x: hidden !important;
@@ -44,10 +33,6 @@
       padding: 0;
     }
 
-    /* =========================================================
-       CONTENEDOR PRINCIPAL
-       ========================================================= */
-
     #view {
       width: 100%;
       box-sizing: border-box;
@@ -55,20 +40,12 @@
       padding-right: 16px;
     }
 
-    /* =========================================================
-       HERO
-       ========================================================= */
-
     .hero {
       width: 100%;
       box-sizing: border-box;
       margin-left: 0;
       margin-right: 0;
     }
-
-    /* =========================================================
-       SCROLLBAR
-       ========================================================= */
 
     ::-webkit-scrollbar {
       width: 4px;
@@ -83,16 +60,58 @@
       border-radius: 8px;
     }
 
-    /* =========================================================
-       ELEMENTOS OCULTOS DEL MODO SAAS
-       ========================================================= */
-
     button[data-action="export-backup"],
     button[data-action="import-backup"],
     button[data-action="reset-data"] {
       display: none !important;
     }
 
+    /* =========================================================
+       PANTALLA DE ERROR DE CARGA
+       Solo aparece si un módulo JavaScript no puede cargarse.
+       ========================================================= */
+
+    #boot-error {
+      display: none;
+      min-height: 100vh;
+      box-sizing: border-box;
+      padding: 40px 20px;
+      align-items: center;
+      justify-content: center;
+      background: #020408;
+      color: #ffffff;
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+    }
+
+    #boot-error-card {
+      width: 100%;
+      max-width: 520px;
+      box-sizing: border-box;
+      padding: 24px;
+      border-radius: 24px;
+      background: #0b1326;
+      border: 1px solid rgba(244, 63, 94, 0.45);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    #boot-error-title {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      color: #ff4d6d;
+    }
+
+    #boot-error-message {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 
@@ -105,7 +124,7 @@
   <div id="view"></div>
 
   <!-- =========================================================
-       NAVEGACIÓN INFERIOR
+       NAVEGACIÓN
        ========================================================= -->
 
   <nav
@@ -114,13 +133,13 @@
   ></nav>
 
   <!-- =========================================================
-       CAPA DE MODALES / OVERLAYS
+       OVERLAYS
        ========================================================= -->
 
   <div id="overlays"></div>
 
   <!-- =========================================================
-       INPUT PARA IMPORTACIÓN DE BACKUP
+       INPUTS GLOBALES
        ========================================================= -->
 
   <input
@@ -129,10 +148,6 @@
     style="display:none"
     accept=".json"
   >
-
-  <!-- =========================================================
-       INPUT GLOBAL PARA CÁMARA / FACTURAS
-       ========================================================= -->
 
   <input
     type="file"
@@ -143,18 +158,98 @@
   >
 
   <!-- =========================================================
-       APLICACIÓN
-
-       IMPORTANTE:
-       El parámetro ?v=20260916-0300 obliga al navegador a
-       descargar nuevamente app.js en lugar de reutilizar
-       una copia antigua almacenada en caché.
+       MENSAJE DE ERROR DE ARRANQUE
        ========================================================= -->
 
-  <script
-    type="module"
-    src="./js/app.js?v=20260916-0300"
-  ></script>
+  <div id="boot-error">
+    <div id="boot-error-card">
+
+      <div id="boot-error-title">
+        Error al iniciar Mis Finanzas
+      </div>
+
+      <div id="boot-error-message">
+        Cargando la aplicación...
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================================================
+       CARGA DE LA APLICACIÓN
+       ========================================================= -->
+
+  <script>
+    (async function () {
+
+      try {
+
+        await import(
+          './js/app.js?v=20260916-0300'
+        );
+
+      } catch (error) {
+
+        console.error(
+          'Error cargando Mis Finanzas:',
+          error
+        );
+
+        const view =
+          document.getElementById('view');
+
+        const tabbar =
+          document.getElementById('tabbar');
+
+        const overlays =
+          document.getElementById('overlays');
+
+        const bootError =
+          document.getElementById('boot-error');
+
+        const message =
+          document.getElementById(
+            'boot-error-message'
+          );
+
+        if (view) {
+          view.innerHTML = '';
+        }
+
+        if (tabbar) {
+          tabbar.innerHTML = '';
+        }
+
+        if (overlays) {
+          overlays.innerHTML = '';
+        }
+
+        if (message) {
+
+          message.textContent =
+            (
+              error &&
+              error.stack
+            )
+              ? error.stack
+              : (
+                  error &&
+                  error.message
+                )
+                  ? error.message
+                  : String(error);
+
+        }
+
+        if (bootError) {
+          bootError.style.display =
+            'flex';
+        }
+
+      }
+
+    })();
+  </script>
 
 </body>
 </html>
