@@ -149,7 +149,6 @@ function renderAppContent(){
        UI.tab==='categories' ? renderCategories() :
        (renderSettings() + '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'));
   
-    // Cambiar dinámicamente el título de la sección de ajustes si aparece, unificándolo limpiamente
     if (UI.tab === 'settings') {
       setTimeout(() => {
         const headers = document.querySelectorAll('h2, h3, .section-title');
@@ -192,11 +191,40 @@ function getIconSvg(name){
   return svgs[name] || '';
 }
 
+function renderFabMenuCustom() {
+  return `
+    <div class="fab-backdrop" id="fab-backdrop">
+      <div class="fab-menu-container">
+        <button class="fab-menu-item" data-action="fab-new-tx">
+          <span class="fab-menu-icon" style="background:var(--expense-bg); color:var(--expense);">💸</span>
+          <span>Registrar Egreso / Ingreso</span>
+        </button>
+        <button class="fab-menu-item" data-action="fab-new-credit">
+          <span class="fab-menu-icon" style="background:var(--income-bg); color:var(--income);">💳</span>
+          <span>Añadir Crédito (Deuda/Cobro)</span>
+        </button>
+        <button class="fab-menu-item" data-action="fab-scan-invoice">
+          <span class="fab-menu-icon" style="background:var(--violet-bg); color:var(--violet);">📷</span>
+          <span>Escanear Factura con IA</span>
+        </button>
+        <button class="fab-menu-item" data-action="fab-invoices">
+          <span class="fab-menu-icon" style="background:var(--amber-bg); color:var(--amber);">📄</span>
+          <span>Ver Facturas</span>
+        </button>
+        <button class="fab-menu-item" data-action="fab-settings">
+          <span class="fab-menu-icon" style="background:var(--border); color:var(--ink);">&#9881;</span>
+          <span>Ajustes</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function renderOverlays(){
   const el = document.getElementById('overlays');
   if (!el) return;
   let html = '';
-  if (UI.fabMenuOpen) html += renderFabMenu();
+  if (UI.fabMenuOpen) html += renderFabMenuCustom();
   if (sheet && sheet.kind === 'tx') html += renderTxSheet(sheet);
   if (sheet && sheet.kind === 'quick') html += renderQuickSheet(sheet);
   if (sheet && sheet.kind === 'cat') html += renderCatSheet(sheet);
@@ -285,6 +313,7 @@ document.addEventListener('click',(e)=>{
     t.classList.add('selected-pulse');
     setTimeout(() => {
       if(action==='fab-new-tx'){ closeFabMenu(() => { sheet = {kind:'tx', mode:'new', id:null, type:'expense', categoryId:(DB.categories.find(c=>c.type==='expense')||{}).id||'', amount:'', date:todayStr(), note:''}; renderOverlays(); }); }
+      else if(action==='fab-new-credit'){ closeFabMenu(() => { sheet = {kind:'credit', mode:'new', id:null, title:'', type:UI.creditFilter||'against', total:''}; renderOverlays(); }); }
       else if(action==='fab-scan-invoice'){ closeFabMenu(() => { document.getElementById('global-camera-input').click(); }); }
       else if(action==='fab-invoices'){ closeFabMenu(() => { UI.tab='invoices'; renderAppContent(); }); }
       else if(action==='fab-settings'){ closeFabMenu(() => { UI.tab='settings'; renderAppContent(); }); }
@@ -495,7 +524,22 @@ function attachSheetFieldSync(){
   } else if (sheet.kind === 'credit'){
     const title = document.getElementById('c-title'), tot = document.getElementById('c-total');
     if (title) title.addEventListener('input', () => { sheet.title = title.value; });
-    if (tot) tot.addEventListener('input', (e) => { sheet.total = parseFormattedNumber(e.target.value); e.target.value = formatThousandInput(sheet.total); });
+    if (tot) tot.addEventListener('input', (e) => { 
+      sheet.total = parseFormattedNumber(e.target.value); 
+      e.target.value = formatThousandInput(sheet.total); 
+      
+      const saveBtn = document.querySelector('button[data-action="save-credit"]');
+      if (saveBtn) {
+        if (sheet.title && sheet.title.trim().length > 0 && Number(sheet.total) > 0) {
+          saveBtn.removeAttribute('disabled');
+          saveBtn.style.opacity = '1';
+          saveBtn.style.cursor = 'pointer';
+        } else {
+          saveBtn.setAttribute('disabled', 'true');
+          saveBtn.style.opacity = '0.5';
+        }
+      }
+    });
   } else if (sheet.kind === 'payment'){
     const a = document.getElementById('p-amount'), d = document.getElementById('p-date'), n = document.getElementById('p-note');
     if (a) a.addEventListener('input', (e) => { sheet.amount = parseFormattedNumber(e.target.value); e.target.value = formatThousandInput(sheet.amount); });
