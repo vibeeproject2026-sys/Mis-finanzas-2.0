@@ -3,9 +3,9 @@ import { DB, saveDB } from './state.js';
 /* ==========================================================
    CONFIGURACIÓN DE SUPABASE (LISTO PARA PEGAR AL FINAL)
    ========================================================== */
-const SUPABASE_URL = 'https://Tblsdheekuagurefhzelf.supabase.co
+const SUPABASE_URL = 'https://Tblsdheekuagurefhzelf.supabase.co';
      // <--- Aquí pegarás tu URL de Supabase al final
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsc2RoZWVrdWFndXJlZmh6ZWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MTg2NjUsImV4cCI6MjEwNTA5NDY2NX0.IwNQo4a_UgI4qVDEtUqA-N1JT7mK9znzq7bQLPIAam0; // <--- Aquí pegarás tu Anon Key de Supabase al final
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsc2RoZWVrdWFndXJlZmh6ZWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MTg2NjUsImV4cCI6MjEwNTA5NDY2NX0.IwNQo4a_UgI4qVDEtUqA-N1JT7mK9znzq7bQLPIAam0'; // <--- Aquí pegarás tu Anon Key de Supabase al final
 
 export async function syncWithSupabase() {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
