@@ -3,13 +3,30 @@ window.onerror = function(msg, url, line) {
 };
 
 import { DB, saveDB, todayStr, DEFAULT_CATEGORIES } from './state.js';
-import { 
-  renderDashboard, renderTransactions, renderInvoices, renderCredits, 
-  renderCategories, renderSettings, renderFabMenu, renderQuickSheet, 
-  renderTxSheet, renderCatSheet, renderCreditSheet, renderPaymentSheet, 
-  renderInvoiceSheet, renderConfirmDialog, renderScanningOverlay, 
-  filteredTx, renderTxRow, renderTxCatChips, formatThousandInput, parseFormattedNumber 
+
+import {
+  renderDashboard,
+  renderTransactions,
+  renderInvoices,
+  renderCredits,
+  renderCategories,
+  renderSettings,
+  renderFabMenu,
+  renderQuickSheet,
+  renderTxSheet,
+  renderCatSheet,
+  renderCreditSheet,
+  renderPaymentSheet,
+  renderInvoiceSheet,
+  renderConfirmDialog,
+  renderScanningOverlay,
+  filteredTx,
+  renderTxRow,
+  renderTxCatChips,
+  formatThousandInput,
+  parseFormattedNumber
 } from './ui.js';
+
 import * as API from './api.js';
 
 let UI = {
@@ -29,30 +46,48 @@ const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 
-/* =========================================================
-   SINCRONIZACIÓN CON SUPABASE
-   ========================================================= */
+/* ========================================================================
+   SINCRONIZACIÓN
+   ======================================================================== */
 
 const safeSync = () => {
   try {
     const token = localStorage.getItem('supabase_token');
     const userId = localStorage.getItem('supabase_user_id');
 
-    if (API.syncWithSupabase && token && userId) {
-      API.syncWithSupabase(token, userId, DB);
+    if (
+      API.syncWithSupabase &&
+      token &&
+      userId
+    ) {
+      return API.syncWithSupabase(
+        token,
+        userId,
+        DB
+      );
     }
+
   } catch (e) {
-    console.warn('No fue posible sincronizar con Supabase:', e);
+    console.error(
+      'Error preparando sincronización:',
+      e
+    );
   }
+
+  return Promise.resolve({
+    ok: false,
+    skipped: true
+  });
 };
 
 
-/* =========================================================
+/* ========================================================================
    RENDER PRINCIPAL
-   ========================================================= */
+   ======================================================================== */
 
 export function render() {
   try {
+
     let token = null;
     let userId = null;
 
@@ -66,13 +101,14 @@ export function render() {
     const viewEl = document.getElementById('view');
     const tabbarEl = document.getElementById('tabbar');
 
-    /* -----------------------------------------------------
-       AUTENTICACIÓN
-       ----------------------------------------------------- */
+    /*
+      SIN SESIÓN
+    */
 
     if (!token || !userId) {
 
       if (viewEl) {
+
         viewEl.innerHTML = `
           <div style="display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:75vh;">
             <div class="card" style="width:100%;max-width:380px;padding:32px 24px;text-align:center;">
@@ -146,13 +182,14 @@ export function render() {
       }
 
       setTimeout(attachAuthEvents, 50);
+
       return;
     }
 
 
-    /* -----------------------------------------------------
-       CARGA DE DATOS DESDE LA NUBE
-       ----------------------------------------------------- */
+    /*
+      CARGA DATOS CLOUD UNA SOLA VEZ
+    */
 
     if (!window.hasLoadedCloudData) {
 
@@ -164,14 +201,20 @@ export function render() {
           .then(cloudDB => {
 
             if (cloudDB) {
+
               Object.assign(DB, cloudDB);
+
               saveDB();
+
               renderAppContent();
             }
 
           })
           .catch(err => {
-            console.warn('No fue posible cargar los datos de la nube:', err);
+            console.error(
+              'Error cargando datos de la nube:',
+              err
+            );
           });
       }
     }
@@ -181,134 +224,195 @@ export function render() {
   } catch (err) {
 
     document.body.innerHTML =
-      '<div style="padding:40px; color:#ff4444; background:#111; height:100vh;">' +
+      '<div style="padding:40px;color:#ff4444;background:#111;height:100vh;">' +
       '<h2>Error visual</h2>' +
-      '<p>' + err.message + '</p>' +
+      '<p>' +
+      err.message +
+      '</p>' +
       '</div>';
   }
 }
 
 
-/* =========================================================
+/* ========================================================================
    AUTENTICACIÓN
-   ========================================================= */
+   ======================================================================== */
 
 function attachAuthEvents() {
 
-  const emailInput = document.getElementById('auth-email');
-  const passInput = document.getElementById('auth-password');
-  const errorDiv = document.getElementById('auth-error');
+  const emailInput =
+    document.getElementById('auth-email');
+
+  const passInput =
+    document.getElementById('auth-password');
+
+  const errorDiv =
+    document.getElementById('auth-error');
+
 
   const getCreds = () => ({
-    email: emailInput ? emailInput.value.trim() : '',
-    password: passInput ? passInput.value.trim() : ''
+    email: emailInput
+      ? emailInput.value.trim()
+      : '',
+
+    password: passInput
+      ? passInput.value.trim()
+      : ''
   });
 
 
-  /* -------------------------------------------------------
-     INICIAR SESIÓN
-     ------------------------------------------------------- */
+  /*
+    LOGIN
+  */
 
-  document.getElementById('btn-login')?.addEventListener('click', async () => {
+  document
+    .getElementById('btn-login')
+    ?.addEventListener('click', async () => {
 
-    const { email, password } = getCreds();
+      const {
+        email,
+        password
+      } = getCreds();
 
-    if (!email || !password) {
-      if (errorDiv) {
-        errorDiv.textContent = 'Completa todos los campos.';
+      if (!email || !password) {
+
+        if (errorDiv) {
+          errorDiv.textContent =
+            'Completa todos los campos.';
+        }
+
+        return;
       }
-      return;
-    }
-
-    if (errorDiv) {
-      errorDiv.textContent = 'Iniciando sesión...';
-    }
-
-    try {
-
-      if (!API.signInUser) {
-        throw new Error('Faltan funciones de API.');
-      }
-
-      const data = await API.signInUser(email, password);
-
-      localStorage.setItem('supabase_token', data.access_token);
-      localStorage.setItem('supabase_user_id', data.user.id);
-
-      window.hasLoadedCloudData = false;
-
-      render();
-
-    } catch (err) {
 
       if (errorDiv) {
-        errorDiv.textContent = err.message;
-      }
-    }
-  });
-
-
-  /* -------------------------------------------------------
-     CREAR CUENTA
-     ------------------------------------------------------- */
-
-  document.getElementById('btn-signup')?.addEventListener('click', async () => {
-
-    const { email, password } = getCreds();
-
-    if (!email || !password) {
-      if (errorDiv) {
-        errorDiv.textContent = 'Completa todos los campos.';
-      }
-      return;
-    }
-
-    if (errorDiv) {
-      errorDiv.textContent = 'Registrando cuenta...';
-    }
-
-    try {
-
-      if (!API.signUpUser) {
-        throw new Error('Faltan funciones de API.');
+        errorDiv.textContent =
+          'Iniciando sesión...';
       }
 
-      const data = await API.signUpUser(email, password);
+      try {
 
-      if (data.access_token) {
+        if (!API.signInUser) {
+          throw new Error(
+            'Faltan funciones de API.'
+          );
+        }
 
-        localStorage.setItem('supabase_token', data.access_token);
-        localStorage.setItem('supabase_user_id', data.user.id);
+        const data =
+          await API.signInUser(
+            email,
+            password
+          );
+
+        localStorage.setItem(
+          'supabase_token',
+          data.access_token
+        );
+
+        localStorage.setItem(
+          'supabase_user_id',
+          data.user.id
+        );
 
         window.hasLoadedCloudData = false;
 
         render();
 
-      } else {
+      } catch (err) {
 
         if (errorDiv) {
           errorDiv.textContent =
-            '¡Cuenta creada con éxito! Inicia sesión ahora.';
+            err.message;
         }
       }
+    });
 
-    } catch (err) {
+
+  /*
+    REGISTRO
+  */
+
+  document
+    .getElementById('btn-signup')
+    ?.addEventListener('click', async () => {
+
+      const {
+        email,
+        password
+      } = getCreds();
+
+      if (!email || !password) {
+
+        if (errorDiv) {
+          errorDiv.textContent =
+            'Completa todos los campos.';
+        }
+
+        return;
+      }
 
       if (errorDiv) {
-        errorDiv.textContent = err.message;
+        errorDiv.textContent =
+          'Registrando cuenta...';
       }
-    }
-  });
+
+      try {
+
+        if (!API.signUpUser) {
+          throw new Error(
+            'Faltan funciones de API.'
+          );
+        }
+
+        const data =
+          await API.signUpUser(
+            email,
+            password
+          );
+
+        if (data.access_token) {
+
+          localStorage.setItem(
+            'supabase_token',
+            data.access_token
+          );
+
+          localStorage.setItem(
+            'supabase_user_id',
+            data.user.id
+          );
+
+          window.hasLoadedCloudData = false;
+
+          render();
+
+        } else {
+
+          if (errorDiv) {
+
+            errorDiv.textContent =
+              '¡Cuenta creada con éxito! Inicia sesión ahora.';
+          }
+        }
+
+      } catch (err) {
+
+        if (errorDiv) {
+          errorDiv.textContent =
+            err.message;
+        }
+      }
+    });
 }
 
 
-/* =========================================================
+/* ========================================================================
    CONTENIDO PRINCIPAL
-   ========================================================= */
+   ======================================================================== */
 
 function renderAppContent() {
 
-  const viewEl = document.getElementById('view');
+  const viewEl =
+    document.getElementById('view');
 
   if (viewEl) {
 
@@ -340,38 +444,54 @@ function renderAppContent() {
           ? renderDashboard()
 
           : UI.tab === 'transactions'
-            ? renderTransactions(UI.search, UI.txFilter)
+            ? renderTransactions(
+                UI.search,
+                UI.txFilter
+              )
 
-            : UI.tab === 'invoices'
-              ? renderInvoices(UI.openInvoiceId)
+          : UI.tab === 'invoices'
+            ? renderInvoices(
+                UI.openInvoiceId
+              )
 
-              : UI.tab === 'credits'
-                ? renderCredits(UI.creditFilter)
+          : UI.tab === 'credits'
+            ? renderCredits(
+                UI.creditFilter
+              )
 
-                : UI.tab === 'categories'
-                  ? renderCategories()
+          : UI.tab === 'categories'
+            ? renderCategories()
 
-                  : (
-                    renderSettings() +
-                    '<div style="padding:16px 0;">' +
-                      '<button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">' +
-                        'Cerrar Sesión' +
-                      '</button>' +
-                    '</div>'
-                  )
+          : (
+              renderSettings() +
+
+              '<div style="padding:16px 0;">' +
+
+                '<button ' +
+                  'class="save-btn" ' +
+                  'data-action="logout" ' +
+                  'style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;"' +
+                '>' +
+                  'Cerrar Sesión' +
+                '</button>' +
+
+              '</div>'
+            )
       );
 
 
-    /* -----------------------------------------------------
-       TÍTULO DE AJUSTES
-       ----------------------------------------------------- */
+    /*
+      Unificación visual de Ajustes
+    */
 
     if (UI.tab === 'settings') {
 
       setTimeout(() => {
 
         const headers =
-          document.querySelectorAll('h2, h3, .section-title');
+          document.querySelectorAll(
+            'h2, h3, .section-title'
+          );
 
         headers.forEach(h => {
 
@@ -389,19 +509,44 @@ function renderAppContent() {
   }
 
 
-  /* =======================================================
-     BARRA DE NAVEGACIÓN
-     ======================================================= */
+  /*
+    BARRA INFERIOR
+  */
 
-  let tabbarHTML = [
+  const tabbarHTML = [
 
-    ['dashboard', 'wallet', 'Resumen'],
-    ['transactions', 'list', 'Movimientos'],
-    ['center', 'plus', ''],
-    ['credits', 'credit', 'Créditos'],
-    ['categories', 'tag', 'Categorías']
+    [
+      'dashboard',
+      'wallet',
+      'Resumen'
+    ],
 
-  ].map(([id, ic, label]) => {
+    [
+      'transactions',
+      'list',
+      'Movimientos'
+    ],
+
+    [
+      'center',
+      'plus',
+      ''
+    ],
+
+    [
+      'credits',
+      'credit',
+      'Créditos'
+    ],
+
+    [
+      'categories',
+      'tag',
+      'Categorías'
+    ]
+
+  ]
+  .map(([id, ic, label]) => {
 
     if (id === 'center') {
 
@@ -446,14 +591,18 @@ function renderAppContent() {
       </button>
     `;
 
-  }).join('');
+  })
+  .join('');
 
 
-  const tabbarEl = document.getElementById('tabbar');
+  const tabbarEl =
+    document.getElementById('tabbar');
 
   if (tabbarEl) {
-    tabbarEl.innerHTML = tabbarHTML;
+    tabbarEl.innerHTML =
+      tabbarHTML;
   }
+
 
   if (UI.tab === 'transactions') {
     attachSearchListener();
@@ -463,9 +612,9 @@ function renderAppContent() {
 }
 
 
-/* =========================================================
-   ICONOS
-   ========================================================= */
+/* ========================================================================
+   ICONOS DE LA BARRA
+   ======================================================================== */
 
 function getIconSvg(name) {
 
@@ -473,24 +622,24 @@ function getIconSvg(name) {
 
     wallet:
       '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-        '<path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/>' +
-        '<path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/>' +
-        '<path d="M16 14h.01"/>' +
+      '<path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/>' +
+      '<path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/>' +
+      '<path d="M16 14h.01"/>' +
       '</svg>',
 
     list:
       '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-        '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>' +
+      '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>' +
       '</svg>',
 
     credit:
       '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-        '<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/>' +
+      '<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/>' +
       '</svg>',
 
     tag:
       '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-        '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/>' +
+      '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/>' +
       '</svg>'
   };
 
@@ -498,17 +647,16 @@ function getIconSvg(name) {
 }
 
 
-/* =========================================================
+/* ========================================================================
    OVERLAYS
-   ========================================================= */
+   ======================================================================== */
 
 function renderOverlays() {
 
-  const el = document.getElementById('overlays');
+  const el =
+    document.getElementById('overlays');
 
-  if (!el) {
-    return;
-  }
+  if (!el) return;
 
   let html = '';
 
@@ -541,11 +689,15 @@ function renderOverlays() {
   }
 
   if (confirmState) {
-    html += renderConfirmDialog(confirmState);
+    html += renderConfirmDialog(
+      confirmState
+    );
   }
 
   if (scanningOverlay) {
-    html += renderScanningOverlay(scanningOverlay);
+    html += renderScanningOverlay(
+      scanningOverlay
+    );
   }
 
   el.innerHTML = html;
@@ -555,21 +707,22 @@ function renderOverlays() {
   }
 
 
-  /* -------------------------------------------------------
-     ACTIVAR BOTÓN DE GUARDAR CUANDO HAY MONTO
-     ------------------------------------------------------- */
-
-  const saveBtn = document.querySelector(
-    'button[data-action="save-tx"], button[data-action="save-quick"]'
-  );
+  const saveBtn =
+    document.querySelector(
+      'button[data-action="save-tx"], button[data-action="save-quick"]'
+    );
 
   if (saveBtn && sheet) {
 
-    const amt = Number(sheet.amount);
+    const amt =
+      Number(sheet.amount);
 
     if (amt > 0) {
 
-      saveBtn.removeAttribute('disabled');
+      saveBtn.removeAttribute(
+        'disabled'
+      );
+
       saveBtn.style.opacity = '1';
       saveBtn.style.cursor = 'pointer';
     }
@@ -577,57 +730,80 @@ function renderOverlays() {
 }
 
 
-/* =========================================================
-   ACTUALIZAR LISTA DE MOVIMIENTOS
-   ========================================================= */
+/* ========================================================================
+   REFRESCAR MOVIMIENTOS
+   ======================================================================== */
 
 function refreshTxList() {
 
-  const list = filteredTx(UI.search, UI.txFilter);
+  const list =
+    filteredTx(
+      UI.search,
+      UI.txFilter
+    );
 
-  const container = document.getElementById('tx-list');
+  const container =
+    document.getElementById(
+      'tx-list'
+    );
 
   if (container) {
 
     container.innerHTML =
       list.length
-        ? list.map(t => renderTxRow(t)).join('')
+
+        ? list
+            .map(t => renderTxRow(t))
+            .join('')
+
         : '<div class="empty-state">No hay movimientos registrados.</div>';
   }
 }
 
 
-/* =========================================================
+/* ========================================================================
    BUSCADOR
-   ========================================================= */
+   ======================================================================== */
 
 function attachSearchListener() {
 
-  const input = document.getElementById('search-input');
+  const input =
+    document.getElementById(
+      'search-input'
+    );
 
   if (input) {
 
-    input.addEventListener('input', (e) => {
+    input.addEventListener(
+      'input',
+      e => {
 
-      UI.search = e.target.value;
+        UI.search =
+          e.target.value;
 
-      refreshTxList();
-    });
+        refreshTxList();
+      }
+    );
   }
 }
 
 
-/* =========================================================
-   CERRAR MENÚ FAB
-   ========================================================= */
+/* ========================================================================
+   FAB
+   ======================================================================== */
 
 function closeFabMenu(callback) {
 
-  const backdrop = document.getElementById('fab-backdrop');
+  const backdrop =
+    document.getElementById(
+      'fab-backdrop'
+    );
 
   if (backdrop) {
 
-    backdrop.classList.add('closing');
+    backdrop.classList.add(
+      'closing'
+    );
 
     setTimeout(() => {
 
@@ -654,1272 +830,1686 @@ function closeFabMenu(callback) {
 }
 
 
-/* =========================================================
-   MANEJADOR GLOBAL DE ACCIONES
-   ========================================================= */
+/* ========================================================================
+   EVENTOS PRINCIPALES
+   ======================================================================== */
 
-document.addEventListener('click', (e) => {
+document.addEventListener(
+  'click',
+  e => {
 
-  if (e.target.id === 'fab-backdrop') {
-    closeFabMenu();
-    return;
-  }
-
-  const t = e.target.closest('[data-action]');
-
-  if (!t) {
-    return;
-  }
-
-  const action = t.dataset.action;
-
-
-  /* =======================================================
-     LOGOUT
-     ======================================================= */
-
-  if (action === 'logout') {
-
-    confirmState = {
-      message: '¿Seguro que quieres cerrar sesión?',
-
-      onConfirm: () => {
-
-        localStorage.removeItem('supabase_token');
-        localStorage.removeItem('supabase_user_id');
-
-        window.hasLoadedCloudData = false;
-
-        Object.assign(DB, {
-          transactions: [],
-          categories: DEFAULT_CATEGORIES.slice(),
-          credits: [],
-          invoices: [],
-          settings: {
-            currency: 'COP'
-          }
-        });
-
-        saveDB();
-
-        UI.tab = 'dashboard';
-
-        confirmState = null;
-
-        render();
-      }
-    };
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     CAMBIAR PESTAÑA
-     ======================================================= */
-
-  if (action === 'set-tab') {
-
-    UI.tab = t.dataset.tab;
-    UI.fabMenuOpen = false;
-
-    renderAppContent();
-
-    return;
-  }
-
-
-  /* =======================================================
-     FILTRO DE MOVIMIENTOS
-     ======================================================= */
-
-  if (action === 'set-filter') {
-
-    UI.txFilter = t.dataset.filter;
-
-    refreshTxList();
-
-    return;
-  }
-
-
-  /* =======================================================
-     FILTRO DE CRÉDITOS
-     ======================================================= */
-
-  if (action === 'set-credit-filter') {
-
-    UI.creditFilter = t.dataset.filter;
-
-    renderAppContent();
-
-    return;
-  }
-
-
-  /* =======================================================
-     MENÚ FAB
-     ======================================================= */
-
-  if (action === 'toggle-fab-menu') {
-
-    if (UI.fabMenuOpen) {
-
+    if (
+      e.target.id ===
+      'fab-backdrop'
+    ) {
       closeFabMenu();
+      return;
+    }
 
-    } else {
 
-      t.classList.add('pulse-light');
+    const t =
+      e.target.closest(
+        '[data-action]'
+      );
+
+    if (!t) return;
+
+    const action =
+      t.dataset.action;
+
+
+    /* ------------------------------------------------------------
+       LOGOUT
+       ------------------------------------------------------------ */
+
+    if (action === 'logout') {
+
+      confirmState = {
+
+        message:
+          '¿Seguro que quieres cerrar sesión?',
+
+        onConfirm: () => {
+
+          localStorage.removeItem(
+            'supabase_token'
+          );
+
+          localStorage.removeItem(
+            'supabase_user_id'
+          );
+
+          window.hasLoadedCloudData =
+            false;
+
+          Object.assign(
+            DB,
+            {
+              transactions: [],
+              categories:
+                DEFAULT_CATEGORIES.slice(),
+              credits: [],
+              invoices: [],
+              settings: {
+                currency: 'COP'
+              }
+            }
+          );
+
+          saveDB();
+
+          UI.tab =
+            'dashboard';
+
+          confirmState =
+            null;
+
+          render();
+        }
+      };
+
+      renderOverlays();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       TABS
+       ------------------------------------------------------------ */
+
+    if (action === 'set-tab') {
+
+      UI.tab =
+        t.dataset.tab;
+
+      UI.fabMenuOpen =
+        false;
+
+      renderAppContent();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       FILTRO MOVIMIENTOS
+       ------------------------------------------------------------ */
+
+    if (action === 'set-filter') {
+
+      UI.txFilter =
+        t.dataset.filter;
+
+      refreshTxList();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       FILTRO CRÉDITOS
+       ------------------------------------------------------------ */
+
+    if (action === 'set-credit-filter') {
+
+      UI.creditFilter =
+        t.dataset.filter;
+
+      renderAppContent();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       FAB
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'toggle-fab-menu'
+    ) {
+
+      if (UI.fabMenuOpen) {
+
+        closeFabMenu();
+
+      } else {
+
+        t.classList.add(
+          'pulse-light'
+        );
+
+        setTimeout(() => {
+
+          t.classList.remove(
+            'pulse-light'
+          );
+
+          UI.fabMenuOpen =
+            true;
+
+          renderAppContent();
+
+        }, 400);
+      }
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       ACCIONES FAB
+       ------------------------------------------------------------ */
+
+    if (
+      action.startsWith('fab-')
+    ) {
+
+      t.classList.add(
+        'selected-pulse'
+      );
 
       setTimeout(() => {
 
-        t.classList.remove('pulse-light');
-
-        UI.fabMenuOpen = true;
-
-        renderAppContent();
-
-      }, 400);
-    }
-
-    return;
-  }
-
-
-  /* =======================================================
-     ACCIONES DEL FAB
-     ======================================================= */
-
-  if (action.startsWith('fab-')) {
-
-    t.classList.add('selected-pulse');
-
-    setTimeout(() => {
-
-      if (action === 'fab-new-tx') {
-
-        closeFabMenu(() => {
-
-          sheet = {
-            kind: 'tx',
-            mode: 'new',
-            id: null,
-            type: 'expense',
-            categoryId:
-              (DB.categories.find(c => c.type === 'expense') || {}).id || '',
-            amount: '',
-            date: todayStr(),
-            note: ''
-          };
-
-          renderOverlays();
-        });
-
-      }
-
-      else if (action === 'fab-scan-invoice') {
-
-        closeFabMenu(() => {
-          document.getElementById('global-camera-input').click();
-        });
-
-      }
-
-      else if (action === 'fab-invoices') {
-
-        closeFabMenu(() => {
-
-          UI.tab = 'invoices';
-
-          renderAppContent();
-        });
-
-      }
-
-      else if (action === 'fab-settings') {
-
-        closeFabMenu(() => {
-
-          UI.tab = 'settings';
-
-          renderAppContent();
-        });
-      }
-
-    }, 220);
-
-    return;
-  }
-
-
-  /* =======================================================
-     EDITAR MOVIMIENTO
-     ======================================================= */
-
-  if (action === 'edit-tx') {
-
-    const tx =
-      DB.transactions.find(x => x.id === t.dataset.id);
-
-    if (tx) {
-
-      sheet = {
-        kind: 'tx',
-        mode: 'edit',
-        id: tx.id,
-        type: tx.type,
-        categoryId: tx.categoryId,
-        amount: String(tx.amount),
-        date: tx.date,
-        note: tx.note || ''
-      };
-
-      renderOverlays();
-    }
-
-    return;
-  }
-
-
-  /* =======================================================
-     CATEGORÍA RÁPIDA
-     ======================================================= */
-
-  if (action === 'quick-cat') {
-
-    sheet = {
-      kind: 'quick',
-      categoryId: t.dataset.id,
-      amount: '',
-      note: '',
-      date: todayStr(),
-      showNote: false,
-      showDate: false
-    };
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     MOSTRAR NOTA
-     ======================================================= */
-
-  if (action === 'show-note') {
-
-    if (!sheet) {
-      return;
-    }
-
-    sheet.showNote = true;
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     MOSTRAR FECHA
-     ======================================================= */
-
-  if (action === 'show-date') {
-
-    if (!sheet) {
-      return;
-    }
-
-    sheet.showDate = true;
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     GUARDAR MOVIMIENTO RÁPIDO
-     ======================================================= */
-
-  if (action === 'save-quick') {
-
-    if (!sheet) {
-      return;
-    }
-
-    const amt = Number(sheet.amount);
-
-    if (amt > 0) {
-
-      DB.transactions.push({
-        id: uid(),
-        type: 'expense',
-        amount: amt,
-        categoryId: sheet.categoryId,
-        date: todayStr(),
-        note: (sheet.note || '').trim()
-      });
-
-      saveDB();
-
-      safeSync();
-
-      sheet = null;
-
-      renderAppContent();
-    }
-
-    return;
-  }
-
-
-  /* =======================================================
-     TIPO DE MOVIMIENTO
-     ======================================================= */
-
-  if (action === 'tx-type') {
-
-    if (!sheet) {
-      return;
-    }
-
-    sheet.type = t.dataset.type;
-
-    sheet.categoryId =
-      (DB.categories.find(c => c.type === sheet.type) || {}).id || '';
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     SELECCIONAR CATEGORÍA DE MOVIMIENTO
-     ======================================================= */
-
-  if (action === 'pick-tx-cat') {
-
-    if (!sheet) {
-      return;
-    }
-
-    sheet.categoryId = t.dataset.id;
-
-    const chipContainer =
-      document.getElementById('chipList');
-
-    if (chipContainer) {
-
-      chipContainer.innerHTML =
-        renderTxCatChips(
-          DB.categories.filter(c => c.type === sheet.type),
-          sheet.categoryId
-        );
-    }
-
-    return;
-  }
-
-
-  /* =======================================================
-     GUARDAR MOVIMIENTO
-     ======================================================= */
-
-  if (action === 'save-tx') {
-
-    if (!sheet) {
-      return;
-    }
-
-    const amt = Number(sheet.amount);
-
-    const catId =
-      sheet.categoryId ||
-      (DB.categories.find(c => c.type === sheet.type) || {}).id ||
-      '';
-
-    if (amt > 0) {
-
-      const tx = {
-        id: sheet.id || uid(),
-        type: sheet.type,
-        amount: amt,
-        categoryId: catId,
-        date: sheet.date || todayStr(),
-        note: (sheet.note || '').trim()
-      };
-
-      const exists =
-        DB.transactions.some(x => x.id === tx.id);
-
-      DB.transactions =
-        exists
-          ? DB.transactions.map(
-              x => x.id === tx.id ? tx : x
-            )
-          : DB.transactions.concat([tx]);
-
-      saveDB();
-
-      safeSync();
-
-      sheet = null;
-
-      renderAppContent();
-    }
-
-    return;
-  }
-
-
-  /* =======================================================
-     ELIMINAR MOVIMIENTO
-     ======================================================= */
-
-  if (action === 'delete-tx') {
-
-    if (!sheet) {
-      return;
-    }
-
-    confirmState = {
-
-      message: '¿Eliminar este movimiento?',
-
-      onConfirm: () => {
-
-        DB.transactions =
-          DB.transactions.filter(
-            x => x.id !== sheet.id
-          );
-
-        saveDB();
-
-        safeSync();
-
-        sheet = null;
-
-        confirmState = null;
-
-        renderAppContent();
-      }
-    };
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     NUEVA CATEGORÍA
-     ======================================================= */
-
-  if (action === 'new-cat') {
-
-    sheet = {
-      kind: 'cat',
-      mode: 'new',
-      id: null,
-      name: '',
-      type: 'expense',
-      color: '#06B6D4',
-      icon: 'food',
-      budget: '',
-      primary: false,
-      isFixed: false
-    };
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     EDITAR CATEGORÍA
-     ======================================================= */
-
-  if (action === 'edit-cat') {
-
-    const c =
-      DB.categories.find(
-        x => x.id === t.dataset.id
-      );
-
-    if (c) {
-
-      sheet = {
-        kind: 'cat',
-        mode: 'edit',
-        id: c.id,
-        name: c.name,
-        type: c.type,
-        color: c.color,
-        icon: c.icon,
-        budget: c.budget ? String(c.budget) : '',
-        primary: !!c.primary,
-        isFixed: !!c.isFixed
-      };
-
-      renderOverlays();
-    }
-
-    return;
-  }
-
-
-  /* =======================================================
-     TIPO DE CATEGORÍA
-     ======================================================= */
-
-  if (action === 'cat-type') {
-
-    if (!sheet) {
-      return;
-    }
-
-    sheet.type = t.dataset.type;
-
-    document.getElementById('budgetField').style.display =
-      sheet.type === 'expense'
-        ? 'block'
-        : 'none';
-
-    document.getElementById('primaryField').style.display =
-      sheet.type === 'income'
-        ? 'block'
-        : 'none';
-
-    document.getElementById('fixedField').style.display =
-      sheet.type === 'expense'
-        ? 'block'
-        : 'none';
-
-    return;
-  }
-
-
-  /* =======================================================
-     CATEGORÍA PRINCIPAL
-     ======================================================= */
-
-  if (action === 'toggle-primary') {
-
-    if (!sheet) {
-      return;
-    }
-
-    sheet.primary = !sheet.primary;
-
-    document
-      .getElementById('primarySwitch')
-      .classList.toggle(
-        'on',
-        sheet.primary
-      );
-
-    return;
-  }
-
-
-  /* =======================================================
-     CATEGORÍA FIJA
-     ======================================================= */
-
-  if (action === 'toggle-fixed') {
-
-    if (!sheet) {
-      return;
-    }
-
-    sheet.isFixed = !sheet.isFixed;
-
-    document
-      .getElementById('fixedSwitch')
-      .classList.toggle(
-        'on-violet',
-        sheet.isFixed
-      );
-
-    return;
-  }
-
-
-  /* =======================================================
-     COLOR
-     ======================================================= */
-
-  if (action === 'pick-color') {
-
-    if (!sheet) {
-      return;
-    }
-
-    sheet.color = t.dataset.color;
-
-    document
-      .querySelectorAll('#swatchList .swatch')
-      .forEach(s =>
-        s.classList.toggle(
-          'selected',
-          s.dataset.color === sheet.color
-        )
-      );
-
-    return;
-  }
-
-
-  /* =======================================================
-     ÍCONO
-     ======================================================= */
-
-  if (action === 'pick-icon') {
-
-    if (!sheet) {
-      return;
-    }
-
-    sheet.icon = t.dataset.icon;
-
-    document
-      .querySelectorAll('#iconList .emoji-btn')
-      .forEach(b =>
-        b.classList.toggle(
-          'selected',
-          b.dataset.icon === sheet.icon
-        )
-      );
-
-    return;
-  }
-
-
-  /* =======================================================
-     GUARDAR CATEGORÍA
-     ======================================================= */
-
-  if (action === 'save-cat') {
-
-    if (!sheet) {
-      return;
-    }
-
-    if (sheet.name.trim()) {
-
-      const cat = {
-        id: sheet.id || uid(),
-        name: sheet.name.trim(),
-        type: sheet.type,
-        color: sheet.color,
-        icon: sheet.icon,
-        budget:
-          sheet.type === 'expense' && sheet.budget
-            ? Number(sheet.budget)
-            : null,
-        primary:
-          sheet.type === 'income'
-            ? !!sheet.primary
-            : false,
-        isFixed:
-          sheet.type === 'expense'
-            ? !!sheet.isFixed
-            : false
-      };
-
-      const exists =
-        DB.categories.some(
-          x => x.id === cat.id
-        );
-
-      DB.categories =
-        exists
-          ? DB.categories.map(
-              x => x.id === cat.id ? cat : x
-            )
-          : DB.categories.concat([cat]);
-
-      saveDB();
-
-      safeSync();
-
-      sheet = null;
-
-      renderAppContent();
-    }
-
-    return;
-  }
-
-
-  /* =======================================================
-     ELIMINAR CATEGORÍA
-     ======================================================= */
-
-  if (action === 'delete-cat') {
-
-    if (!sheet) {
-      return;
-    }
-
-    confirmState = {
-
-      message: '¿Eliminar categoría?',
-
-      onConfirm: () => {
-
-        DB.categories =
-          DB.categories.filter(
-            x => x.id !== sheet.id
-          );
-
-        saveDB();
-
-        safeSync();
-
-        sheet = null;
-
-        confirmState = null;
-
-        renderAppContent();
-      }
-    };
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     NUEVO CRÉDITO
-     ======================================================= */
-
-  if (action === 'new-credit') {
-
-    sheet = {
-      kind: 'credit',
-      mode: 'new',
-      id: null,
-      title: '',
-      type: UI.creditFilter || 'against',
-      total: ''
-    };
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     EDITAR CRÉDITO
-     ======================================================= */
-
-  if (action === 'edit-credit') {
-
-    const c =
-      DB.credits.find(
-        x => x.id === t.dataset.id
-      );
-
-    if (c) {
-
-      sheet = {
-        kind: 'credit',
-        mode: 'edit',
-        id: c.id,
-        title: c.title,
-        type: c.type,
-        total: String(c.total)
-      };
-
-      renderOverlays();
-    }
-
-    return;
-  }
-
-
-  /* =======================================================
-     TIPO DE CRÉDITO
-     ======================================================= */
-
-  if (action === 'credit-type') {
-
-    if (!sheet) {
-      return;
-    }
-
-    sheet.type = t.dataset.type;
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     GUARDAR CRÉDITO
-     ======================================================= */
-
-  if (action === 'save-credit') {
-
-    if (!sheet) {
-      return;
-    }
-
-    const tot = Number(sheet.total);
-
-    if (sheet.title.trim() && tot > 0) {
-
-      if (!DB.credits) {
-        DB.credits = [];
-      }
-
-      const credit = {
-        id: sheet.id || uid(),
-        title: sheet.title.trim(),
-        type: sheet.type,
-        total: tot,
-        payments: sheet.id
-          ? (
-              (DB.credits.find(
-                x => x.id === sheet.id
-              ) || {}).payments || []
-            )
-          : []
-      };
-
-      const exists =
-        DB.credits.some(
-          x => x.id === credit.id
-        );
-
-      DB.credits =
-        exists
-          ? DB.credits.map(
-              x => x.id === credit.id ? credit : x
-            )
-          : DB.credits.concat([credit]);
-
-      saveDB();
-
-      safeSync();
-
-      sheet = null;
-
-      renderAppContent();
-    }
-
-    return;
-  }
-
-
-  /* =======================================================
-     ELIMINAR CRÉDITO
-     ======================================================= */
-
-  if (action === 'delete-credit') {
-
-    if (!sheet) {
-      return;
-    }
-
-    confirmState = {
-
-      message: '¿Eliminar crédito?',
-
-      onConfirm: () => {
-
-        DB.credits =
-          DB.credits.filter(
-            x => x.id !== sheet.id
-          );
-
-        saveDB();
-
-        safeSync();
-
-        sheet = null;
-
-        confirmState = null;
-
-        renderAppContent();
-      }
-    };
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     NUEVO PAGO
-     ======================================================= */
-
-  if (action === 'new-payment') {
-
-    sheet = {
-      kind: 'payment',
-      mode: 'new',
-      creditId: t.dataset.id,
-      paymentId: null,
-      amount: '',
-      date: todayStr(),
-      note: ''
-    };
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     EDITAR PAGO
-     ======================================================= */
-
-  if (action === 'edit-payment') {
-
-    const c =
-      DB.credits.find(
-        x => x.id === t.dataset.cid
-      );
-
-    const p =
-      (c?.payments || []).find(
-        x => x.id === t.dataset.pid
-      );
-
-    if (p) {
-
-      sheet = {
-        kind: 'payment',
-        mode: 'edit',
-        creditId: t.dataset.cid,
-        paymentId: p.id,
-        amount: String(p.amount),
-        date: p.date,
-        note: p.note || ''
-      };
-
-      renderOverlays();
-    }
-
-    return;
-  }
-
-
-  /* =======================================================
-     GUARDAR PAGO
-     ======================================================= */
-
-  if (action === 'save-payment') {
-
-    if (!sheet) {
-      return;
-    }
-
-    const amt = Number(sheet.amount);
-
-    if (amt > 0) {
-
-      const pay = {
-        id: sheet.paymentId || uid(),
-        amount: amt,
-        date: sheet.date || todayStr(),
-        note: (sheet.note || '').trim()
-      };
-
-      DB.credits =
-        DB.credits.map(c => {
-
-          if (c.id === sheet.creditId) {
-
-            let pays = c.payments || [];
-
-            const exists =
-              pays.some(
-                x => x.id === pay.id
+        if (
+          action ===
+          'fab-new-tx'
+        ) {
+
+          closeFabMenu(() => {
+
+            sheet = {
+              kind: 'tx',
+              mode: 'new',
+              id: null,
+              type: 'expense',
+
+              categoryId:
+                (
+                  DB.categories.find(
+                    c =>
+                      c.type ===
+                      'expense'
+                  ) || {}
+                ).id || '',
+
+              amount: '',
+              date: todayStr(),
+              note: ''
+            };
+
+            renderOverlays();
+          });
+
+        }
+
+        else if (
+          action ===
+          'fab-scan-invoice'
+        ) {
+
+          closeFabMenu(() => {
+
+            const input =
+              document.getElementById(
+                'global-camera-input'
               );
 
-            pays =
-              exists
-                ? pays.map(
-                    x => x.id === pay.id ? pay : x
-                  )
-                : pays.concat([pay]);
+            if (input) {
+              input.click();
+            }
+          });
 
-            return {
-              ...c,
-              payments: pays
-            };
-          }
+        }
 
-          return c;
+        else if (
+          action ===
+          'fab-invoices'
+        ) {
+
+          closeFabMenu(() => {
+
+            UI.tab =
+              'invoices';
+
+            renderAppContent();
+          });
+
+        }
+
+        else if (
+          action ===
+          'fab-settings'
+        ) {
+
+          closeFabMenu(() => {
+
+            UI.tab =
+              'settings';
+
+            renderAppContent();
+          });
+        }
+
+      }, 220);
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       EDITAR MOVIMIENTO
+       ------------------------------------------------------------ */
+
+    if (action === 'edit-tx') {
+
+      const tx =
+        DB.transactions.find(
+          x =>
+            x.id ===
+            t.dataset.id
+        );
+
+      if (tx) {
+
+        sheet = {
+
+          kind: 'tx',
+          mode: 'edit',
+          id: tx.id,
+          type: tx.type,
+          categoryId:
+            tx.categoryId,
+          amount:
+            String(tx.amount),
+          date:
+            tx.date,
+          note:
+            tx.note || ''
+        };
+
+        renderOverlays();
+      }
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       QUICK CATEGORY
+       ------------------------------------------------------------ */
+
+    if (action === 'quick-cat') {
+
+      sheet = {
+
+        kind: 'quick',
+        categoryId:
+          t.dataset.id,
+        amount: '',
+        note: '',
+        date: todayStr(),
+        showNote: false,
+        showDate: false
+      };
+
+      renderOverlays();
+
+      return;
+    }
+
+
+    if (action === 'show-note') {
+
+      if (!sheet) return;
+
+      sheet.showNote =
+        true;
+
+      renderOverlays();
+
+      return;
+    }
+
+
+    if (action === 'show-date') {
+
+      if (!sheet) return;
+
+      sheet.showDate =
+        true;
+
+      renderOverlays();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       GUARDAR QUICK
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'save-quick'
+    ) {
+
+      if (!sheet) return;
+
+      const amt =
+        Number(sheet.amount);
+
+      if (amt > 0) {
+
+        DB.transactions.push({
+
+          id: uid(),
+
+          type: 'expense',
+
+          amount: amt,
+
+          categoryId:
+            sheet.categoryId,
+
+          date:
+            todayStr(),
+
+          note:
+            (sheet.note || '')
+              .trim()
         });
 
-      saveDB();
+        saveDB();
 
-      safeSync();
+        safeSync();
 
-      sheet = null;
+        sheet = null;
 
-      renderAppContent();
+        renderAppContent();
+      }
+
+      return;
     }
 
-    return;
-  }
+
+    /* ------------------------------------------------------------
+       TIPO MOVIMIENTO
+       ------------------------------------------------------------ */
+
+    if (action === 'tx-type') {
+
+      if (!sheet) return;
+
+      sheet.type =
+        t.dataset.type;
+
+      sheet.categoryId =
+        (
+          DB.categories.find(
+            c =>
+              c.type ===
+              sheet.type
+          ) || {}
+        ).id || '';
+
+      renderOverlays();
+
+      return;
+    }
 
 
-  /* =======================================================
-     FACTURAS
-     ======================================================= */
+    /* ------------------------------------------------------------
+       CATEGORÍA MOVIMIENTO
+       ------------------------------------------------------------ */
 
-  if (action === 'toggle-invoice') {
+    if (
+      action ===
+      'pick-tx-cat'
+    ) {
 
-    UI.openInvoiceId =
-      UI.openInvoiceId === t.dataset.id
-        ? null
-        : t.dataset.id;
+      if (!sheet) return;
 
-    renderAppContent();
+      sheet.categoryId =
+        t.dataset.id;
 
-    return;
-  }
+      const chipContainer =
+        document.getElementById(
+          'chipList'
+        );
+
+      if (chipContainer) {
+
+        chipContainer.innerHTML =
+          renderTxCatChips(
+            DB.categories.filter(
+              c =>
+                c.type ===
+                sheet.type
+            ),
+            sheet.categoryId
+          );
+      }
+
+      return;
+    }
 
 
-  /* =======================================================
-     EDITAR FACTURA
-     ======================================================= */
+    /* ------------------------------------------------------------
+       GUARDAR MOVIMIENTO
+       ------------------------------------------------------------ */
 
-  if (action === 'edit-invoice') {
+    if (
+      action ===
+      'save-tx'
+    ) {
 
-    const inv =
-      DB.invoices.find(
-        x => x.id === t.dataset.id
-      );
+      if (!sheet) return;
 
-    if (inv) {
+      const amt =
+        Number(sheet.amount);
 
-      sheet = {
-        kind: 'invoice',
-        mode: 'edit',
-        id: inv.id,
-        title: inv.title,
-        date: inv.date,
-        items: inv.items.map(
-          it => ({
-            ...it,
-            price: String(it.price)
-          })
-        ),
-        registered: !!inv.registered
+      const catId =
+        sheet.categoryId ||
+        (
+          DB.categories.find(
+            c =>
+              c.type ===
+              sheet.type
+          ) || {}
+        ).id ||
+        '';
+
+      if (amt > 0) {
+
+        const tx = {
+
+          id:
+            sheet.id ||
+            uid(),
+
+          type:
+            sheet.type,
+
+          amount:
+            amt,
+
+          categoryId:
+            catId,
+
+          date:
+            sheet.date ||
+            todayStr(),
+
+          note:
+            (sheet.note || '')
+              .trim()
+        };
+
+        const exists =
+          DB.transactions.some(
+            x =>
+              x.id ===
+              tx.id
+          );
+
+        DB.transactions =
+          exists
+
+            ? DB.transactions.map(
+                x =>
+                  x.id === tx.id
+                    ? tx
+                    : x
+              )
+
+            : DB.transactions.concat([
+                tx
+              ]);
+
+        saveDB();
+
+        safeSync();
+
+        sheet = null;
+
+        renderAppContent();
+      }
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       ELIMINAR MOVIMIENTO
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'delete-tx'
+    ) {
+
+      if (!sheet) return;
+
+      confirmState = {
+
+        message:
+          '¿Eliminar este movimiento?',
+
+        onConfirm: () => {
+
+          DB.transactions =
+            DB.transactions.filter(
+              x =>
+                x.id !==
+                sheet.id
+            );
+
+          saveDB();
+
+          safeSync();
+
+          sheet = null;
+
+          confirmState =
+            null;
+
+          renderAppContent();
+        }
       };
 
       renderOverlays();
+
+      return;
     }
 
-    return;
-  }
 
+    /* ------------------------------------------------------------
+       NUEVA CATEGORÍA
+       ------------------------------------------------------------ */
 
-  /* =======================================================
-     REGISTRAR FACTURA COMO MOVIMIENTO
-     ======================================================= */
-
-  if (action === 'register-invoice') {
-
-    const inv =
-      DB.invoices.find(
-        x => x.id === t.dataset.id
-      );
-
-    if (inv) {
+    if (action === 'new-cat') {
 
       sheet = {
-        kind: 'tx',
+
+        kind: 'cat',
         mode: 'new',
         id: null,
+        name: '',
         type: 'expense',
-        categoryId:
-          (DB.categories.find(
-            c => c.type === 'expense'
-          ) || {}).id || '',
-        amount: String(inv.total),
-        date: inv.date || todayStr(),
-        note: inv.title || '',
-        sourceInvoiceId: inv.id
+        color: '#06B6D4',
+        icon: 'food',
+        budget: '',
+        primary: false,
+        isFixed: false
       };
 
       renderOverlays();
-    }
 
-    return;
-  }
-
-
-  /* =======================================================
-     AGREGAR ITEM DE FACTURA
-     ======================================================= */
-
-  if (action === 'add-invoice-item') {
-
-    if (!sheet) {
       return;
     }
 
-    sheet.items.push({
-      id: uid(),
-      name: '',
-      price: ''
-    });
 
-    document.getElementById(
-      'inv-items-list'
-    ).innerHTML =
-      renderInvoiceItemsHTML(sheet);
+    /* ------------------------------------------------------------
+       EDITAR CATEGORÍA
+       ------------------------------------------------------------ */
 
-    return;
-  }
+    if (
+      action ===
+      'edit-cat'
+    ) {
 
+      const c =
+        DB.categories.find(
+          x =>
+            x.id ===
+            t.dataset.id
+        );
 
-  /* =======================================================
-     ELIMINAR ITEM DE FACTURA
-     ======================================================= */
+      if (c) {
 
-  if (action === 'remove-invoice-item') {
+        sheet = {
 
-    if (!sheet) {
+          kind: 'cat',
+
+          mode: 'edit',
+
+          id: c.id,
+
+          name: c.name,
+
+          type: c.type,
+
+          color: c.color,
+
+          icon: c.icon,
+
+          budget:
+            c.budget
+              ? String(c.budget)
+              : '',
+
+          primary:
+            !!c.primary,
+
+          isFixed:
+            !!c.isFixed
+        };
+
+        renderOverlays();
+      }
+
       return;
     }
 
-    sheet.items.splice(
-      Number(t.dataset.idx),
-      1
-    );
 
-    if (!sheet.items.length) {
+    /* ------------------------------------------------------------
+       TIPO CATEGORÍA
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'cat-type'
+    ) {
+
+      if (!sheet) return;
+
+      sheet.type =
+        t.dataset.type;
+
+      document
+        .getElementById(
+          'budgetField'
+        )
+        .style.display =
+          sheet.type ===
+          'expense'
+            ? 'block'
+            : 'none';
+
+      document
+        .getElementById(
+          'primaryField'
+        )
+        .style.display =
+          sheet.type ===
+          'income'
+            ? 'block'
+            : 'none';
+
+      document
+        .getElementById(
+          'fixedField'
+        )
+        .style.display =
+          sheet.type ===
+          'expense'
+            ? 'block'
+            : 'none';
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       PRIMARY
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'toggle-primary'
+    ) {
+
+      if (!sheet) return;
+
+      sheet.primary =
+        !sheet.primary;
+
+      document
+        .getElementById(
+          'primarySwitch'
+        )
+        .classList.toggle(
+          'on',
+          sheet.primary
+        );
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       FIJO
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'toggle-fixed'
+    ) {
+
+      if (!sheet) return;
+
+      sheet.isFixed =
+        !sheet.isFixed;
+
+      document
+        .getElementById(
+          'fixedSwitch'
+        )
+        .classList.toggle(
+          'on-violet',
+          sheet.isFixed
+        );
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       COLOR
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'pick-color'
+    ) {
+
+      if (!sheet) return;
+
+      sheet.color =
+        t.dataset.color;
+
+      document
+        .querySelectorAll(
+          '#swatchList .swatch'
+        )
+        .forEach(
+          s =>
+            s.classList.toggle(
+              'selected',
+              s.dataset.color ===
+              sheet.color
+            )
+        );
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       ICONO
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'pick-icon'
+    ) {
+
+      if (!sheet) return;
+
+      sheet.icon =
+        t.dataset.icon;
+
+      document
+        .querySelectorAll(
+          '#iconList .emoji-btn'
+        )
+        .forEach(
+          b =>
+            b.classList.toggle(
+              'selected',
+              b.dataset.icon ===
+              sheet.icon
+            )
+        );
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       GUARDAR CATEGORÍA
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'save-cat'
+    ) {
+
+      if (!sheet) return;
+
+      if (
+        sheet.name.trim()
+      ) {
+
+        const cat = {
+
+          id:
+            sheet.id ||
+            uid(),
+
+          name:
+            sheet.name.trim(),
+
+          type:
+            sheet.type,
+
+          color:
+            sheet.color,
+
+          icon:
+            sheet.icon,
+
+          budget:
+            sheet.type ===
+              'expense' &&
+            sheet.budget
+              ? Number(
+                  sheet.budget
+                )
+              : null,
+
+          primary:
+            sheet.type ===
+            'income'
+              ? !!sheet.primary
+              : false,
+
+          isFixed:
+            sheet.type ===
+            'expense'
+              ? !!sheet.isFixed
+              : false
+        };
+
+        const exists =
+          DB.categories.some(
+            x =>
+              x.id ===
+              cat.id
+          );
+
+        DB.categories =
+          exists
+
+            ? DB.categories.map(
+                x =>
+                  x.id === cat.id
+                    ? cat
+                    : x
+              )
+
+            : DB.categories.concat([
+                cat
+              ]);
+
+        saveDB();
+
+        safeSync();
+
+        sheet = null;
+
+        renderAppContent();
+      }
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       ELIMINAR CATEGORÍA
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'delete-cat'
+    ) {
+
+      if (!sheet) return;
+
+      confirmState = {
+
+        message:
+          '¿Eliminar categoría?',
+
+        onConfirm: () => {
+
+          DB.categories =
+            DB.categories.filter(
+              x =>
+                x.id !==
+                sheet.id
+            );
+
+          saveDB();
+
+          safeSync();
+
+          sheet = null;
+
+          confirmState =
+            null;
+
+          renderAppContent();
+        }
+      };
+
+      renderOverlays();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       NUEVO CRÉDITO
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'new-credit'
+    ) {
+
+      sheet = {
+
+        kind: 'credit',
+
+        mode: 'new',
+
+        id: null,
+
+        title: '',
+
+        type:
+          UI.creditFilter ||
+          'against',
+
+        total: ''
+      };
+
+      renderOverlays();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       EDITAR CRÉDITO
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'edit-credit'
+    ) {
+
+      const c =
+        DB.credits.find(
+          x =>
+            x.id ===
+            t.dataset.id
+        );
+
+      if (c) {
+
+        sheet = {
+
+          kind: 'credit',
+
+          mode: 'edit',
+
+          id: c.id,
+
+          title:
+            c.title,
+
+          type:
+            c.type,
+
+          total:
+            String(c.total)
+        };
+
+        renderOverlays();
+      }
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       TIPO CRÉDITO
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'credit-type'
+    ) {
+
+      if (!sheet) return;
+
+      sheet.type =
+        t.dataset.type;
+
+      renderOverlays();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       GUARDAR CRÉDITO
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'save-credit'
+    ) {
+
+      if (!sheet) return;
+
+      const tot =
+        Number(sheet.total);
+
+      if (
+        sheet.title.trim() &&
+        tot > 0
+      ) {
+
+        if (!DB.credits) {
+          DB.credits = [];
+        }
+
+        const credit = {
+
+          id:
+            sheet.id ||
+            uid(),
+
+          title:
+            sheet.title.trim(),
+
+          type:
+            sheet.type,
+
+          total:
+            tot,
+
+          payments:
+            sheet.id
+              ? (
+                  DB.credits.find(
+                    x =>
+                      x.id ===
+                      sheet.id
+                  ) || {}
+                ).payments || []
+
+              : []
+        };
+
+        const exists =
+          DB.credits.some(
+            x =>
+              x.id ===
+              credit.id
+          );
+
+        DB.credits =
+          exists
+
+            ? DB.credits.map(
+                x =>
+                  x.id ===
+                  credit.id
+                    ? credit
+                    : x
+              )
+
+            : DB.credits.concat([
+                credit
+              ]);
+
+        saveDB();
+
+        safeSync();
+
+        sheet = null;
+
+        renderAppContent();
+      }
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       ELIMINAR CRÉDITO
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'delete-credit'
+    ) {
+
+      if (!sheet) return;
+
+      confirmState = {
+
+        message:
+          '¿Eliminar crédito?',
+
+        onConfirm: () => {
+
+          DB.credits =
+            DB.credits.filter(
+              x =>
+                x.id !==
+                sheet.id
+            );
+
+          saveDB();
+
+          safeSync();
+
+          sheet = null;
+
+          confirmState =
+            null;
+
+          renderAppContent();
+        }
+      };
+
+      renderOverlays();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       NUEVO PAGO
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'new-payment'
+    ) {
+
+      sheet = {
+
+        kind: 'payment',
+
+        mode: 'new',
+
+        creditId:
+          t.dataset.id,
+
+        paymentId: null,
+
+        amount: '',
+
+        date:
+          todayStr(),
+
+        note: ''
+      };
+
+      renderOverlays();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       EDITAR PAGO
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'edit-payment'
+    ) {
+
+      const c =
+        DB.credits.find(
+          x =>
+            x.id ===
+            t.dataset.cid
+        );
+
+      const p =
+        (
+          c?.payments || []
+        ).find(
+          x =>
+            x.id ===
+            t.dataset.pid
+        );
+
+      if (p) {
+
+        sheet = {
+
+          kind: 'payment',
+
+          mode: 'edit',
+
+          creditId:
+            t.dataset.cid,
+
+          paymentId:
+            p.id,
+
+          amount:
+            String(p.amount),
+
+          date:
+            p.date,
+
+          note:
+            p.note || ''
+        };
+
+        renderOverlays();
+      }
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       GUARDAR PAGO
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'save-payment'
+    ) {
+
+      if (!sheet) return;
+
+      const amt =
+        Number(sheet.amount);
+
+      if (amt > 0) {
+
+        const pay = {
+
+          id:
+            sheet.paymentId ||
+            uid(),
+
+          amount:
+            amt,
+
+          date:
+            sheet.date ||
+            todayStr(),
+
+          note:
+            (sheet.note || '')
+              .trim()
+        };
+
+        DB.credits =
+          DB.credits.map(
+            c => {
+
+              if (
+                c.id ===
+                sheet.creditId
+              ) {
+
+                let pays =
+                  c.payments ||
+                  [];
+
+                const exists =
+                  pays.some(
+                    x =>
+                      x.id ===
+                      pay.id
+                  );
+
+                pays =
+                  exists
+
+                    ? pays.map(
+                        x =>
+                          x.id ===
+                          pay.id
+                            ? pay
+                            : x
+                      )
+
+                    : pays.concat([
+                        pay
+                      ]);
+
+                return {
+                  ...c,
+                  payments:
+                    pays
+                };
+              }
+
+              return c;
+            }
+          );
+
+        saveDB();
+
+        safeSync();
+
+        sheet = null;
+
+        renderAppContent();
+      }
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       FACTURAS
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'toggle-invoice'
+    ) {
+
+      UI.openInvoiceId =
+        UI.openInvoiceId ===
+        t.dataset.id
+
+          ? null
+
+          : t.dataset.id;
+
+      renderAppContent();
+
+      return;
+    }
+
+
+    if (
+      action ===
+      'edit-invoice'
+    ) {
+
+      const inv =
+        DB.invoices.find(
+          x =>
+            x.id ===
+            t.dataset.id
+        );
+
+      if (inv) {
+
+        sheet = {
+
+          kind: 'invoice',
+
+          mode: 'edit',
+
+          id: inv.id,
+
+          title:
+            inv.title,
+
+          date:
+            inv.date,
+
+          items:
+            inv.items.map(
+              it => ({
+                ...it,
+                price:
+                  String(it.price)
+              })
+            ),
+
+          registered:
+            !!inv.registered
+        };
+
+        renderOverlays();
+      }
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       REGISTRAR FACTURA
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'register-invoice'
+    ) {
+
+      const inv =
+        DB.invoices.find(
+          x =>
+            x.id ===
+            t.dataset.id
+        );
+
+      if (inv) {
+
+        sheet = {
+
+          kind: 'tx',
+
+          mode: 'new',
+
+          id: null,
+
+          type: 'expense',
+
+          categoryId:
+            (
+              DB.categories.find(
+                c =>
+                  c.type ===
+                  'expense'
+              ) || {}
+            ).id || '',
+
+          amount:
+            String(inv.total),
+
+          date:
+            inv.date ||
+            todayStr(),
+
+          note:
+            inv.title || '',
+
+          sourceInvoiceId:
+            inv.id
+        };
+
+        renderOverlays();
+      }
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       ÍTEM FACTURA
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'add-invoice-item'
+    ) {
+
+      if (!sheet) return;
 
       sheet.items.push({
         id: uid(),
         name: '',
         price: ''
       });
-    }
 
-    document.getElementById(
-      'inv-items-list'
-    ).innerHTML =
-      renderInvoiceItemsHTML(sheet);
-
-    return;
-  }
-
-
-  /* =======================================================
-     GUARDAR FACTURA
-     ======================================================= */
-
-  if (action === 'save-invoice') {
-
-    if (!sheet) {
-      return;
-    }
-
-    const items =
-      sheet.items
-        .filter(
-          it =>
-            it.name.trim() &&
-            Number(it.price) > 0
-        )
-        .map(
-          it => ({
-            id: it.id || uid(),
-            name: it.name.trim().slice(0, 60),
-            price: Number(it.price)
-          })
+      const list =
+        document.getElementById(
+          'inv-items-list'
         );
 
-    if (items.length) {
+      if (list) {
 
-      const total =
-        items.reduce(
-          (s, it) => s + it.price,
-          0
-        );
-
-      const invoice = {
-        id: sheet.id || uid(),
-        title:
-          (sheet.title || '').trim() ||
-          ('Factura ' + todayStr()),
-        date: todayStr(),
-        items,
-        total,
-        registered: !!sheet.registered
-      };
-
-      if (!DB.invoices) {
-        DB.invoices = [];
+        list.innerHTML =
+          renderInvoiceItemsHTML(
+            sheet
+          );
       }
 
-      const exists =
-        DB.invoices.some(
-          x => x.id === invoice.id
-        );
-
-      DB.invoices =
-        exists
-          ? DB.invoices.map(
-              x => x.id === invoice.id
-                ? invoice
-                : x
-            )
-          : DB.invoices.concat([invoice]);
-
-      saveDB();
-
-      safeSync();
-
-      sheet = null;
-
-      renderAppContent();
-    }
-
-    return;
-  }
-
-
-  /* =======================================================
-     ELIMINAR FACTURA
-     ======================================================= */
-
-  if (action === 'delete-invoice') {
-
-    if (!sheet) {
       return;
     }
 
-    confirmState = {
 
-      message: '¿Eliminar factura?',
+    if (
+      action ===
+      'remove-invoice-item'
+    ) {
 
-      onConfirm: () => {
+      if (!sheet) return;
+
+      sheet.items.splice(
+        Number(
+          t.dataset.idx
+        ),
+        1
+      );
+
+      if (
+        !sheet.items.length
+      ) {
+
+        sheet.items.push({
+          id: uid(),
+          name: '',
+          price: ''
+        });
+      }
+
+      const list =
+        document.getElementById(
+          'inv-items-list'
+        );
+
+      if (list) {
+
+        list.innerHTML =
+          renderInvoiceItemsHTML(
+            sheet
+          );
+      }
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       GUARDAR FACTURA
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'save-invoice'
+    ) {
+
+      if (!sheet) return;
+
+      const items =
+        sheet.items
+
+          .filter(
+            it =>
+              it.name.trim() &&
+              Number(it.price) > 0
+          )
+
+          .map(
+            it => ({
+              id:
+                it.id ||
+                uid(),
+
+              name:
+                it.name
+                  .trim()
+                  .slice(0, 60),
+
+              price:
+                Number(it.price)
+            })
+          );
+
+      if (items.length) {
+
+        const total =
+          items.reduce(
+            (s, it) =>
+              s + it.price,
+            0
+          );
+
+        const invoice = {
+
+          id:
+            sheet.id ||
+            uid(),
+
+          title:
+            (sheet.title || '')
+              .trim() ||
+            (
+              'Factura ' +
+              todayStr()
+            ),
+
+          date:
+            todayStr(),
+
+          items,
+
+          total,
+
+          registered:
+            !!sheet.registered
+        };
+
+        if (!DB.invoices) {
+          DB.invoices = [];
+        }
+
+        const exists =
+          DB.invoices.some(
+            x =>
+              x.id ===
+              invoice.id
+          );
 
         DB.invoices =
-          DB.invoices.filter(
-            x => x.id !== sheet.id
-          );
+          exists
+
+            ? DB.invoices.map(
+                x =>
+                  x.id ===
+                  invoice.id
+                    ? invoice
+                    : x
+              )
+
+            : DB.invoices.concat([
+                invoice
+              ]);
 
         saveDB();
 
@@ -1927,102 +2517,156 @@ document.addEventListener('click', (e) => {
 
         sheet = null;
 
-        confirmState = null;
-
         renderAppContent();
       }
-    };
 
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     CERRAR SHEET
-     ======================================================= */
-
-  if (action === 'close-sheet') {
-
-    sheet = null;
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     CANCELAR CONFIRMACIÓN
-     ======================================================= */
-
-  if (action === 'cancel-confirm') {
-
-    confirmState = null;
-
-    renderOverlays();
-
-    return;
-  }
-
-
-  /* =======================================================
-     CONFIRMAR ACCIÓN
-     ======================================================= */
-
-  if (action === 'confirm-ok') {
-
-    if (!confirmState) {
       return;
     }
 
-    const fn = confirmState.onConfirm;
 
-    confirmState = null;
+    /* ------------------------------------------------------------
+       ELIMINAR FACTURA
+       ------------------------------------------------------------ */
 
-    renderOverlays();
+    if (
+      action ===
+      'delete-invoice'
+    ) {
 
-    fn();
+      if (!sheet) return;
 
-    return;
+      confirmState = {
+
+        message:
+          '¿Eliminar factura?',
+
+        onConfirm: () => {
+
+          DB.invoices =
+            DB.invoices.filter(
+              x =>
+                x.id !==
+                sheet.id
+            );
+
+          saveDB();
+
+          safeSync();
+
+          sheet = null;
+
+          confirmState =
+            null;
+
+          renderAppContent();
+        }
+      };
+
+      renderOverlays();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       CERRAR SHEET
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'close-sheet'
+    ) {
+
+      sheet = null;
+
+      renderOverlays();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       CANCELAR CONFIRMACIÓN
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'cancel-confirm'
+    ) {
+
+      confirmState =
+        null;
+
+      renderOverlays();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       CONFIRMAR
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'confirm-ok'
+    ) {
+
+      if (!confirmState) {
+        return;
+      }
+
+      const fn =
+        confirmState.onConfirm;
+
+      confirmState =
+        null;
+
+      renderOverlays();
+
+      fn();
+
+      return;
+    }
+
+
+    /* ------------------------------------------------------------
+       MONEDA
+       ------------------------------------------------------------ */
+
+    if (
+      action ===
+      'set-currency'
+    ) {
+
+      DB.settings.currency =
+        t.dataset.code;
+
+      saveDB();
+
+      safeSync();
+
+      renderAppContent();
+
+      return;
+    }
+
   }
+);
 
 
-  /* =======================================================
-     CAMBIAR MONEDA
-     ======================================================= */
-
-  if (action === 'set-currency') {
-
-    DB.settings.currency = t.dataset.code;
-
-    saveDB();
-
-    safeSync();
-
-    renderAppContent();
-
-    return;
-  }
-
-});
-
-
-/* =========================================================
-   SINCRONIZACIÓN DE CAMPOS DE FORMULARIOS
-   ========================================================= */
+/* ========================================================================
+   SINCRONIZACIÓN DE CAMPOS DE SHEETS
+   ======================================================================== */
 
 function attachSheetFieldSync() {
 
-  if (!sheet) {
-    return;
-  }
+  if (!sheet) return;
 
 
-  /* -------------------------------------------------------
-     MOVIMIENTO / MOVIMIENTO RÁPIDO
-     ------------------------------------------------------- */
+  /*
+    MOVIMIENTO / QUICK
+  */
 
   if (
     sheet.kind === 'tx' ||
@@ -2054,7 +2698,7 @@ function attachSheetFieldSync() {
 
       a.addEventListener(
         'input',
-        (e) => {
+        e => {
 
           sheet.amount =
             parseFormattedNumber(
@@ -2074,14 +2718,21 @@ function attachSheetFieldSync() {
 
           if (saveBtn) {
 
-            if (Number(sheet.amount) > 0) {
+            if (
+              Number(
+                sheet.amount
+              ) > 0
+            ) {
 
               saveBtn.removeAttribute(
                 'disabled'
               );
 
-              saveBtn.style.opacity = '1';
-              saveBtn.style.cursor = 'pointer';
+              saveBtn.style.opacity =
+                '1';
+
+              saveBtn.style.cursor =
+                'pointer';
 
             } else {
 
@@ -2090,7 +2741,8 @@ function attachSheetFieldSync() {
                 'true'
               );
 
-              saveBtn.style.opacity = '0.5';
+              saveBtn.style.opacity =
+                '0.5';
             }
           }
         }
@@ -2103,7 +2755,8 @@ function attachSheetFieldSync() {
       d.addEventListener(
         'input',
         () => {
-          sheet.date = d.value;
+          sheet.date =
+            d.value;
         }
       );
     }
@@ -2114,24 +2767,34 @@ function attachSheetFieldSync() {
       n.addEventListener(
         'input',
         () => {
-          sheet.note = n.value;
+          sheet.note =
+            n.value;
         }
       );
     }
+
+
   }
 
 
-  /* -------------------------------------------------------
-     CATEGORÍA
-     ------------------------------------------------------- */
+  /*
+    CATEGORÍA
+  */
 
-  else if (sheet.kind === 'cat') {
+  else if (
+    sheet.kind ===
+    'cat'
+  ) {
 
     const nm =
-      document.getElementById('f-name');
+      document.getElementById(
+        'f-name'
+      );
 
     const b =
-      document.getElementById('f-budget');
+      document.getElementById(
+        'f-budget'
+      );
 
 
     if (nm) {
@@ -2139,7 +2802,8 @@ function attachSheetFieldSync() {
       nm.addEventListener(
         'input',
         () => {
-          sheet.name = nm.value;
+          sheet.name =
+            nm.value;
         }
       );
     }
@@ -2149,7 +2813,7 @@ function attachSheetFieldSync() {
 
       b.addEventListener(
         'input',
-        (e) => {
+        e => {
 
           sheet.budget =
             parseFormattedNumber(
@@ -2166,17 +2830,24 @@ function attachSheetFieldSync() {
   }
 
 
-  /* -------------------------------------------------------
-     CRÉDITO
-     ------------------------------------------------------- */
+  /*
+    CRÉDITO
+  */
 
-  else if (sheet.kind === 'credit') {
+  else if (
+    sheet.kind ===
+    'credit'
+  ) {
 
     const title =
-      document.getElementById('c-title');
+      document.getElementById(
+        'c-title'
+      );
 
     const tot =
-      document.getElementById('c-total');
+      document.getElementById(
+        'c-total'
+      );
 
 
     if (title) {
@@ -2184,7 +2855,8 @@ function attachSheetFieldSync() {
       title.addEventListener(
         'input',
         () => {
-          sheet.title = title.value;
+          sheet.title =
+            title.value;
         }
       );
     }
@@ -2194,7 +2866,7 @@ function attachSheetFieldSync() {
 
       tot.addEventListener(
         'input',
-        (e) => {
+        e => {
 
           sheet.total =
             parseFormattedNumber(
@@ -2211,27 +2883,36 @@ function attachSheetFieldSync() {
   }
 
 
-  /* -------------------------------------------------------
-     PAGO
-     ------------------------------------------------------- */
+  /*
+    PAGO
+  */
 
-  else if (sheet.kind === 'payment') {
+  else if (
+    sheet.kind ===
+    'payment'
+  ) {
 
     const a =
-      document.getElementById('p-amount');
+      document.getElementById(
+        'p-amount'
+      );
 
     const d =
-      document.getElementById('p-date');
+      document.getElementById(
+        'p-date'
+      );
 
     const n =
-      document.getElementById('p-note');
+      document.getElementById(
+        'p-note'
+      );
 
 
     if (a) {
 
       a.addEventListener(
         'input',
-        (e) => {
+        e => {
 
           sheet.amount =
             parseFormattedNumber(
@@ -2252,7 +2933,8 @@ function attachSheetFieldSync() {
       d.addEventListener(
         'input',
         () => {
-          sheet.date = d.value;
+          sheet.date =
+            d.value;
         }
       );
     }
@@ -2263,24 +2945,32 @@ function attachSheetFieldSync() {
       n.addEventListener(
         'input',
         () => {
-          sheet.note = n.value;
+          sheet.note =
+            n.value;
         }
       );
     }
   }
 
 
-  /* -------------------------------------------------------
-     FACTURA
-     ------------------------------------------------------- */
+  /*
+    FACTURA
+  */
 
-  else if (sheet.kind === 'invoice') {
+  else if (
+    sheet.kind ===
+    'invoice'
+  ) {
 
     const ti =
-      document.getElementById('inv-title');
+      document.getElementById(
+        'inv-title'
+      );
 
     const da =
-      document.getElementById('inv-date');
+      document.getElementById(
+        'inv-date'
+      );
 
 
     if (ti) {
@@ -2288,7 +2978,8 @@ function attachSheetFieldSync() {
       ti.addEventListener(
         'input',
         () => {
-          sheet.title = ti.value;
+          sheet.title =
+            ti.value;
         }
       );
     }
@@ -2299,7 +2990,8 @@ function attachSheetFieldSync() {
       da.addEventListener(
         'input',
         () => {
-          sheet.date = da.value;
+          sheet.date =
+            da.value;
         }
       );
     }
@@ -2315,7 +3007,7 @@ function attachSheetFieldSync() {
 
       list.addEventListener(
         'input',
-        (e) => {
+        e => {
 
           const idx =
             e.target.dataset.idx;
@@ -2331,7 +3023,10 @@ function attachSheetFieldSync() {
           }
 
 
-          if (field === 'price') {
+          if (
+            field ===
+            'price'
+          ) {
 
             sheet.items[idx].price =
               parseFormattedNumber(
@@ -2353,7 +3048,8 @@ function attachSheetFieldSync() {
           const totalVal =
             sheet.items.reduce(
               (s, it) =>
-                s + (Number(it.price) || 0),
+                s +
+                (Number(it.price) || 0),
               0
             );
 
@@ -2370,12 +3066,19 @@ function attachSheetFieldSync() {
               new Intl.NumberFormat(
                 'es-CO',
                 {
-                  style: 'currency',
+                  style:
+                    'currency',
+
                   currency:
-                    DB.settings.currency || 'COP',
-                  maximumFractionDigits: 0
+                    DB.settings.currency ||
+                    'COP',
+
+                  maximumFractionDigits:
+                    0
                 }
-              ).format(totalVal);
+              ).format(
+                totalVal
+              );
           }
         }
       );
@@ -2384,9 +3087,9 @@ function attachSheetFieldSync() {
 }
 
 
-/* =========================================================
-   COMPRESIÓN DE IMÁGENES
-   ========================================================= */
+/* ========================================================================
+   COMPRESIÓN DE IMAGEN
+   ======================================================================== */
 
 function compressImage(
   file,
@@ -2394,95 +3097,118 @@ function compressImage(
   quality = 0.7
 ) {
 
-  return new Promise((resolve) => {
+  return new Promise(
+    resolve => {
 
-    const reader =
-      new FileReader();
+      const reader =
+        new FileReader();
 
-    reader.readAsDataURL(file);
+      reader.readAsDataURL(
+        file
+      );
 
+      reader.onload =
+        event => {
 
-    reader.onload = (event) => {
+          const img =
+            new Image();
 
-      const img =
-        new Image();
+          img.src =
+            event.target.result;
 
-      img.src =
-        event.target.result;
+          img.onload =
+            () => {
 
+              const canvas =
+                document.createElement(
+                  'canvas'
+                );
 
-      img.onload = () => {
+              let width =
+                img.width;
 
-        const canvas =
-          document.createElement('canvas');
-
-        let width =
-          img.width;
-
-        let height =
-          img.height;
-
-
-        if (width > maxWidth) {
-
-          height =
-            Math.round(
-              (height * maxWidth) / width
-            );
-
-          width = maxWidth;
-        }
+              let height =
+                img.height;
 
 
-        canvas.width = width;
-        canvas.height = height;
+              if (
+                width >
+                maxWidth
+              ) {
+
+                height =
+                  Math.round(
+                    (
+                      height *
+                      maxWidth
+                    ) /
+                    width
+                  );
+
+                width =
+                  maxWidth;
+              }
 
 
-        const ctx =
-          canvas.getContext('2d');
+              canvas.width =
+                width;
 
-        ctx.drawImage(
-          img,
-          0,
-          0,
-          width,
-          height
-        );
+              canvas.height =
+                height;
 
 
-        const dataUrl =
-          canvas.toDataURL(
-            'image/jpeg',
-            quality
-          );
+              const ctx =
+                canvas.getContext(
+                  '2d'
+                );
+
+              ctx.drawImage(
+                img,
+                0,
+                0,
+                width,
+                height
+              );
 
 
-        const match =
-          dataUrl.match(
-            /^data:([^;]+);base64,(.*)$/
-          );
+              const dataUrl =
+                canvas.toDataURL(
+                  'image/jpeg',
+                  quality
+                );
 
 
-        resolve({
-          mimeType: match[1],
-          base64: match[2]
-        });
-      };
-    };
-  });
+              const match =
+                dataUrl.match(
+                  /^data:([^;]+);base64,(.*)$/
+                );
+
+
+              resolve({
+                mimeType:
+                  match[1],
+
+                base64:
+                  match[2]
+              });
+            };
+        };
+    }
+  );
 }
 
 
-/* =========================================================
-   ESCÁNER GLOBAL DE FACTURAS
-   ========================================================= */
+/* ========================================================================
+   ESCANEO DE FACTURAS
+   ======================================================================== */
 
 document.addEventListener(
   'change',
-  (e) => {
+  e => {
 
     if (
-      e.target.id === 'global-camera-input' &&
+      e.target.id ===
+      'global-camera-input' &&
       e.target.files[0]
     ) {
 
@@ -2501,8 +3227,12 @@ document.addEventListener(
         file,
         800,
         0.7
-      ).then(
-        async ({ base64, mimeType }) => {
+      )
+      .then(
+        async ({
+          base64,
+          mimeType
+        }) => {
 
           try {
 
@@ -2515,16 +3245,25 @@ document.addEventListener(
                 : [];
 
 
-            scanningOverlay = null;
+            scanningOverlay =
+              null;
 
 
             sheet = {
+
               kind: 'invoice',
+
               mode: 'new',
+
               id: null,
+
               title:
-                'Factura ' + todayStr(),
-              date: todayStr(),
+                'Factura ' +
+                todayStr(),
+
+              date:
+                todayStr(),
+
               items:
                 items.length
                   ? items
@@ -2535,7 +3274,9 @@ document.addEventListener(
                         price: ''
                       }
                     ],
-              registered: false
+
+              registered:
+                false
             };
 
 
@@ -2543,7 +3284,8 @@ document.addEventListener(
 
           } catch (err) {
 
-            scanningOverlay = null;
+            scanningOverlay =
+              null;
 
             renderOverlays();
 
@@ -2559,8 +3301,8 @@ document.addEventListener(
 );
 
 
-/* =========================================================
-   INICIO DE LA APLICACIÓN
-   ========================================================= */
+/* ========================================================================
+   ARRANQUE
+   ======================================================================== */
 
 render();
