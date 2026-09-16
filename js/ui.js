@@ -1,63 +1,24 @@
-import {
-  DB,
-  CURRENCIES,
-  SWATCHES,
-  ICON_KEYS,
-  ICON_EMOJI,
-  todayStr
-} from './state.js';
-
-import {
-  computeCreditsSummary
-} from './domain.js';
+import { DB, CURRENCIES, SWATCHES, ICON_KEYS, ICON_EMOJI, todayStr } from './state.js';
 
 /* ==========================================================
    SOPORTE DE ICONOS SVG
    ========================================================== */
-
 export function icon(name){
   const svgs = {
-    'wallet':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
-
-    'list':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
-
-    'plus':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>',
-
-    'credit':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
-
-    'tag':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>',
-
-    'search':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>',
-
-    'pencil':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
-
-    'check':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>',
-
-    'close':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
-
-    'trash':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>',
-
-    'alert':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 9v2M12 15h.01M22.61 16.53L13.73 3.15a2 2 0 0 0-3.46 0L1.39 16.53a2 2 0 0 0 1.73 3h17.76a2 2 0 0 0 1.73-3z"/></svg>',
-
-    'gear':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33-1.82V9a1.65 1.65 0 0 0 1.51-1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1 z"/></svg>',
-
-    'camera':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
-
-    'receipt':
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 14h-4M16 10H8M8 14h2"/></svg>'
+    'wallet': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
+    'list': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+    'plus': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>',
+    'credit': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
+    'tag': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>',
+    'search': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>',
+    'pencil': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+    'check': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>',
+    'close': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+    'trash': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>',
+    'alert': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 9v2M12 15h.01M22.61 16.53L13.73 3.15a2 2 0 0 0-3.46 0L1.39 16.53a2 2 0 0 0 1.73 3h17.76a2 2 0 0 0 1.73-3z"/></svg>',
+    'gear': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33-1.82V9a1.65 1.65 0 0 0 1.51-1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1 z"/></svg>',
+    'camera': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+    'receipt': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 14h-4M16 10H8M8 14h2"/></svg>'
   };
 
   return `<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">${svgs[name] || ''}</span>`;
@@ -156,7 +117,9 @@ export function computeTotals(){
     const amt =
       Number(t.amount) || 0;
 
-    if (t.type === 'income'){
+    if (
+      t.type === 'income'
+    ){
       income += amt;
     } else {
       expense += amt;
@@ -171,7 +134,8 @@ export function computeTotals(){
 }
 
 export function currentMonthTx(){
-  const now = new Date();
+  const now =
+    new Date();
 
   const localMonthKey =
     `${now.getFullYear()}-${String(
@@ -196,19 +160,26 @@ export function computeMonthStats(){
   let expense = 0;
 
   currentMonthTx().forEach(t => {
+
     const amt =
       Number(t.amount) || 0;
 
-    if (t.type === 'income'){
+    if (
+      t.type === 'income'
+    ){
+
       if (
         primary &&
-        t.categoryId === primary.id
+        t.categoryId ===
+          primary.id
       ){
         primaryIncome += amt;
       } else {
         secondaryIncome += amt;
       }
+
     } else {
+
       expense += amt;
     }
   });
@@ -245,7 +216,8 @@ export function computeMonthStats(){
 }
 
 export function computeMonthOverMonthMetrics(){
-  const now = new Date();
+  const now =
+    new Date();
 
   const curY =
     now.getFullYear();
@@ -279,6 +251,7 @@ export function computeMonthOverMonthMetrics(){
   const prevCatMap = {};
 
   DB.transactions.forEach(t => {
+
     if (!t.date) return;
 
     const mKey =
@@ -472,7 +445,12 @@ export function computeCategoryTotals(){
     );
 }
 
+/* ==========================================================
+   RITMO DE GASTO DIARIO
+   ========================================================== */
+
 export function computeBurnMetrics(){
+
   const today =
     new Date();
 
@@ -507,6 +485,19 @@ export function computeBurnMetrics(){
 
   const monthStats =
     computeMonthStats();
+
+  /*
+   * IMPORTANTE:
+   *
+   * Los pagos de créditos se almacenan en DB.credits[].payments
+   * y NO son movimientos de DB.transactions.
+   *
+   * Por lo tanto, los pagos de créditos quedan EXCLUIDOS
+   * deliberadamente del cálculo del ritmo de gasto diario.
+   *
+   * El ritmo diario solo analiza gastos reales registrados
+   * como transacciones.
+   */
 
   const availableFunds =
     totals.balance > 0
@@ -553,7 +544,15 @@ export function computeBurnMetrics(){
       !fixedCatIds.includes(
         t.categoryId
       ) &&
-      !!t.date;
+      !!t.date &&
+      /*
+       * Protección adicional: si en el futuro algún módulo
+       * marca una transacción explícitamente como pago de crédito,
+       * tampoco entrará al ritmo diario.
+       */
+      !t.isCreditPayment &&
+      !t.creditPayment &&
+      !t.creditId;
 
   const periodNumber =
     currentDay <= 10
@@ -700,6 +699,7 @@ export function computeBurnMetrics(){
 }
 
 export function computeBudgetRows(){
+
   const totals =
     computeCategoryTotals();
 
@@ -752,6 +752,7 @@ export function computeBudgetRows(){
 }
 
 export function computeCreditsPaidThisMonth(){
+
   const now =
     new Date();
 
@@ -801,14 +802,14 @@ export function computeCreditsPaidThisMonth(){
 }
 
 /* ==========================================================
-   GRÁFICA CIRCULAR
+   GRÁFICO CIRCULAR
    ========================================================== */
 
 export function expensePieSVG(
   catTotals,
   monthExpense,
   monthIncome,
-  creditsPaid,
+  creditsPaid = 0,
   uncategorizedExpense = 0
 ){
 
@@ -859,52 +860,65 @@ export function expensePieSVG(
   const gap = 2.8;
 
   /*
-   * El ingreso mensual representa el 100%.
+   * El centro muestra el porcentaje real del ingreso
+   * que ya salió.
+   *
+   * El anillo muestra la composición de las salidas.
    *
    * Ejemplo:
    *
-   * Ingreso       $5.000.000
-   * Gastos        $1.500.000
-   * Créditos        $500.000
+   * Ingreso:        $100
+   * Gastos:          $80
+   * Créditos:        $20
    *
-   * Salidas       $2.000.000
+   * Centro:          100%
    *
-   * Gastado = 40%
-   * Disponible = 60%
+   * Si los créditos fueran $120:
+   *
+   * Centro:          200%
+   *
+   * pero el anillo sigue siendo físicamente 100%.
    */
 
-  const denominator =
+  const spentRatio =
     income > 0
+      ? totalOutflow / income
+      : 0;
+
+  const remainingRatio =
+    income > 0
+      ? Math.max(
+          0,
+          1 - spentRatio
+        )
+      : 0;
+
+  /*
+   * Base para la composición:
+   *
+   * categorías + sin categoría + créditos = 100%.
+   */
+
+  const compositionBase =
+    totalOutflow;
+
+  /*
+   * Base física del anillo:
+   *
+   * - Si aún queda ingreso, el anillo representa el ingreso.
+   * - Si ya se superó el ingreso, el anillo representa todas las salidas.
+   */
+
+  const ringBase =
+    income > totalOutflow
       ? income
       : totalOutflow;
 
-  const spentRatio =
-    Math.min(
-      1,
-      totalOutflow /
-      denominator
-    );
-
-  const remainingRatio =
-    Math.max(
-      0,
-      1 -
-      spentRatio
-    );
-
   /*
-   * Colores de respaldo.
-   *
-   * Se utilizan únicamente cuando una categoría:
-   *
-   * 1. No tiene color.
-   * 2. Tiene un color repetido con otra categoría.
-   *
-   * Si la categoría tiene un color propio y único,
-   * ese color se conserva.
+   * Paleta para garantizar colores diferenciables.
    */
 
-  const categoryPalette = [
+  const palette = [
     '#38BDF8',
     '#A78BFA',
     '#F59E0B',
@@ -919,326 +933,281 @@ export function expensePieSVG(
     '#FACC15'
   ];
 
-  const usedCategoryColors =
-    new Set();
+  /*
+   * Colores reservados.
+   */
+
+  const CREDIT_COLOR =
+    '#EF4444';
+
+  const UNCATEGORIZED_COLOR =
+    '#8B85A3';
+
+  const REMAINING_COLOR =
+    '#334155';
+
+  const used =
+    new Set([
+      CREDIT_COLOR.toUpperCase(),
+      UNCATEGORIZED_COLOR.toUpperCase(),
+      REMAINING_COLOR.toUpperCase()
+    ]);
+
+  const colorMap =
+    new Map();
 
   let paletteIndex = 0;
 
-  const normalizeColor =
-    color =>
-      String(
-        color || ''
-      )
-        .trim()
-        .toUpperCase();
-
-  const getCategoryColor =
-    cat => {
-
-      const original =
-        String(
-          cat?.color || ''
-        ).trim();
-
-      const normalized =
-        normalizeColor(
-          original
-        );
-
-      /*
-       * Conservamos el color original
-       * cuando todavía no ha sido utilizado.
-       */
-
-      if (
-        original &&
-        !usedCategoryColors.has(
-          normalized
-        )
-      ){
-
-        usedCategoryColors.add(
-          normalized
-        );
-
-        return original;
-      }
-
-      /*
-       * Si el color estaba repetido,
-       * buscamos otro color de la paleta.
-       */
-
-      let attempts = 0;
-
-      while (
-        attempts <
-        categoryPalette.length
-      ){
-
-        const candidate =
-          categoryPalette[
-            paletteIndex %
-            categoryPalette.length
-          ];
-
-        paletteIndex++;
-        attempts++;
-
-        if (
-          !usedCategoryColors.has(
-            normalizeColor(
-              candidate
-            )
-          )
-        ){
-
-          usedCategoryColors.add(
-            normalizeColor(
-              candidate
-            )
-          );
-
-          return candidate;
-        }
-      }
-
-      /*
-       * Último respaldo.
-       */
-
-      const fallback =
-        categoryPalette[
-          paletteIndex %
-          categoryPalette.length
-        ];
-
-      paletteIndex++;
-
-      return fallback;
-    };
-
   /*
-   * Construimos primero todas las salidas.
+   * Cada categoría recibe un color único.
    *
-   * Así garantizamos que:
+   * Si ya tiene un color configurado y no está repetido,
+   * se conserva.
    *
-   * categorías +
-   * sin categoría +
-   * créditos
-   *
-   * sea exactamente igual a:
-   *
-   * gastos + créditos.
+   * Si está repetido, se asigna uno nuevo.
    */
-
-  const rawSlices = [];
 
   catTotals.forEach(
     rw => {
 
-      const value =
-        Math.max(
-          0,
-          Number(rw.total) || 0
-        );
+      const original =
+        String(
+          rw.cat?.color || ''
+        ).trim();
+
+      const normalized =
+        original.toUpperCase();
 
       if (
-        value <= 0
+        original &&
+        !used.has(
+          normalized
+        )
       ){
+
+        colorMap.set(
+          rw.id,
+          original
+        );
+
+        used.add(
+          normalized
+        );
+
         return;
       }
 
-      rawSlices.push({
-        label:
-          rw.cat?.name ||
-          'Categoría',
+      let selected =
+        null;
 
-        value,
+      for (
+        let attempts = 0;
+        attempts <
+        palette.length;
+        attempts++
+      ){
 
-        color:
-          getCategoryColor(
-            rw.cat
+        const candidate =
+          palette[
+            paletteIndex %
+            palette.length
+          ];
+
+        paletteIndex++;
+
+        if (
+          !used.has(
+            candidate.toUpperCase()
           )
-      });
+        ){
+
+          selected =
+            candidate;
+
+          break;
+        }
+      }
+
+      if (
+        !selected
+      ){
+
+        selected =
+          palette[
+            paletteIndex %
+            palette.length
+          ];
+
+        paletteIndex++;
+      }
+
+      colorMap.set(
+        rw.id,
+        selected
+      );
+
+      used.add(
+        selected.toUpperCase()
+      );
     }
   );
-
-  /*
-   * Gastos que existen en movimientos
-   * pero cuyo categoryId ya no existe.
-   */
-
-  if (
-    uncategorized > 0
-  ){
-
-    rawSlices.push({
-      label:'Sin categoría',
-      value:uncategorized,
-      color:'#8B85A3'
-    });
-  }
-
-  /*
-   * Los abonos a créditos son una salida
-   * de dinero independiente.
-   */
-
-  if (
-    credits > 0
-  ){
-
-    rawSlices.push({
-      label:'Abonado a créditos',
-      value:credits,
-      color:'#F43F5E'
-    });
-  }
-
-  /*
-   * Cantidad de separaciones visuales.
-   */
-
-  const gapCount =
-    rawSlices.length +
-    (
-      remainingRatio > 0.005
-        ? 1
-        : 0
-    );
-
-  const totalGap =
-    gapCount > 1
-      ? Math.min(
-          gap * gapCount,
-          circumference * 0.22
-        )
-      : 0;
-
-  const usable =
-    Math.max(
-      0,
-      circumference -
-      totalGap
-    );
 
   const slices = [];
 
   let offset = 0;
 
-  rawSlices.forEach(
-    slice => {
+  const addSlice =
+    (
+      value,
+      color,
+      label
+    ) => {
 
-      const ratio =
-        denominator > 0
-          ? Math.max(
-              0,
-              slice.value /
-              denominator
-            )
-          : 0;
+      const numericValue =
+        Math.max(
+          0,
+          Number(value) || 0
+        );
 
       if (
-        ratio <= 0
+        numericValue <= 0 ||
+        ringBase <= 0
       ){
         return;
       }
 
       /*
-       * Evitamos que el dibujo supere
-       * el 100% del círculo.
+       * El tamaño físico del segmento depende del ringBase,
+       * no de la composición de la leyenda.
        */
 
-      const availableRatio =
-        Math.max(
-          0,
-          spentRatio -
-          (
-            offset /
-            Math.max(
-              usable,
-              1
-            )
-          )
-        );
-
-      const safeRatio =
-        Math.min(
-          ratio,
-          availableRatio
-        );
-
-      if (
-        safeRatio <= 0
-      ){
-        return;
-      }
+      const ratio =
+        numericValue /
+        ringBase;
 
       const rawDash =
-        safeRatio *
-        usable;
+        ratio *
+        (
+          circumference -
+          gap
+        );
 
       const dash =
         Math.max(
           0,
           rawDash -
           (
-            totalGap > 0
-              ? gap * 0.55
-              : 0
+            ratio > 0.02
+              ? gap
+              : gap * 0.25
           )
         );
 
       if (
-        dash <= 0
+        dash > 0.5
       ){
-        return;
-      }
 
-      slices.push({
-        color:slice.color,
-        dash,
-        offset
-      });
+        slices.push({
+          color,
+          dash,
+          offset,
+          label
+        });
+      }
 
       offset +=
         rawDash;
+    };
+
+  /*
+   * Categorías.
+   */
+
+  catTotals.forEach(
+    rw => {
+
+      addSlice(
+        rw.total,
+        colorMap.get(
+          rw.id
+        ) ||
+        rw.cat?.color ||
+        '#38BDF8',
+        rw.cat?.name ||
+        'Categoría'
+      );
     }
   );
 
   /*
-   * Segmento de dinero disponible.
+   * Gastos sin categoría.
    */
 
   if (
-    remainingRatio > 0.005 &&
-    usable > 0
+    uncategorized > 0
+  ){
+
+    addSlice(
+      uncategorized,
+      UNCATEGORIZED_COLOR,
+      'Sin categoría'
+    );
+  }
+
+  /*
+   * Abonos a créditos.
+   */
+
+  if (
+    credits > 0
+  ){
+
+    addSlice(
+      credits,
+      CREDIT_COLOR,
+      'Abonado a créditos'
+    );
+  }
+
+  /*
+   * Disponible.
+   *
+   * Solo existe si todavía no se ha consumido el 100%
+   * del ingreso.
+   */
+
+  if (
+    remainingRatio > 0.005
   ){
 
     const rawDash =
       remainingRatio *
-      usable;
+      (
+        circumference -
+        gap
+      );
 
     const dash =
       Math.max(
         0,
         rawDash -
-        (
-          totalGap > 0
-            ? gap * 0.55
-            : 0
-        )
+        gap * 0.25
       );
 
     if (
-      dash > 0
+      dash > 0.5
     ){
 
       slices.push({
-        color:'#1E293B',
+        color:
+          REMAINING_COLOR,
+
         dash,
-        offset
+
+        offset,
+
+        label:
+          'Disponible'
       });
     }
   }
@@ -1247,7 +1216,7 @@ export function expensePieSVG(
     '<svg viewBox="0 0 120 120" aria-label="Gastos respecto al ingreso">';
 
   /*
-   * Base del círculo.
+   * Fondo del anillo.
    */
 
   svg +=
@@ -1268,34 +1237,29 @@ export function expensePieSVG(
   slices.forEach(
     s => {
 
-      if (
-        s.dash > 0.5
-      ){
-
-        svg +=
-          '<circle cx="' +
-          cx +
-          '" cy="' +
-          cy +
-          '" r="' +
-          r +
-          '" fill="none" stroke="' +
-          s.color +
-          '" stroke-width="' +
-          stroke +
-          '" stroke-dasharray="' +
-          s.dash.toFixed(2) +
-          ' ' +
-          (
-            circumference -
-            s.dash
-          ).toFixed(2) +
-          '" stroke-dashoffset="' +
-          (
-            -s.offset
-          ).toFixed(2) +
-          '" transform="rotate(-90 60 60)" stroke-linecap="butt" />';
-      }
+      svg +=
+        '<circle cx="' +
+        cx +
+        '" cy="' +
+        cy +
+        '" r="' +
+        r +
+        '" fill="none" stroke="' +
+        s.color +
+        '" stroke-width="' +
+        stroke +
+        '" stroke-dasharray="' +
+        s.dash.toFixed(2) +
+        ' ' +
+        (
+          circumference -
+          s.dash
+        ).toFixed(2) +
+        '" stroke-dashoffset="' +
+        (
+          -s.offset
+        ).toFixed(2) +
+        '" transform="rotate(-90 60 60)" stroke-linecap="butt" />';
     }
   );
 
@@ -1306,7 +1270,7 @@ export function expensePieSVG(
 }
 
 /* ==========================================================
-   DASHBOARD
+   RENDERIZADO DE VISTAS PRINCIPALES
    ========================================================== */
 
 export function renderDashboard(){
@@ -1342,9 +1306,9 @@ export function renderDashboard(){
 
   let html = '';
 
-  /* ----------------------------------------------------------
+  /* ========================================================
      BALANCE
-     ---------------------------------------------------------- */
+     ======================================================== */
 
   html +=
     '<div class="balance-card">';
@@ -1413,9 +1377,9 @@ export function renderDashboard(){
   html +=
     '</div></div>';
 
-  /* ----------------------------------------------------------
+  /* ========================================================
      RITMO DE GASTO
-     ---------------------------------------------------------- */
+     ======================================================== */
 
   html +=
     '<div class="card">';
@@ -1549,9 +1513,9 @@ export function renderDashboard(){
   html +=
     '</div></div></div>';
 
-  /* ----------------------------------------------------------
+  /* ========================================================
      GASTO RÁPIDO
-     ---------------------------------------------------------- */
+     ======================================================== */
 
   if (
     expenseCats.length
@@ -1575,22 +1539,24 @@ export function renderDashboard(){
               '⭐'
             ) +
             '</span><span class="nm">' +
-            esc(c.name) +
+            esc(
+              c.name
+            ) +
             '</span></button>'
         )
         .join('') +
       '</div>';
   }
 
-  /* ----------------------------------------------------------
-     GRÁFICA
-     ---------------------------------------------------------- */
+  /* ========================================================
+     DATOS PARA LA GRÁFICA
+     ======================================================== */
 
   const creditsPaid =
     computeCreditsPaidThisMonth();
 
   /*
-   * Gastos que sí tienen categoría existente.
+   * Gastos que sí tienen categoría válida.
    */
 
   const categorizedExpense =
@@ -1624,8 +1590,11 @@ export function renderDashboard(){
     );
 
   /*
-   * Todas las salidas que afectan
-   * el porcentaje del ingreso.
+   * Total de salidas.
+   *
+   * IMPORTANTE:
+   * Los abonos a créditos sí aparecen en la gráfica,
+   * pero NO entran al ritmo de gasto diario.
    */
 
   const totalOutflow =
@@ -1648,62 +1617,249 @@ export function renderDashboard(){
   ){
 
     /*
-     * El porcentaje central representa:
+     * Porcentaje real del ingreso que ya salió.
      *
-     * (Gastos + abonos a créditos)
-     * --------------------------------
-     *          Ingreso
-     *
-     * limitado a 100%.
+     * Puede superar 100%.
      */
 
     const spentPct =
       month.income > 0
-        ? Math.min(
-            100,
-            Math.round(
-              (
-                totalOutflow /
-                month.income
-              ) *
-              100
-            )
+        ? Math.round(
+            (
+              totalOutflow /
+              month.income
+            ) * 100
           )
         : 0;
+
+    /*
+     * Porcentaje disponible.
+     *
+     * Si se supera el ingreso, queda en 0%.
+     */
 
     const remainingPct =
       month.income > 0
         ? Math.max(
             0,
-            100 -
-            spentPct
+            Math.round(
+              (
+                Math.max(
+                  0,
+                  month.income -
+                  totalOutflow
+                ) /
+                month.income
+              ) * 100
+            )
           )
         : 0;
+
+    /*
+     * Base para la composición del anillo.
+     *
+     * Categorías + sin categoría + créditos = 100%.
+     */
+
+    const compositionBase =
+      totalOutflow;
+
+    /*
+     * Colores exclusivos para las categorías.
+     */
+
+    const categoryPalette = [
+      '#38BDF8',
+      '#A78BFA',
+      '#F59E0B',
+      '#34D399',
+      '#FB7185',
+      '#F97316',
+      '#22D3EE',
+      '#C084FC',
+      '#84CC16',
+      '#E879F9',
+      '#2DD4BF',
+      '#FACC15'
+    ];
+
+    /*
+     * Colores reservados:
+     *
+     * Créditos      = rojo
+     * Sin categoría = gris
+     * Disponible    = azul oscuro
+     */
+
+    const usedColors =
+      new Set([
+        '#EF4444',
+        '#8B85A3',
+        '#334155'
+      ]);
+
+    const pieColors =
+      new Map();
+
+    let piePaletteIndex =
+      0;
+
+    /*
+     * Asignación de color.
+     */
+
+    catTotals.forEach(
+      r => {
+
+        const original =
+          String(
+            r.cat?.color ||
+            ''
+          ).trim();
+
+        const normalized =
+          original.toUpperCase();
+
+        /*
+         * Conservamos el color de la categoría
+         * si es único.
+         */
+
+        if (
+          original &&
+          !usedColors.has(
+            normalized
+          )
+        ){
+
+          pieColors.set(
+            r.id,
+            original
+          );
+
+          usedColors.add(
+            normalized
+          );
+
+          return;
+        }
+
+        /*
+         * Si el color estaba repetido,
+         * seleccionamos otro.
+         */
+
+        let color =
+          null;
+
+        for (
+          let attempts = 0;
+          attempts <
+          categoryPalette.length;
+          attempts++
+        ){
+
+          const candidate =
+            categoryPalette[
+              piePaletteIndex %
+              categoryPalette.length
+            ];
+
+          piePaletteIndex++;
+
+          if (
+            !usedColors.has(
+              candidate.toUpperCase()
+            )
+          ){
+
+            color =
+              candidate;
+
+            break;
+          }
+        }
+
+        if (
+          !color
+        ){
+
+          color =
+            categoryPalette[
+              piePaletteIndex %
+              categoryPalette.length
+            ];
+
+          piePaletteIndex++;
+        }
+
+        pieColors.set(
+          r.id,
+          color
+        );
+
+        usedColors.add(
+          color.toUpperCase()
+        );
+      }
+    );
+
+    /*
+     * Pasamos al SVG exactamente los mismos colores
+     * que utilizaremos en la leyenda.
+     */
+
+    const chartCatTotals =
+      catTotals.map(
+        r => ({
+          ...r,
+
+          cat:{
+            ...r.cat,
+
+            color:
+              pieColors.get(
+                r.id
+              ) ||
+              r.cat.color
+          }
+        })
+      );
 
     html +=
       '<div class="pie-layout">';
 
     html +=
       '<div class="pie-chart">' +
+
       expensePieSVG(
-        catTotals,
+        chartCatTotals,
         month.expense,
         month.income,
         creditsPaid,
         uncategorizedExpense
       ) +
+
       '<div class="pie-center"><strong>' +
+
       (
         month.income > 0
           ? spentPct + '%'
           : '—'
       ) +
+
       '</strong><span>' +
+
       (
         month.income > 0
-          ? 'del ingreso'
+          ? (
+              spentPct > 100
+                ? 'del ingreso · excedido'
+                : 'del ingreso'
+            )
           : 'sin ingreso'
       ) +
+
       '</span></div></div>';
 
     html +=
@@ -1712,49 +1868,49 @@ export function renderDashboard(){
     /*
      * CATEGORÍAS
      *
-     * Cada una muestra exactamente:
-     *
-     * gasto categoría / ingreso total
+     * Los porcentajes de la leyenda representan
+     * la composición de las salidas.
      */
 
     catTotals.forEach(
       r => {
 
-        const pctOfIncome =
-          month.income > 0
+        const pctOfOutflow =
+          compositionBase > 0
             ? (
                 r.total /
-                month.income
-              ) *
-              100
+                compositionBase
+              ) * 100
             : 0;
 
-        const categoryColor =
-          r.cat?.color ||
-          '#8B85A3';
+        const color =
+          pieColors.get(
+            r.id
+          ) ||
+          r.cat.color;
 
         html +=
           '<div class="pie-legend-row">' +
+
           '<span class="pie-dot" style="background:' +
-          categoryColor +
+          color +
           '"></span>' +
+
           '<span class="pie-name">' +
           esc(
             r.cat.name
           ) +
           '</span>' +
+
           '<span class="pie-pct">' +
+
           (
-            month.income > 0
-              ? (
-                  pctOfIncome < 0.1
-                    ? '<0.1'
-                    : pctOfIncome.toFixed(1)
-                )
-              : '—'
+            pctOfOutflow < 0.1
+              ? '<0.1'
+              : pctOfOutflow.toFixed(1)
           ) +
-          '%</span>' +
-          '</div>';
+
+          '%</span></div>';
       }
     );
 
@@ -1763,69 +1919,68 @@ export function renderDashboard(){
      */
 
     if (
-      uncategorizedExpense > 0
+      uncategorizedExpense >
+      0
     ){
 
       const pct =
-        month.income > 0
+        compositionBase > 0
           ? (
               uncategorizedExpense /
-              month.income
-            ) *
-            100
+              compositionBase
+            ) * 100
           : 0;
 
       html +=
         '<div class="pie-legend-row">' +
+
         '<span class="pie-dot" style="background:#8B85A3"></span>' +
+
         '<span class="pie-name">Sin categoría</span>' +
+
         '<span class="pie-pct">' +
+
         (
-          month.income > 0
-            ? (
-                pct < 0.1
-                  ? '<0.1'
-                  : pct.toFixed(1)
-              )
-            : '—'
+          pct < 0.1
+            ? '<0.1'
+            : pct.toFixed(1)
         ) +
-        '%</span>' +
-        '</div>';
+
+        '%</span></div>';
     }
 
     /*
-     * ABONOS A CRÉDITOS
+     * ABONADO A CRÉDITOS
      */
 
     if (
       creditsPaid > 0
     ){
 
-      const pctOfCredits =
-        month.income > 0
+      const pctOfOutflow =
+        compositionBase > 0
           ? (
               creditsPaid /
-              month.income
-            ) *
-            100
+              compositionBase
+            ) * 100
           : 0;
 
       html +=
         '<div class="pie-legend-row">' +
-        '<span class="pie-dot" style="background:#F43F5E"></span>' +
+
+        '<span class="pie-dot" style="background:#EF4444"></span>' +
+
         '<span class="pie-name">Abonado a créditos</span>' +
+
         '<span class="pie-pct">' +
+
         (
-          month.income > 0
-            ? (
-                pctOfCredits < 0.1
-                  ? '<0.1'
-                  : pctOfCredits.toFixed(1)
-              )
-            : '—'
+          pctOfOutflow < 0.1
+            ? '<0.1'
+            : pctOfOutflow.toFixed(1)
         ) +
-        '%</span>' +
-        '</div>';
+
+        '%</span></div>';
     }
 
     /*
@@ -1839,12 +1994,45 @@ export function renderDashboard(){
 
       html +=
         '<div class="pie-legend-row">' +
-        '<span class="pie-dot" style="background:#1E293B"></span>' +
+
+        '<span class="pie-dot" style="background:#334155"></span>' +
+
         '<span class="pie-name">Disponible</span>' +
+
         '<span class="pie-pct">' +
+
         remainingPct +
-        '%</span>' +
-        '</div>';
+
+        '%</span></div>';
+    }
+
+    /*
+     * EXCESO SOBRE INGRESO
+     *
+     * Este valor no es un segmento adicional del círculo.
+     * Solo informa cuánto se superó el ingreso.
+     */
+
+    if (
+      month.income > 0 &&
+      spentPct > 100
+    ){
+
+      html +=
+        '<div class="pie-legend-row">' +
+
+        '<span class="pie-dot" style="background:#EF4444"></span>' +
+
+        '<span class="pie-name">Exceso sobre ingreso</span>' +
+
+        '<span class="pie-pct">+' +
+
+        (
+          spentPct -
+          100
+        ) +
+
+        '%</span></div>';
     }
 
     html +=
@@ -1859,9 +2047,9 @@ export function renderDashboard(){
   html +=
     '</div>';
 
-  /* ----------------------------------------------------------
+  /* ========================================================
      COMPARATIVA MES A MES
-     ---------------------------------------------------------- */
+     ======================================================== */
 
   html +=
     '<div class="mom-card"><div class="mom-header"><span class="mom-title">📊 Comparativa Mes a Mes</span><div class="mom-dots">';
@@ -1889,7 +2077,8 @@ export function renderDashboard(){
     '<div class="mom-carousel"><div class="mom-track" id="mom-track">';
 
   const expUp =
-    mom.expChangePct > 0;
+    mom.expChangePct >
+    0;
 
   html +=
     '<div class="mom-slide"><div class="mom-slide-grid"><div class="mom-box"><div class="lbl">Gastos este mes</div><div class="val" style="color:var(--expense)">' +
@@ -1922,7 +2111,8 @@ export function renderDashboard(){
     '%</div></div></div></div>';
 
   const incUp =
-    mom.incChangePct > 0;
+    mom.incChangePct >
+    0;
 
   html +=
     '<div class="mom-slide"><div class="mom-slide-grid"><div class="mom-box"><div class="lbl">Ingresos este mes</div><div class="val" style="color:var(--income)">' +
@@ -2040,9 +2230,9 @@ export function renderDashboard(){
   html +=
     '</div>';
 
-  /* ----------------------------------------------------------
+  /* ========================================================
      PRESUPUESTOS
-     ---------------------------------------------------------- */
+     ======================================================== */
 
   if (
     budgets.length
@@ -2169,7 +2359,9 @@ export function renderTxRow(t){
     (
       t.note
         ? ' · ' +
-          esc(t.note)
+          esc(
+            t.note
+          )
         : ''
     ) +
     '</div>' +
@@ -2266,7 +2458,9 @@ export function renderTransactions(
     '<div class="search-box">' +
     icon('search') +
     '<input id="search-input" placeholder="Buscar por nota o categoría" value="' +
-    esc(search) +
+    esc(
+      search
+    ) +
     '"></div>';
 
   html +=
@@ -2472,6 +2666,11 @@ export function renderCredits(
 ){
 
   let html = '';
+
+  /*
+   * La lógica de créditos permanece separada
+   * de la lógica de gastos diarios.
+   */
 
   const summary =
     computeCreditsSummary();
