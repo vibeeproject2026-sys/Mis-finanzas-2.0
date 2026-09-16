@@ -1,848 +1,164 @@
 import {
   DB,
+  CURRENCIES,
   SWATCHES,
   ICON_KEYS,
   ICON_EMOJI,
-  DEFAULT_CATEGORIES,
-  CURRENCIES,
-  todayStr,
-  saveDB
+  todayStr
 } from './state.js';
 
+import {
+  catById,
+  computeTotals,
+  computeMonthStats,
+  computeMonthOverMonthMetrics,
+  computeCategoryTotals,
+  computeBurnMetrics,
+  computeBudgetRows,
+  computeCreditsPaidThisMonth,
+  computeCreditsSummary,
+  computeCreditPlan,
+  computeCreditPaymentBreakdown
+} from './domain.js';
+
 /* ==========================================================
-   UTILIDADES
+   SOPORTE DE ICONOS SVG
    ========================================================== */
 
-export function esc(value){
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-export function fmtMoney(value){
-  const amount = Number(value) || 0;
-  const currency = DB.settings?.currency || 'COP';
-
-  try {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 0
-    }).format(amount);
-  } catch(e){
-    return '$ ' + Math.round(amount).toLocaleString('es-CO');
-  }
-}
-
-export function formatThousandInput(value){
-  if (value === '' || value === null || value === undefined) return '';
-  const n = Number(String(value).replace(/[^\d-]/g, ''));
-  if (!Number.isFinite(n)) return '';
-  return Math.round(n).toLocaleString('es-CO');
-}
-
-export function parseFormattedNumber(value){
-  if (typeof value === 'number') return value;
-  const raw = String(value ?? '').replace(/[^\d-]/g, '');
-  return raw ? Number(raw) : 0;
-}
-
-export function monthKey(date){
-  if (!date) return '';
-  return String(date).substring(0, 7);
-}
-
-export function monthLabelStr(date){
-  return new Intl.DateTimeFormat('es-CO', {
-    month: 'long',
-    year: 'numeric'
-  }).format(date || new Date());
-}
-
 export function icon(name){
-  const icons = {
+
+  const svgs = {
+
+    wallet:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
+
+    list:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+
     plus:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M12 5v14M5 12h14"/>' +
-      '</svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>',
 
-    camera:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M4 7h3l2-2h6l2 2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/>' +
-      '<circle cx="12" cy="13" r="3"/>' +
-      '</svg>',
+    credit:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
 
-    receipt:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/>' +
-      '<path d="M9 8h6M9 12h6M9 16h4"/>' +
-      '</svg>',
+    tag:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>',
 
-    gear:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/>' +
-      '<path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.41 1.41-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-2v-.09a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.41-1.41.06-.06A1.7 1.7 0 0 0 9.4 15a1.7 1.7 0 0 0-1.56-1.03H7v-2h.84A1.7 1.7 0 0 0 9.4 10a1.7 1.7 0 0 0-.34-1.88L9 8.06l1.41-1.41.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 13.38 5.5V5h2v.5a1.7 1.7 0 0 0 1.03 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.41 1.41-.06.06A1.7 1.7 0 0 0 19.4 10a1.7 1.7 0 0 0 1.56 1.03H21v2h-.04A1.7 1.7 0 0 0 19.4 15z"/>' +
-      '</svg>',
+    search:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>',
+
+    pencil:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+
+    check:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>',
 
     close:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M6 6l12 12M18 6L6 18"/>' +
-      '</svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
 
     trash:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/>' +
-      '</svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>',
 
-    edit:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M4 20h4L19 9l-4-4L4 16v4z"/>' +
-      '<path d="M13.5 6.5l4 4"/>' +
-      '</svg>',
+    alert:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 9v2M12 15h.01M22.61 16.53L13.73 3.15a2 2 0 0 0-3.46 0L1.39 16.53a2 2 0 0 0 1.73 3h17.76a2 2 0 0 0 1.73-3z"/></svg>',
 
-    arrow:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">' +
-      '<path d="M9 18l6-6-6-6"/>' +
-      '</svg>'
+    gear:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33-1.82V9a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1 z"/></svg>',
+
+    camera:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+
+    receipt:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 14h-4M16 10H8M8 14h2"/></svg>'
   };
 
-  return icons[name] || icons.plus;
+  return `<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">${svgs[name] || ''}</span>`;
 }
 
-export function catById(id){
-  return (DB.categories || []).find(c => c.id === id) || null;
-}
+export const esc =
+  s =>
+    String(s).replace(
+      /[&<>"']/g,
+      c =>
+        ({
+          '&':'&amp;',
+          '<':'&lt;',
+          '>':'&gt;',
+          '"':'&quot;',
+          "'":'&#39;'
+        }[c])
+    );
 
-export function isCreditPaymentTransaction(t){
-  return !!(
-    t &&
-    t.type === 'expense' &&
-    (
-      t.source === 'credit-payment' ||
-      t.sourceType === 'credit-payment'
-    )
+export function formatThousandInput(val){
+
+  const digits =
+    String(val)
+      .replace(
+        /\D/g,
+        ''
+      );
+
+  if (!digits) return '';
+
+  return new Intl.NumberFormat(
+    'es-CO'
+  ).format(
+    digits
   );
 }
 
-export function currentMonthTx(){
-  const key = monthKey(todayStr());
-  return (DB.transactions || []).filter(t => monthKey(t.date) === key);
-}
+export function parseFormattedNumber(val){
 
-export function computeTotals(){
-  let income = 0;
-  let expense = 0;
+  if (!val) return '';
 
-  (DB.transactions || []).forEach(t => {
-    const amount = Number(t.amount) || 0;
-
-    if (t.type === 'income') {
-      income += amount;
-    } else if (t.type === 'expense') {
-      expense += amount;
-    }
-  });
-
-  return {
-    income,
-    expense,
-    balance: income - expense
-  };
-}
-
-export function computeMonthStats(){
-  const tx = currentMonthTx();
-
-  let income = 0;
-  let expense = 0;
-
-  tx.forEach(t => {
-    const amount = Number(t.amount) || 0;
-
-    if (t.type === 'income') {
-      income += amount;
-    } else if (t.type === 'expense') {
-      expense += amount;
-    }
-  });
-
-  const netSavings = income - expense;
-  const savingsRate = income > 0
-    ? Math.round((netSavings / income) * 100)
-    : 0;
-
-  return {
-    income,
-    expense,
-    netSavings,
-    savingsRate
-  };
-}
-
-/* ==========================================================
-   COMPARATIVA MES A MES
-   ========================================================== */
-
-export function computeMonthOverMonthMetrics(){
-  const now = new Date();
-
-  const currentMonthKey =
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-  const previousDate =
-    new Date(now.getFullYear(), now.getMonth() - 1, 1);
-
-  const prevMonthKey =
-    `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}`;
-
-  let currentExpense = 0;
-  let currentIncome = 0;
-  let prevExpense = 0;
-  let prevIncome = 0;
-
-  const currentCatMap = {};
-  const prevCatMap = {};
-
-  (DB.transactions || []).forEach(t => {
-    const amount = Number(t.amount) || 0;
-    const mKey = monthKey(t.date);
-
-    if (mKey === currentMonthKey) {
-      if (t.type === 'expense') {
-        currentExpense += amount;
-
-        if (!isCreditPaymentTransaction(t)) {
-          currentCatMap[t.categoryId] =
-            (currentCatMap[t.categoryId] || 0) + amount;
-        }
-      } else if (t.type === 'income') {
-        currentIncome += amount;
-      }
-    }
-
-    if (mKey === prevMonthKey) {
-      if (t.type === 'expense') {
-        prevExpense += amount;
-
-        if (!isCreditPaymentTransaction(t)) {
-          prevCatMap[t.categoryId] =
-            (prevCatMap[t.categoryId] || 0) + amount;
-        }
-      } else if (t.type === 'income') {
-        prevIncome += amount;
-      }
-    }
-  });
-
-  const currentSavings = currentIncome - currentExpense;
-  const prevSavings = prevIncome - prevExpense;
-
-  const expChangePct =
-    prevExpense > 0
-      ? Math.round(((currentExpense - prevExpense) / prevExpense) * 100)
-      : (currentExpense > 0 ? 100 : 0);
-
-  const incChangePct =
-    prevIncome > 0
-      ? Math.round(((currentIncome - prevIncome) / prevIncome) * 100)
-      : (currentIncome > 0 ? 100 : 0);
-
-  let highestGrowthCat = null;
-  let maxDiff = -Infinity;
-
-  Object.keys(currentCatMap).forEach(catId => {
-    const diff =
-      currentCatMap[catId] - (prevCatMap[catId] || 0);
-
-    if (
-      diff > maxDiff &&
-      diff > 0
-    ){
-      maxDiff = diff;
-      highestGrowthCat = catById(catId);
-    }
-  });
-
-  const savingsRate =
-    currentIncome > 0
-      ? Math.max(
-          0,
-          Math.round((currentSavings / currentIncome) * 100)
-        )
-      : 0;
-
-  return {
-    expChangePct,
-    currentExpense,
-    prevExpense,
-    incChangePct,
-    currentIncome,
-    prevIncome,
-    currentSavings,
-    prevSavings,
-    savingsRate,
-    highestGrowthCat,
-    maxDiff
-  };
-}
-
-/* ==========================================================
-   CATEGORÍAS
-   ========================================================== */
-
-export function computeCategoryTotals(){
-  const map = {};
-
-  currentMonthTx().forEach(t => {
-    if (
-      t.type === 'expense' &&
-      !isCreditPaymentTransaction(t)
-    ){
-      map[t.categoryId] =
-        (map[t.categoryId] || 0) +
-        (Number(t.amount) || 0);
-    }
-  });
-
-  return Object.entries(map)
-    .map(([id, total]) => ({
-      id,
-      total,
-      cat: catById(id)
-    }))
-    .filter(r => r.cat)
-    .sort((a, b) => b.total - a.total);
-}
-
-/* ==========================================================
-   RITMO DE GASTO
-   ========================================================== */
-
-export function computeBurnMetrics(){
-  const today = new Date();
-
-  const daysInMonth =
-    new Date(
-      today.getFullYear(),
-      today.getMonth() + 1,
-      0
-    ).getDate();
-
-  const currentDay = today.getDate();
-
-  const daysRemaining =
-    Math.max(
-      1,
-      daysInMonth - currentDay + 1
+  return String(val)
+    .replace(
+      /\D/g,
+      ''
     );
+}
 
-  const monthPctPassed =
-    Math.round(
-      (currentDay / daysInMonth) * 100
-    );
+export function fmtMoney(amount){
 
-  const totals = computeTotals();
-  const monthStats = computeMonthStats();
+  const cur =
+    DB.settings.currency ||
+    'COP';
 
-  const availableFunds =
-    totals.balance > 0
-      ? totals.balance
-      : Math.max(
-          0,
-          monthStats.income - monthStats.expense
-        );
+  const cfg =
+    CURRENCIES[cur] ||
+    CURRENCIES.COP;
 
-  const dailyAvailable =
-    Math.max(0, availableFunds) /
-    daysRemaining;
+  const n =
+    Number(amount) || 0;
 
-  const fixedCatIds =
-    DB.categories
-      .filter(c =>
-        c.isFixed ||
-        c.icon === 'home' ||
-        c.icon === 'zap' ||
-        (c.name || '')
-          .toLowerCase()
-          .includes('arriendo') ||
-        (c.name || '')
-          .toLowerCase()
-          .includes('servicio')
-      )
-      .map(c => c.id);
+  try {
 
-  const isDailyExpense = t =>
-    t &&
-    t.type === 'expense' &&
-    !isCreditPaymentTransaction(t) &&
-    !fixedCatIds.includes(t.categoryId) &&
-    !!t.date;
-
-  const periodNumber =
-    currentDay <= 10
-      ? 0
-      : (
-          currentDay <= 20
-            ? 1
-            : 2
-        );
-
-  const periodStartDay =
-    periodNumber === 0
-      ? 1
-      : (
-          periodNumber === 1
-            ? 11
-            : 21
-        );
-
-  const periodEndDay =
-    periodNumber === 0
-      ? 10
-      : (
-          periodNumber === 1
-            ? 20
-            : daysInMonth
-        );
-
-  const currentPeriodDays =
-    currentDay - periodStartDay + 1;
-
-  const periodExpenses = [0, 0, 0];
-
-  DB.transactions.forEach(t => {
-    if (!isDailyExpense(t)) return;
-
-    const tDate =
-      new Date(t.date + 'T00:00:00');
-
-    if (
-      Number.isNaN(tDate.getTime()) ||
-      tDate.getFullYear() !== today.getFullYear() ||
-      tDate.getMonth() !== today.getMonth()
-    ){
-      return;
-    }
-
-    const day = tDate.getDate();
-
-    if (day > currentDay) return;
-
-    const p =
-      day <= 10
-        ? 0
-        : (
-            day <= 20
-              ? 1
-              : 2
-          );
-
-    periodExpenses[p] +=
-      Number(t.amount) || 0;
-  });
-
-  const currentPeriodExpense =
-    periodExpenses[periodNumber];
-
-  let avgDailyBurn =
-    currentPeriodExpense > 0
-      ? currentPeriodExpense / currentPeriodDays
-      : 0;
-
-  if (avgDailyBurn <= 0){
-    for (
-      let p = periodNumber - 1;
-      p >= 0;
-      p--
-    ){
-      if (periodExpenses[p] > 0){
-        avgDailyBurn =
-          periodExpenses[p] / 10;
-        break;
+    return new Intl.NumberFormat(
+      cfg.locale,
+      {
+        style:'currency',
+        currency:cur,
+        maximumFractionDigits:0
       }
-    }
+    ).format(n);
+
+  } catch(e) {
+
+    return n.toFixed(0) +
+      ' ' +
+      cur;
   }
-
-  const runwayDays =
-    (
-      avgDailyBurn > 0 &&
-      totals.balance > 0
-    )
-      ? Math.floor(
-          totals.balance /
-          avgDailyBurn
-        )
-      : 0;
-
-  return {
-    daysRemaining,
-    daysInMonth,
-    currentDay,
-    monthPctPassed,
-    dailyAvailable,
-    avgDailyBurn,
-    currentPeriodExpense,
-    currentPeriodDays,
-    periodNumber,
-    periodStartDay,
-    periodEndDay,
-    periodExpenses,
-    runwayDays
-  };
 }
 
-/* ==========================================================
-   PRESUPUESTOS
-   ========================================================== */
+export function monthLabelStr(date){
 
-export function computeBudgetRows(){
-  const totals = computeCategoryTotals();
-  const burn = computeBurnMetrics();
-
-  return DB.categories
-    .filter(c =>
-      c.type === 'expense' &&
-      c.budget
-    )
-    .map(c => {
-      const spent =
-        (
-          totals.find(r => r.id === c.id) || {}
-        ).total || 0;
-
-      const spentPct =
-        Math.min(
-          100,
-          Math.round(
-            (spent / c.budget) * 100
-          )
-        );
-
-      const over =
-        spent > c.budget;
-
-      const isPacingFast =
-        !over &&
-        (
-          spentPct >
-          burn.monthPctPassed + 10
-        );
-
-      return {
-        cat: c,
-        spent,
-        pct: spentPct,
-        over,
-        isPacingFast
-      };
-    });
-}
-
-/* ==========================================================
-   PAGOS A CRÉDITOS
-   ========================================================== */
-
-export function computeCreditsPaidThisMonth(){
-  const now = new Date();
-
-  const currentMonthKey =
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-  return (DB.credits || [])
-    .filter(c => c.type === 'against')
-    .reduce((sum, c) => {
-      const monthlyPaid =
-        (c.payments || [])
-          .filter(p =>
-            p.date &&
-            typeof p.date === 'string' &&
-            p.date.substring(0, 7) === currentMonthKey
-          )
-          .reduce(
-            (s, p) =>
-              s + (Number(p.amount) || 0),
-            0
-          );
-
-      return sum + monthlyPaid;
-    }, 0);
-}
-
-/* ==========================================================
-   GRÁFICO CIRCULAR
-   ========================================================== */
-
-export function expensePieSVG(
-  catTotals,
-  monthExpense,
-  monthIncome,
-  creditsPaid = 0,
-  uncategorizedExpense = 0
-){
-  const totalExpense =
-    Math.max(
-      0,
-      Number(monthExpense) || 0
-    );
-
-  const income =
-    Math.max(
-      0,
-      Number(monthIncome) || 0
-    );
-
-  const credits =
-    Math.max(
-      0,
-      Number(creditsPaid) || 0
-    );
-
-  const uncategorized =
-    Math.max(
-      0,
-      Number(uncategorizedExpense) || 0
-    );
-
-  if (totalExpense <= 0) return '';
-
-  const r = 44;
-  const stroke = 16;
-
-  const circumference =
-    2 * Math.PI * r;
-
-  const gap = 2.4;
-
-  /*
-   * Paleta de categorías.
-   *
-   * El vino tinto queda reservado exclusivamente
-   * para "Pago a créditos".
-   */
-  const palette = [
-    '#38BDF8',
-    '#A78BFA',
-    '#F59E0B',
-    '#34D399',
-    '#FB7185',
-    '#F97316',
-    '#22D3EE',
-    '#C084FC',
-    '#84CC16',
-    '#E879F9',
-    '#2DD4BF',
-    '#FACC15'
-  ];
-
-  const CREDIT_COLOR = '#7A1F3D';
-  const UNCATEGORIZED_COLOR = '#8B85A3';
-  const TRACK_COLOR = '#172033';
-
-  const used =
-    new Set([
-      CREDIT_COLOR,
-      UNCATEGORIZED_COLOR,
-      TRACK_COLOR
-    ].map(c => c.toUpperCase()));
-
-  const colorMap = new Map();
-
-  let paletteIndex = 0;
-
-  catTotals.forEach(r => {
-    const original =
-      String(
-        r.cat?.color || ''
-      ).trim();
-
-    const normalized =
-      original.toUpperCase();
-
-    if (
-      original &&
-      !used.has(normalized)
-    ){
-      colorMap.set(
-        r.id,
-        original
-      );
-
-      used.add(normalized);
-
-      return;
+  return new Intl.DateTimeFormat(
+    'es-CO',
+    {
+      month:'long',
+      year:'numeric'
     }
-
-    let selected = null;
-
-    for (
-      let i = 0;
-      i < palette.length;
-      i++
-    ){
-      const candidate =
-        palette[
-          paletteIndex %
-          palette.length
-        ];
-
-      paletteIndex++;
-
-      if (
-        !used.has(
-          candidate.toUpperCase()
-        )
-      ){
-        selected = candidate;
-        break;
-      }
-    }
-
-    selected =
-      selected ||
-      palette[
-        (paletteIndex++) %
-        palette.length
-      ];
-
-    colorMap.set(
-      r.id,
-      selected
-    );
-
-    used.add(
-      selected.toUpperCase()
-    );
-  });
-
-  const slices = [];
-
-  catTotals.forEach(r => {
-    const value =
-      Math.max(
-        0,
-        Number(r.total) || 0
-      );
-
-    if (value > 0){
-      slices.push({
-        value,
-        color:
-          colorMap.get(r.id) ||
-          '#38BDF8'
-      });
-    }
-  });
-
-  /*
-   * "Sin categoría" sí hace parte de las salidas.
-   */
-  if (uncategorized > 0){
-    slices.push({
-      value: uncategorized,
-      color: UNCATEGORIZED_COLOR
-    });
-  }
-
-  /*
-   * "Pago a créditos" sí hace parte de las salidas,
-   * pero utiliza vino tinto para distinguirlo claramente.
-   */
-  if (credits > 0){
-    slices.push({
-      value: credits,
-      color: CREDIT_COLOR
-    });
-  }
-
-  /*
-   * IMPORTANTE:
-   * El anillo representa exclusivamente las salidas.
-   *
-   * "Disponible" NO se agrega como segmento gris.
-   * La parte disponible queda como espacio vacío.
-   */
-  const ringTotal =
-    slices.reduce(
-      (sum, slice) =>
-        sum + slice.value,
-      0
-    ) || totalExpense;
-
-  const gapTotal =
-    Math.min(
-      gap * slices.length,
-      circumference * 0.16
-    );
-
-  const usable =
-    Math.max(
-      0,
-      circumference - gapTotal
-    );
-
-  let offset = 0;
-
-  let svg =
-    '<svg viewBox="0 0 120 120" aria-label="Distribución de gastos, pagos a créditos y disponible">';
-
-  /*
-   * Track oscuro:
-   * funciona como el "vacío" del gráfico.
-   */
-  svg +=
-    '<circle cx="60" cy="60" r="44" fill="none" stroke="' +
-    TRACK_COLOR +
-    '" stroke-width="' +
-    stroke +
-    '"/>';
-
-  slices.forEach(slice => {
-    const ratio =
-      slice.value / ringTotal;
-
-    const rawLength =
-      ratio * usable;
-
-    const segmentGap =
-      slices.length > 1
-        ? Math.min(
-            gap,
-            rawLength * 0.18
-          )
-        : 0;
-
-    const dash =
-      Math.max(
-        0,
-        rawLength - segmentGap
-      );
-
-    if (dash > 0.4){
-      svg +=
-        '<circle cx="60" cy="60" r="44" fill="none" stroke="' +
-        slice.color +
-        '" stroke-width="' +
-        stroke +
-        '" stroke-dasharray="' +
-        dash.toFixed(2) +
-        ' ' +
-        (
-          circumference - dash
-        ).toFixed(2) +
-        '" stroke-dashoffset="' +
-        (-offset).toFixed(2) +
-        '" transform="rotate(-90 60 60)" stroke-linecap="butt"/>';
-    }
-
-    offset += rawLength;
-  });
-
-  svg += '</svg>';
-
-  return svg;
+  ).format(date);
 }
 
 /* ==========================================================
@@ -850,31 +166,34 @@ export function expensePieSVG(
    ========================================================== */
 
 export function renderDashboard(){
-  const totals = computeTotals();
-  const month = computeMonthStats();
-  const catTotals = computeCategoryTotals();
 
-  const burn = computeBurnMetrics();
-  const budgets = computeBudgetRows();
-  const mom = computeMonthOverMonthMetrics();
+  const totals =
+    computeTotals();
+
+  const month =
+    computeMonthStats();
+
+  const catTotals =
+    computeCategoryTotals();
+
+  const burn =
+    computeBurnMetrics();
+
+  const budgets =
+    computeBudgetRows();
+
+  const mom =
+    computeMonthOverMonthMetrics();
+
+  let html = '';
 
   const balColor =
     totals.balance >= 0
       ? 'var(--income)'
       : 'var(--expense)';
 
-  const expenseCats =
-    DB.categories.filter(
-      c => c.type === 'expense'
-    );
-
-  let html = '';
-
-  /* --------------------------------------------------------
-     BALANCE
-     -------------------------------------------------------- */
-
-  html += '<div class="balance-card">';
+  html +=
+    '<div class="balance-card">';
 
   html +=
     '<div class="balance-label">Balance disponible</div>';
@@ -883,188 +202,321 @@ export function renderDashboard(){
     '<div class="balance-amount" style="color:' +
     balColor +
     '">' +
-    fmtMoney(totals.balance) +
+    fmtMoney(
+      totals.balance
+    ) +
     '</div>';
 
   html +=
     '<div class="balance-month">' +
-    esc(monthLabelStr(new Date())) +
-    '</div>';
-
-  html += '<div class="balance-metrics">';
-
-  html +=
-    '<div class="b-metric">' +
-      '<span class="lbl">Ingresos del mes</span>' +
-      '<span class="val inc">+' +
-        fmtMoney(month.income) +
-      '</span>' +
+    monthLabelStr(
+      new Date()
+    ) +
     '</div>';
 
   html +=
-    '<div class="b-metric">' +
-      '<span class="lbl">Gastos del mes</span>' +
-      '<span class="val exp">−' +
-        fmtMoney(month.expense) +
-      '</span>' +
-    '</div>';
+    '<div class="balance-metrics">';
 
   html +=
-    '<div class="b-metric">' +
-      '<span class="lbl">Ahorro neto este mes</span>' +
-      '<span class="val ' +
-        (
-          month.netSavings >= 0
-            ? 'inc'
-            : 'exp'
-        ) +
-      '">' +
-        (
-          month.netSavings >= 0
-            ? '+'
-            : ''
-        ) +
-        fmtMoney(month.netSavings) +
-      '</span>' +
-    '</div>';
+    '<div class="b-metric"><span class="lbl">Ingresos del mes</span><span class="val inc">+' +
+    fmtMoney(
+      month.income
+    ) +
+    '</span></div>';
 
   html +=
-    '<div class="b-metric">' +
-      '<span class="lbl">Tasa de ahorro</span>' +
-      '<span class="val sav">' +
-        month.savingsRate +
-        '%' +
-      '</span>' +
-    '</div>';
+    '<div class="b-metric"><span class="lbl">Gastos del mes</span><span class="val exp">−' +
+    fmtMoney(
+      month.expense
+    ) +
+    '</span></div>';
 
-  html += '</div></div>';
+  html +=
+    '<div class="b-metric"><span class="lbl">Ahorro neto este mes</span><span class="val ' +
+    (
+      month.netSavings >= 0
+        ? 'inc'
+        : 'exp'
+    ) +
+    '">' +
+    (
+      month.netSavings >= 0
+        ? '+'
+        : ''
+    ) +
+    fmtMoney(
+      month.netSavings
+    ) +
+    '</span></div>';
 
-  /* --------------------------------------------------------
-     RITMO DE GASTO DIARIO
-     -------------------------------------------------------- */
+  html +=
+    '<div class="b-metric"><span class="lbl">Tasa de ahorro</span><span class="val sav">' +
+    month.savingsRate +
+    '%</span></div>';
 
-  html += '<div class="card">';
+  html +=
+    '</div></div>';
+
+  /* ========================================================
+     RITMO DE GASTO
+     ======================================================== */
+
+  html +=
+    '<div class="card">';
 
   html +=
     '<div class="section-title">Ritmo de Gasto Diario</div>';
 
-  html += '<div class="burn-card">';
+  html +=
+    '<div class="burn-card">';
 
   html +=
-    '<div class="burn-info">' +
-      '<span class="burn-lbl">Disponible sugerido por día</span>' +
-      '<span class="burn-val" style="color:var(--pink)">' +
-        fmtMoney(burn.dailyAvailable) +
-      '</span>' +
+    '<div class="burn-info"><span class="burn-lbl">Disponible sugerido por día</span><span class="burn-val" style="color:var(--pink)">' +
+    fmtMoney(
+      burn.dailyAvailable
+    ) +
+    ' / día</span></div>';
+
+  const statusClass =
+    burn.dailyAvailable >
+    burn.avgDailyBurn
+      ? 'ok'
+      : (
+          burn.dailyAvailable > 0
+            ? 'warn'
+            : 'alert'
+        );
+
+  const statusText =
+    burn.dailyAvailable >
+    burn.avgDailyBurn
+      ? 'En ritmo'
+      : (
+          burn.dailyAvailable > 0
+            ? 'Ajustar'
+            : 'Sin saldo'
+        );
+
+  html +=
+    '<span class="burn-status ' +
+    statusClass +
+    '">' +
+    statusText +
+    '</span>';
+
+  html +=
     '</div>';
 
   html +=
-    '<div class="burn-info">' +
-      '<span class="burn-lbl">Gasto diario actual</span>' +
-      '<span class="burn-val">' +
-        fmtMoney(burn.avgDailyBurn) +
-      '</span>' +
-    '</div>';
+    '<div class="runway-card"><div class="runway-icon">⏳</div><div class="runway-main">';
 
   html +=
-    '<div class="burn-progress">' +
-      '<div class="burn-bar">' +
-        '<div class="burn-fill" style="width:' +
-          Math.min(
-            100,
-            burn.dailyAvailable > 0
-              ? (
-                  burn.avgDailyBurn /
-                  burn.dailyAvailable
-                ) * 100
-              : 0
-          ) +
-          '%"></div>' +
-      '</div>' +
+    '<div class="runway-lbl">Ritmo de gasto · período ' +
+    burn.periodStartDay +
+    '–' +
+    burn.periodEndDay +
     '</div>';
 
+  if (
+    burn.currentPeriodDays <
+    10
+  ){
+
+    html +=
+      '<div class="runway-val">Ritmo actual <span>' +
+      fmtMoney(
+        burn.avgDailyBurn
+      ) +
+      ' / día</span></div>';
+
+    html +=
+      '<div style="font-size:11px;opacity:.82;margin-top:4px">Acumulado ' +
+      fmtMoney(
+        burn.currentPeriodExpense
+      ) +
+      ' en ' +
+      burn.currentPeriodDays +
+      ' días</div>';
+
+  } else {
+
+    html +=
+      '<div class="runway-val">Promedio <span>' +
+      fmtMoney(
+        burn.currentPeriodExpense
+      ) +
+      ' / 10 días</span></div>';
+  }
+
   html +=
-    '<div class="burn-footer">' +
-      '<span>Día ' +
-        burn.currentDay +
-        ' de ' +
-        burn.daysInMonth +
-      '</span>' +
-      '<span>' +
-        burn.runwayDays +
-        ' días de margen</span>' +
+    '<div style="margin-top:9px;padding-top:8px;border-top:1px solid rgba(56,189,248,.15)">';
+
+  html +=
+    '<div style="font-size:10px;opacity:.72;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Evolución del mes</div>';
+
+  html +=
+    '<div style="display:flex;justify-content:space-between;font-size:10.5px;margin-top:3px"><span>1–10</span><b>' +
+    fmtMoney(
+      burn.periodExpenses[0]
+    ) +
+    '</b></div>';
+
+  html +=
+    '<div style="display:flex;justify-content:space-between;font-size:10.5px;margin-top:3px;opacity:.82"><span>11–20</span><b>' +
+    fmtMoney(
+      burn.periodExpenses[1]
+    ) +
+    '</b></div>';
+
+  html +=
+    '<div style="display:flex;justify-content:space-between;font-size:10.5px;margin-top:3px;opacity:.68"><span>21–' +
+    burn.daysInMonth +
+    '</span><b>' +
+    fmtMoney(
+      burn.periodExpenses[2]
+    ) +
+    '</b></div>';
+
+  html +=
     '</div>';
 
-  html += '</div></div>';
+  if (
+    burn.runwayDays > 0
+  ){
 
-  /* --------------------------------------------------------
-     DISTRIBUCIÓN DE GASTOS
-     -------------------------------------------------------- */
-
-  html += '<div class="card">';
+    html +=
+      '<div style="font-size:10.5px;color:var(--ink-muted);margin-top:7px">Con tu saldo actual cubres aprox. <b>' +
+      burn.runwayDays +
+      ' días</b> a este ritmo.</div>';
+  }
 
   html +=
-    '<div class="section-title">Distribución de gastos</div>';
+    '</div></div></div>';
 
-  if (month.expense > 0){
+  /* ========================================================
+     GASTO RÁPIDO
+     ======================================================== */
 
-    const creditsPaid =
-      computeCreditsPaidThisMonth();
+  const expenseCats =
+    DB.categories.filter(
+      c =>
+        c.type ===
+        'expense'
+    );
+
+  if (
+    expenseCats.length
+  ){
+
+    html +=
+      '<div class="section-title" style="margin-top:20px">Registrar gasto rápido</div>';
+
+    html +=
+      '<div class="quick-grid">' +
+      expenseCats
+        .map(
+          c =>
+            '<button class="quick-btn" data-action="quick-cat" data-id="' +
+            c.id +
+            '"><span class="em">' +
+            (
+              ICON_EMOJI[
+                c.icon
+              ] ||
+              '⭐'
+            ) +
+            '</span><span class="nm">' +
+            esc(
+              c.name
+            ) +
+            '</span></button>'
+        )
+        .join('') +
+      '</div>';
+  }
+
+  /* ========================================================
+     GRÁFICA DE GASTOS
+     ======================================================== */
+
+  const creditsPaid =
+    computeCreditsPaidThisMonth();
+
+  html +=
+    '<div class="card"><div class="section-title">Gastos por categoría (este mes)</div>';
+
+  const totalOutflow =
+    Math.max(
+      0,
+      (
+        Number(
+          month.expense
+        ) || 0
+      ) +
+      (
+        Number(
+          creditsPaid
+        ) || 0
+      )
+    );
+
+  if (
+    totalOutflow > 0
+  ){
+
+    const spentPct =
+      month.income > 0
+        ? Math.round(
+            (
+              totalOutflow /
+              month.income
+            ) * 100
+          )
+        : 0;
+
+    const remainingPct =
+      month.income > 0
+        ? Math.max(
+            0,
+            Math.round(
+              (
+                Math.max(
+                  0,
+                  month.income -
+                  totalOutflow
+                ) /
+                month.income
+              ) * 100
+            )
+          )
+        : 0;
 
     const categorizedExpense =
       catTotals.reduce(
-        (sum, r) =>
-          sum + (Number(r.total) || 0),
+        (
+          sum,
+          r
+        ) =>
+          sum +
+          (
+            Number(
+              r.total
+            ) || 0
+          ),
         0
       );
 
     const uncategorizedExpense =
       Math.max(
         0,
-        month.expense -
-        categorizedExpense -
-        creditsPaid
+        (
+          Number(
+            month.expense
+          ) || 0
+        ) -
+        categorizedExpense
       );
 
-    /*
-     * Porcentaje utilizado:
-     * salidas / ingresos.
-     */
-    const spentPct =
-      month.income > 0
-        ? Math.max(
-            0,
-            (month.expense /
-              month.income) *
-            100
-          )
-        : 0;
-
-    /*
-     * Porcentaje disponible:
-     * ingreso restante después de todas las salidas.
-     *
-     * Nunca negativo.
-     */
-    const availablePct =
-      month.income > 0
-        ? Math.max(
-            0,
-            (
-              (
-                month.income -
-                month.expense
-              ) /
-              month.income
-            ) * 100
-          )
-        : 0;
-
-    /*
-     * Se crea un mapa de colores para evitar que
-     * una categoría normal tenga el mismo color
-     * que Pago a créditos.
-     */
     const palette = [
       '#38BDF8',
       '#A78BFA',
@@ -1080,271 +532,277 @@ export function renderDashboard(){
       '#FACC15'
     ];
 
-    const CREDIT_COLOR = '#7A1F3D';
-    const UNCATEGORIZED_COLOR = '#8B85A3';
-    const TRACK_COLOR = '#172033';
+    const reserved =
+      new Set([
+        '#EF4444',
+        '#8B85A3',
+        '#334155'
+      ]);
 
-    const reserved = new Set([
-      CREDIT_COLOR.toUpperCase(),
-      UNCATEGORIZED_COLOR.toUpperCase(),
-      TRACK_COLOR.toUpperCase()
-    ]);
+    const colorMap =
+      new Map();
 
-    const colorMap = new Map();
-    let colorIndex = 0;
+    let colorIndex =
+      0;
 
-    catTotals.forEach(r => {
-      const original =
-        String(
-          r.cat?.color || ''
-        ).trim();
+    catTotals.forEach(
+      r => {
 
-      const normalized =
-        original.toUpperCase();
+        const original =
+          String(
+            r.cat?.color ||
+            ''
+          ).trim();
 
-      if (
-        original &&
-        !reserved.has(normalized)
-      ){
-        colorMap.set(
-          r.id,
-          original
-        );
+        const normalized =
+          original.toUpperCase();
 
-        reserved.add(normalized);
+        if (
+          original &&
+          !reserved.has(
+            normalized
+          )
+        ){
 
-        return;
-      }
+          colorMap.set(
+            r.id,
+            original
+          );
 
-      let selected = null;
+          reserved.add(
+            normalized
+          );
 
-      for (
-        let i = 0;
-        i < palette.length;
-        i++
-      ){
-        const candidate =
+          return;
+        }
+
+        let selected =
+          null;
+
+        for (
+          let i = 0;
+          i < palette.length;
+          i++
+        ){
+
+          const candidate =
+            palette[
+              colorIndex++ %
+              palette.length
+            ];
+
+          if (
+            !reserved.has(
+              candidate.toUpperCase()
+            )
+          ){
+
+            selected =
+              candidate;
+
+            break;
+          }
+        }
+
+        selected =
+          selected ||
           palette[
-            colorIndex %
+            colorIndex++ %
             palette.length
           ];
 
-        colorIndex++;
+        colorMap.set(
+          r.id,
+          selected
+        );
 
-        if (
-          !reserved.has(
-            candidate.toUpperCase()
-          )
-        ){
-          selected = candidate;
-          break;
-        }
+        reserved.add(
+          selected.toUpperCase()
+        );
       }
-
-      selected =
-        selected ||
-        palette[
-          colorIndex %
-          palette.length
-        ];
-
-      colorMap.set(
-        r.id,
-        selected
-      );
-
-      reserved.add(
-        selected.toUpperCase()
-      );
-    });
+    );
 
     const chartCats =
-      catTotals.map(r => ({
-        ...r,
-        cat: {
-          ...r.cat,
-          color:
-            colorMap.get(r.id) ||
-            r.cat.color
-        }
-      }));
+      catTotals.map(
+        r => ({
+          ...r,
+          cat:{
+            ...r.cat,
+            color:
+              colorMap.get(
+                r.id
+              ) ||
+              r.cat.color
+          }
+        })
+      );
 
-    html += '<div class="pie-layout">';
+    html +=
+      '<div class="pie-layout">';
 
     html +=
       '<div class="pie-chart">' +
-        expensePieSVG(
-          chartCats,
-          month.expense,
-          month.income,
-          creditsPaid,
-          uncategorizedExpense
-        ) +
-        '<div class="pie-center">' +
-          '<strong>' +
-            (
-              month.income > 0
-                ? spentPct.toFixed(0) + '%'
-                : '—'
-            ) +
-          '</strong>' +
-          '<span>' +
-            (
-              month.income > 0
-                ? 'del ingreso utilizado'
-                : 'sin ingreso'
-            ) +
-          '</span>' +
-        '</div>' +
-      '</div>';
-
-    html += '<div class="pie-legend">';
-
-    const expenseBase =
-      Number(month.expense) || 0;
-
-    /* Categorías normales */
-
-    catTotals.forEach(r => {
-
-      const pct =
-        expenseBase > 0
+      expensePieSVG(
+        chartCats,
+        month.expense,
+        month.income,
+        creditsPaid,
+        uncategorizedExpense
+      ) +
+      '<div class="pie-center"><strong>' +
+      (
+        month.income > 0
+          ? spentPct + '%'
+          : '—'
+      ) +
+      '</strong><span>' +
+      (
+        month.income > 0
           ? (
-              Number(r.total) /
-              expenseBase
-            ) * 100
-          : 0;
+              spentPct > 100
+                ? 'del ingreso · excedido'
+                : 'del ingreso'
+            )
+          : 'sin ingreso'
+      ) +
+      '</span></div></div>';
 
-      html +=
-        '<div class="pie-legend-row">' +
+    html +=
+      '<div class="pie-legend">';
+
+    catTotals.forEach(
+      r => {
+
+        const pct =
+          totalOutflow > 0
+            ? (
+                r.total /
+                totalOutflow
+              ) * 100
+            : 0;
+
+        html +=
+          '<div class="pie-legend-row">' +
           '<span class="pie-dot" style="background:' +
-            colorMap.get(r.id) +
+          colorMap.get(r.id) +
           '"></span>' +
           '<span class="pie-name">' +
-            esc(r.cat.name) +
+          esc(
+            r.cat.name
+          ) +
           '</span>' +
           '<span class="pie-pct">' +
-            (
-              pct < 0.1
-                ? '<0.1'
-                : pct.toFixed(1)
-            ) +
-            '%' +
-          '</span>' +
-        '</div>';
-    });
+          (
+            pct < 0.1
+              ? '<0.1'
+              : pct.toFixed(1)
+          ) +
+          '%</span></div>';
+      }
+    );
 
-    /* Sin categoría */
-
-    if (uncategorizedExpense > 0){
+    if (
+      uncategorizedExpense > 0
+    ){
 
       const pct =
         (
           uncategorizedExpense /
-          expenseBase
+          totalOutflow
         ) * 100;
 
       html +=
         '<div class="pie-legend-row">' +
-          '<span class="pie-dot" style="background:' +
-            UNCATEGORIZED_COLOR +
-          '"></span>' +
-          '<span class="pie-name">Sin categoría</span>' +
-          '<span class="pie-pct">' +
-            (
-              pct < 0.1
-                ? '<0.1'
-                : pct.toFixed(1)
-            ) +
-            '%' +
-          '</span>' +
-        '</div>';
+        '<span class="pie-dot" style="background:#8B85A3"></span>' +
+        '<span class="pie-name">Sin categoría</span>' +
+        '<span class="pie-pct">' +
+        (
+          pct < 0.1
+            ? '<0.1'
+            : pct.toFixed(1)
+        ) +
+        '%</span></div>';
     }
 
-    /* Pago a créditos */
-
-    if (creditsPaid > 0){
+    if (
+      creditsPaid > 0
+    ){
 
       const pct =
-        expenseBase > 0
-          ? (
-              creditsPaid /
-              expenseBase
-            ) * 100
-          : 0;
+        (
+          creditsPaid /
+          totalOutflow
+        ) * 100;
 
       html +=
         '<div class="pie-legend-row">' +
-          '<span class="pie-dot" style="background:' +
-            CREDIT_COLOR +
-          '"></span>' +
-          '<span class="pie-name">Pago a créditos</span>' +
-          '<span class="pie-pct">' +
-            (
-              pct < 0.1
-                ? '<0.1'
-                : pct.toFixed(1)
-            ) +
-            '%' +
-          '</span>' +
-        '</div>';
+        '<span class="pie-dot" style="background:#EF4444"></span>' +
+        '<span class="pie-name">Abonado a créditos</span>' +
+        '<span class="pie-pct">' +
+        (
+          pct < 0.1
+            ? '<0.1'
+            : pct.toFixed(1)
+        ) +
+        '%</span></div>';
     }
 
-    /*
-     * DISPONIBLE
-     *
-     * Se muestra SIEMPRE en la leyenda cuando hay ingreso.
-     *
-     * IMPORTANTE:
-     * NO se agrega al SVG.
-     * Por eso la parte disponible queda vacía
-     * en lugar de aparecer como una porción gris.
-     */
-    html +=
-      '<div class="pie-legend-row">' +
-        '<span class="pie-dot" style="background:#9CA3AF"></span>' +
-        '<span class="pie-name" style="color:#9CA3AF">Disponible</span>' +
-        '<span class="pie-pct" style="color:#9CA3AF">' +
-          (
-            month.income > 0
-              ? (
-                  availablePct < 0.1
-                    ? '0'
-                    : availablePct.toFixed(1)
-                )
-              : '—'
-          ) +
-          '%' +
-        '</span>' +
-      '</div>';
+    if (
+      month.income > 0 &&
+      remainingPct > 0
+    ){
 
-    html += '</div></div>';
+      html +=
+        '<div class="pie-legend-row">' +
+        '<span class="pie-dot" style="background:#334155"></span>' +
+        '<span class="pie-name">Disponible</span>' +
+        '<span class="pie-pct">' +
+        remainingPct +
+        '%</span></div>';
+    }
+
+    if (
+      month.income > 0 &&
+      spentPct > 100
+    ){
+
+      html +=
+        '<div class="pie-legend-row">' +
+        '<span class="pie-dot" style="background:#EF4444"></span>' +
+        '<span class="pie-name">Exceso sobre ingreso</span>' +
+        '<span class="pie-pct">+' +
+        (
+          spentPct -
+          100
+        ) +
+        '%</span></div>';
+    }
+
+    html +=
+      '</div></div>';
 
   } else {
 
     html +=
-      '<div class="empty-hint">' +
-        'Aún no hay gastos registrados este mes. Usa los botones de arriba o el + para agregar.' +
-      '</div>';
+      '<div class="empty-hint">Aún no hay gastos registrados este mes.</div>';
   }
 
-  html += '</div>';
+  html +=
+    '</div>';
 
-  /* --------------------------------------------------------
+  /* ========================================================
      COMPARATIVA MES A MES
-     -------------------------------------------------------- */
+     ======================================================== */
 
   html +=
-    '<div class="mom-card">' +
-      '<div class="mom-header">' +
-        '<span class="mom-title">📊 Comparativa Mes a Mes</span>' +
-        '<div class="mom-dots">';
+    '<div class="mom-card"><div class="mom-header"><span class="mom-title">📊 Comparativa Mes a Mes</span><div class="mom-dots">';
 
   for (
     let i = 0;
     i < 5;
     i++
   ){
+
     html +=
       '<span class="mom-dot' +
       (
@@ -1356,430 +814,784 @@ export function renderDashboard(){
   }
 
   html +=
-        '</div>' +
-      '</div>';
+    '</div></div>';
 
   html +=
-    '<div class="mom-grid">' +
-      '<div class="mom-item">' +
-        '<span class="mom-label">Gastos</span>' +
-        '<strong>' +
-          fmtMoney(mom.currentExpense) +
-        '</strong>' +
-        '<small>' +
-          (
-            mom.expChangePct >= 0
-              ? '↑ '
-              : '↓ '
-          ) +
-          Math.abs(mom.expChangePct) +
-          '% vs mes anterior' +
-        '</small>' +
-      '</div>' +
+    '<div class="mom-carousel"><div class="mom-track" id="mom-track">';
 
-      '<div class="mom-item">' +
-        '<span class="mom-label">Ingresos</span>' +
-        '<strong>' +
-          fmtMoney(mom.currentIncome) +
-        '</strong>' +
-        '<small>' +
-          (
-            mom.incChangePct >= 0
-              ? '↑ '
-              : '↓ '
-          ) +
-          Math.abs(mom.incChangePct) +
-          '% vs mes anterior' +
-        '</small>' +
-      '</div>' +
+  const expUp =
+    mom.expChangePct >
+    0;
 
-      '<div class="mom-item">' +
-        '<span class="mom-label">Ahorro</span>' +
-        '<strong>' +
-          fmtMoney(mom.currentSavings) +
-        '</strong>' +
-        '<small>' +
-          mom.savingsRate +
-          '% del ingreso' +
-        '</small>' +
-      '</div>' +
+  html +=
+    '<div class="mom-slide"><div class="mom-slide-grid"><div class="mom-box"><div class="lbl">Gastos este mes</div><div class="val" style="color:var(--expense)">' +
+    fmtMoney(
+      mom.currentExpense
+    ) +
+    '</div></div><div class="mom-box"><div class="lbl">Gastos mes pasado</div><div class="val">' +
+    fmtMoney(
+      mom.prevExpense
+    ) +
+    '</div><div class="delta ' +
+    (
+      expUp
+        ? 'up'
+        : (
+            mom.expChangePct < 0
+              ? 'down'
+              : 'neutral'
+          )
+    ) +
+    '">' +
+    (
+      expUp
+        ? '▲ +'
+        : '▼ '
+    ) +
+    Math.abs(
+      mom.expChangePct
+    ) +
+    '%</div></div></div></div>';
 
-      '<div class="mom-item">' +
-        '<span class="mom-label">Tendencia</span>' +
-        '<strong>' +
-          (
-            mom.expChangePct > 10
-              ? '↑'
-              : (
-                  mom.expChangePct < -10
-                    ? '↓'
-                    : '→'
-                )
-          ) +
-        '</strong>' +
-        '<small>' +
-          (
-            mom.expChangePct > 10
-              ? 'Mayor gasto'
-              : (
-                  mom.expChangePct < -10
-                    ? 'Menor gasto'
-                    : 'Estable'
-                )
-          ) +
-        '</small>' +
-      '</div>' +
-    '</div>';
+  const incUp =
+    mom.incChangePct >
+    0;
 
-  html += '</div>';
+  html +=
+    '<div class="mom-slide"><div class="mom-slide-grid"><div class="mom-box"><div class="lbl">Ingresos este mes</div><div class="val" style="color:var(--income)">' +
+    fmtMoney(
+      mom.currentIncome
+    ) +
+    '</div></div><div class="mom-box"><div class="lbl">Ingresos mes pasado</div><div class="val">' +
+    fmtMoney(
+      mom.prevIncome
+    ) +
+    '</div><div class="delta ' +
+    (
+      incUp
+        ? 'down'
+        : (
+            mom.incChangePct < 0
+              ? 'up'
+              : 'neutral'
+          )
+    ) +
+    '">' +
+    (
+      incUp
+        ? '▲ +'
+        : '▼ '
+    ) +
+    Math.abs(
+      mom.incChangePct
+    ) +
+    '%</div></div></div></div>';
 
-  /* --------------------------------------------------------
-     INSIGHT
-     -------------------------------------------------------- */
+  html +=
+    '<div class="mom-slide"><div class="mom-slide-grid"><div class="mom-box"><div class="lbl">Ahorro este mes</div><div class="val" style="color:' +
+    (
+      mom.currentSavings >= 0
+        ? 'var(--income)'
+        : 'var(--expense)'
+    ) +
+    '">' +
+    (
+      mom.currentSavings >= 0
+        ? '+'
+        : ''
+    ) +
+    fmtMoney(
+      mom.currentSavings
+    ) +
+    '</div></div><div class="mom-box"><div class="lbl">Ahorro mes pasado</div><div class="val" style="color:' +
+    (
+      mom.prevSavings >= 0
+        ? 'var(--income)'
+        : 'var(--expense)'
+    ) +
+    '">' +
+    (
+      mom.prevSavings >= 0
+        ? '+'
+        : ''
+    ) +
+    fmtMoney(
+      mom.prevSavings
+    ) +
+    '</div></div></div></div>';
 
-  if (mom.highestGrowthCat){
+  html +=
+    '<div class="mom-slide"><div class="mom-single"><div class="lbl">Tasa de ahorro actual</div><div class="val" style="color:var(--pink)">' +
+    mom.savingsRate +
+    '%</div><div class="sub">Porcentaje guardado este mes</div></div></div>';
+
+  if (
+    mom.highestGrowthCat
+  ){
 
     html +=
-      '<div class="mom-insight">' +
-        '<span>💡</span>' +
-        '<div>' +
-          '<b>Atención en ' +
-            esc(mom.highestGrowthCat.name) +
-          ':</b> Tu gasto subió ' +
-          fmtMoney(mom.maxDiff) +
-          ' respecto al mes anterior.' +
-        '</div>' +
-      '</div>';
+      '<div class="mom-slide"><div class="mom-single"><div class="lbl">Mayor aumento de gasto</div><div class="val" style="color:var(--expense)">' +
+      esc(
+        mom.highestGrowthCat.name
+      ) +
+      '</div><div class="sub">Subió ' +
+      fmtMoney(
+        mom.maxDiff
+      ) +
+      ' vs mes anterior</div></div></div>';
 
   } else {
 
     html +=
-      '<div class="mom-insight">' +
-        '<span>✨</span>' +
-        '<div>' +
-          '<b>¡Buen control!</b> Patrones de consumo estables.' +
-        '</div>' +
-      '</div>';
+      '<div class="mom-slide"><div class="mom-single"><div class="lbl">Categorías</div><div class="val" style="color:var(--income)">Estables</div><div class="sub">Sin aumentos significativos</div></div></div>';
   }
 
-  /* --------------------------------------------------------
-     PRESUPUESTOS
-     -------------------------------------------------------- */
+  html +=
+    '</div></div>';
 
-  if (budgets.length){
+  if (
+    mom.highestGrowthCat
+  ){
 
     html +=
-      '<div class="card" style="margin-top:16px">' +
-        '<div class="section-title">Presupuestos</div>';
+      '<div class="mom-insight"><span>💡</span><div><b>Atención en ' +
+      esc(
+        mom.highestGrowthCat.name
+      ) +
+      ':</b> Tu gasto subió ' +
+      fmtMoney(
+        mom.maxDiff
+      ) +
+      ' respecto al mes anterior.</div></div>';
 
-    budgets.forEach(b => {
+  } else {
 
-      let barColor =
-        b.cat.color;
+    html +=
+      '<div class="mom-insight"><span>✨</span><div><b>¡Buen control!</b> Patrones de consumo estables.</div></div>';
+  }
 
-      if (b.over){
-        barColor =
-          'var(--expense)';
-      } else if (b.isPacingFast){
-        barColor =
-          'var(--amber)';
+  html +=
+    '</div>';
+
+  if (
+    budgets.length
+  ){
+
+    html +=
+      '<div class="card" style="margin-top:16px"><div class="section-title">Presupuestos</div>';
+
+    budgets.forEach(
+      b => {
+
+        let barColor =
+          b.cat.color;
+
+        if (
+          b.over
+        ){
+
+          barColor =
+            'var(--expense)';
+
+        } else if (
+          b.isPacingFast
+        ){
+
+          barColor =
+            'var(--amber)';
+        }
+
+        html +=
+          '<div class="cat-row"><div class="top"><span>' +
+          (
+            b.over
+              ? icon('alert') +
+                ' '
+              : ''
+          ) +
+          esc(
+            b.cat.name
+          ) +
+          '</span><span style="color:' +
+          (
+            b.over
+              ? 'var(--expense)'
+              : 'var(--ink-muted)'
+          ) +
+          '">' +
+          fmtMoney(
+            b.spent
+          ) +
+          ' / ' +
+          fmtMoney(
+            b.cat.budget
+          ) +
+          '</span></div><div class="bar-track"><div class="bar-fill" style="width:' +
+          b.pct +
+          '%;background:' +
+          barColor +
+          '"></div></div></div>';
       }
+    );
 
-      html +=
-        '<div class="budget-row">' +
-          '<div class="budget-head">' +
-            '<span>' +
-              esc(b.cat.name) +
-            '</span>' +
-            '<span>' +
-              fmtMoney(b.spent) +
-              ' / ' +
-              fmtMoney(b.cat.budget) +
-            '</span>' +
-          '</div>' +
-
-          '<div class="budget-track">' +
-            '<div class="budget-fill" style="width:' +
-              b.pct +
-              '%;background:' +
-              barColor +
-            '"></div>' +
-          '</div>' +
-
-          '<div class="budget-foot">' +
-            '<span>' +
-              b.pct +
-              '%' +
-            '</span>' +
-            '<span>' +
-              (
-                b.over
-                  ? 'Excedido'
-                  : (
-                      b.isPacingFast
-                        ? 'Ritmo alto'
-                        : 'En control'
-                    )
-              ) +
-            '</span>' +
-          '</div>' +
-        '</div>';
-    });
-
-    html += '</div>';
+    html +=
+      '</div>';
   }
 
   return html;
 }
 
 /* ==========================================================
+   GRÁFICA CIRCULAR
+   ========================================================== */
+
+export function expensePieSVG(
+  catTotals,
+  monthExpense,
+  monthIncome,
+  creditsPaid = 0,
+  uncategorizedExpense = 0
+){
+
+  const expense =
+    Math.max(
+      0,
+      Number(
+        monthExpense
+      ) || 0
+    );
+
+  const income =
+    Math.max(
+      0,
+      Number(
+        monthIncome
+      ) || 0
+    );
+
+  const credits =
+    Math.max(
+      0,
+      Number(
+        creditsPaid
+      ) || 0
+    );
+
+  const uncategorized =
+    Math.max(
+      0,
+      Number(
+        uncategorizedExpense
+      ) || 0
+    );
+
+  const totalOutflow =
+    expense +
+    credits;
+
+  if (
+    totalOutflow <= 0
+  ){
+    return '';
+  }
+
+  const cx = 60;
+  const cy = 60;
+  const r = 44;
+  const stroke = 16;
+
+  const circumference =
+    2 *
+    Math.PI *
+    r;
+
+  const gap =
+    2.8;
+
+  const spentRatio =
+    income > 0
+      ? totalOutflow /
+        income
+      : 0;
+
+  const remainingRatio =
+    income > 0
+      ? Math.max(
+          0,
+          1 -
+          spentRatio
+        )
+      : 0;
+
+  const ringBase =
+    income > totalOutflow
+      ? income
+      : totalOutflow;
+
+  const palette = [
+    '#38BDF8',
+    '#A78BFA',
+    '#F59E0B',
+    '#34D399',
+    '#FB7185',
+    '#F97316',
+    '#22D3EE',
+    '#C084FC',
+    '#84CC16',
+    '#E879F9',
+    '#2DD4BF',
+    '#FACC15'
+  ];
+
+  const used =
+    new Set([
+      '#EF4444',
+      '#8B85A3',
+      '#334155'
+    ]);
+
+  const colorMap =
+    new Map();
+
+  let paletteIndex =
+    0;
+
+  catTotals.forEach(
+    rw => {
+
+      const original =
+        String(
+          rw.cat?.color ||
+          ''
+        ).trim();
+
+      const normalized =
+        original.toUpperCase();
+
+      if (
+        original &&
+        !used.has(
+          normalized
+        )
+      ){
+
+        colorMap.set(
+          rw.id,
+          original
+        );
+
+        used.add(
+          normalized
+        );
+
+        return;
+      }
+
+      let selected =
+        null;
+
+      for (
+        let i = 0;
+        i < palette.length;
+        i++
+      ){
+
+        const candidate =
+          palette[
+            paletteIndex++ %
+            palette.length
+          ];
+
+        if (
+          !used.has(
+            candidate.toUpperCase()
+          )
+        ){
+
+          selected =
+            candidate;
+
+          break;
+        }
+      }
+
+      selected =
+        selected ||
+        palette[
+          paletteIndex++ %
+          palette.length
+        ];
+
+      colorMap.set(
+        rw.id,
+        selected
+      );
+
+      used.add(
+        selected.toUpperCase()
+      );
+    }
+  );
+
+  const slices = [];
+
+  let offset = 0;
+
+  const addSlice =
+    (
+      value,
+      color,
+      label
+    ) => {
+
+      const numericValue =
+        Math.max(
+          0,
+          Number(value) || 0
+        );
+
+      if (
+        numericValue <= 0 ||
+        ringBase <= 0
+      ){
+        return;
+      }
+
+      const ratio =
+        numericValue /
+        ringBase;
+
+      const rawDash =
+        ratio *
+        (
+          circumference -
+          gap
+        );
+
+      const dash =
+        Math.max(
+          0,
+          rawDash -
+          (
+            ratio > 0.02
+              ? gap
+              : gap * 0.25
+          )
+        );
+
+      if (
+        dash > 0.5
+      ){
+
+        slices.push({
+          color,
+          dash,
+          offset,
+          label
+        });
+      }
+
+      offset +=
+        rawDash;
+    };
+
+  catTotals.forEach(
+    rw => {
+
+      addSlice(
+        rw.total,
+        colorMap.get(
+          rw.id
+        ) ||
+        rw.cat?.color ||
+        '#38BDF8',
+        rw.cat?.name ||
+        'Categoría'
+      );
+    }
+  );
+
+  if (
+    uncategorized > 0
+  ){
+
+    addSlice(
+      uncategorized,
+      '#8B85A3',
+      'Sin categoría'
+    );
+  }
+
+  if (
+    credits > 0
+  ){
+
+    addSlice(
+      credits,
+      '#EF4444',
+      'Abonado a créditos'
+    );
+  }
+
+  if (
+    remainingRatio > 0.005
+  ){
+
+    const rawDash =
+      remainingRatio *
+      (
+        circumference -
+        gap
+      );
+
+    const dash =
+      Math.max(
+        0,
+        rawDash -
+        gap * 0.25
+      );
+
+    if (
+      dash > 0.5
+    ){
+
+      slices.push({
+        color:'#334155',
+        dash,
+        offset,
+        label:'Disponible'
+      });
+    }
+  }
+
+  let svg =
+    '<svg viewBox="0 0 120 120" aria-label="Gastos respecto al ingreso">';
+
+  svg +=
+    '<circle cx="60" cy="60" r="44" fill="none" stroke="#0F172A" stroke-width="16"/>';
+
+  slices.forEach(
+    s => {
+
+      svg +=
+        '<circle cx="60" cy="60" r="44" fill="none" stroke="' +
+        s.color +
+        '" stroke-width="16" stroke-dasharray="' +
+        s.dash.toFixed(2) +
+        ' ' +
+        (
+          circumference -
+          s.dash
+        ).toFixed(2) +
+        '" stroke-dashoffset="' +
+        (
+          -s.offset
+        ).toFixed(2) +
+        '" transform="rotate(-90 60 60)" />';
+    }
+  );
+
+  svg +=
+    '</svg>';
+
+  return svg;
+}
+
+/* ==========================================================
    MOVIMIENTOS
    ========================================================== */
 
-export function filteredTx(search = '', filter = 'all'){
-  let tx =
-    Array.isArray(DB.transactions)
-      ? [...DB.transactions]
-      : [];
+export function renderTxRow(t){
 
-  if (filter === 'income'){
-    tx =
-      tx.filter(
-        t => t.type === 'income'
-      );
-  }
+  const cat =
+    catById(
+      t.categoryId
+    );
 
-  if (filter === 'expense'){
-    tx =
-      tx.filter(
-        t => t.type === 'expense'
-      );
-  }
-
-  const q =
-    String(search || '')
-      .trim()
-      .toLowerCase();
-
-  if (q){
-    tx =
-      tx.filter(t => {
-        const cat =
-          catById(t.categoryId);
-
-        const title =
-          isCreditPaymentTransaction(t)
-            ? 'Pago a créditos'
-            : (
-                cat
-                  ? cat.name
-                  : ''
-              );
-
-        return (
-          String(t.note || '')
-            .toLowerCase()
-            .includes(q) ||
-          title
-            .toLowerCase()
-            .includes(q) ||
-          String(t.amount || '')
-            .includes(q)
-        );
-      });
-  }
-
-  return tx.sort(
-    (a, b) =>
-      String(b.date || '')
-        .localeCompare(
-          String(a.date || '')
+  const emoji =
+    cat
+      ? (
+          ICON_EMOJI[
+            cat.icon
+          ] ||
+          '⭐'
         )
+      : '⭐';
+
+  const bg =
+    (
+      cat
+        ? cat.color
+        : '#8B85A3'
+    ) +
+    '22';
+
+  return (
+    '<button class="tx-item" data-action="edit-tx" data-id="' +
+    t.id +
+    '">' +
+
+    '<div class="avatar" style="background:' +
+    bg +
+    '">' +
+    emoji +
+    '</div>' +
+
+    '<div class="tx-main"><div class="tx-title">' +
+    esc(
+      cat
+        ? cat.name
+        : 'Sin categoría'
+    ) +
+    '</div><div class="tx-sub">' +
+    esc(
+      t.date
+    ) +
+    (
+      t.note
+        ? ' · ' +
+          esc(
+            t.note
+          )
+        : ''
+    ) +
+    '</div></div>' +
+
+    '<div class="tx-amount ' +
+    t.type +
+    '">' +
+    (
+      t.type === 'income'
+        ? '+'
+        : '−'
+    ) +
+    fmtMoney(
+      t.amount
+    ) +
+    '</div></button>'
   );
 }
 
-export function renderTxRow(t){
-  const isIncome =
-    t.type === 'income';
+export function filteredTx(
+  search,
+  txFilter
+){
 
-  const isCreditPayment =
-    isCreditPaymentTransaction(t);
+  return DB.transactions
+    .filter(
+      t =>
+        txFilter === 'all'
+          ? true
+          : t.type === txFilter
+    )
+    .filter(
+      t => {
 
-  const cat =
-    catById(t.categoryId);
-
-  const title =
-    isCreditPayment
-      ? 'Pago a créditos'
-      : (
-          cat
-            ? cat.name
-            : 'Sin categoría'
-        );
-
-  const emoji =
-    isCreditPayment
-      ? '💳'
-      : (
-          cat
-            ? (
-                ICON_EMOJI[cat.icon] ||
-                '⭐'
-              )
-            : '⭐'
-        );
-
-  const color =
-    isCreditPayment
-      ? '#7A1F3D'
-      : (
-          isIncome
-            ? 'var(--income)'
-            : (
-                cat?.color ||
-                'var(--expense)'
-              )
-        );
-
-  const note =
-    isCreditPayment
-      ? String(
-          t.note || ''
-        ).replace(
-          /^Pago a créditos\s*·\s*/,
-          ''
-        )
-      : (
-          t.note || ''
-        );
-
-  return `
-    <div class="tx-row">
-      <div class="tx-avatar" style="background:${color}20">
-        ${emoji}
-      </div>
-
-      <div class="tx-main">
-        <div class="tx-title">
-          ${esc(title)}
-        </div>
-
-        ${
-          note
-            ? `<div class="tx-note">${esc(note)}</div>`
-            : ''
+        if (
+          !search.trim()
+        ){
+          return true;
         }
 
-        <div class="tx-date">
-          ${esc(t.date || '')}
-        </div>
-      </div>
+        const s =
+          search.toLowerCase();
 
-      <div class="tx-right">
-        <div class="tx-amount" style="color:${color}">
-          ${
-            isIncome
-              ? '+'
-              : '−'
-          }${fmtMoney(t.amount)}
-        </div>
+        const cat =
+          catById(
+            t.categoryId
+          );
 
-        <button
-          class="tx-edit"
-          data-action="${
-            isCreditPayment
-              ? 'edit-credit-payment'
-              : 'edit-tx'
-          }"
-          data-id="${esc(t.id)}"
-          ${
-            isCreditPayment
-              ? `data-cid="${esc(t.sourceCreditId || '')}" data-pid="${esc(t.sourcePaymentId || '')}"`
-              : ''
-          }
-        >
-          ${icon('edit')}
-        </button>
-      </div>
-    </div>
-  `;
+        return (
+          (
+            t.note ||
+            ''
+          )
+            .toLowerCase()
+            .includes(s)
+        ) ||
+        (
+          cat &&
+          cat.name
+            .toLowerCase()
+            .includes(s)
+        );
+      }
+    )
+    .sort(
+      (a,b) =>
+        (
+          b.date +
+          b.id
+        ).localeCompare(
+          a.date +
+          a.id
+        )
+    );
 }
 
 export function renderTransactions(
-  search = '',
-  filter = 'all'
+  search,
+  txFilter
 ){
-  const tx =
+
+  const list =
     filteredTx(
       search,
-      filter
+      txFilter
     );
 
   let html = '';
 
   html +=
-    '<div class="page-header">' +
-      '<div>' +
-        '<h2>Movimientos</h2>' +
-        '<p>Tu actividad financiera</p>' +
-      '</div>' +
-    '</div>';
-
-  html +=
     '<div class="search-box">' +
-      '<span>⌕</span>' +
-      '<input id="tx-search" value="' +
-        esc(search) +
-        '" placeholder="Buscar movimiento...">' +
+    icon('search') +
+    '<input id="search-input" placeholder="Buscar por nota o categoría" value="' +
+    esc(
+      search
+    ) +
+    '">' +
     '</div>';
 
   html +=
-    '<div class="filter-tabs">' +
-      '<button class="' +
-        (
-          filter === 'all'
-            ? 'active'
-            : ''
-        ) +
-        '" data-action="tx-filter" data-filter="all">Todos</button>' +
+    '<div class="filter-row">';
 
-      '<button class="' +
-        (
-          filter === 'income'
-            ? 'active'
-            : ''
-        ) +
-        '" data-action="tx-filter" data-filter="income">Ingresos</button>' +
+  [
+    ['all','Todos'],
+    ['income','Ingresos'],
+    ['expense','Gastos']
+  ].forEach(
+    ([val,label]) => {
 
-      '<button class="' +
+      html +=
+        '<button class="chip ' +
         (
-          filter === 'expense'
-            ? 'active'
+          txFilter === val
+            ? 'selected'
             : ''
         ) +
-        '" data-action="tx-filter" data-filter="expense">Gastos</button>' +
+        '" data-action="set-filter" data-filter="' +
+        val +
+        '">' +
+        label +
+        '</button>';
+    }
+  );
+
+  html +=
     '</div>';
 
   html +=
-    '<div class="card tx-list-card">';
-
-  if (!tx.length){
-
-    html +=
-      '<div class="empty-state">' +
-        '<div class="empty-icon">📊</div>' +
-        '<h3>Sin movimientos</h3>' +
-        '<p>No hay movimientos que coincidan con tu búsqueda.</p>' +
-      '</div>';
-
-  } else {
-
-    tx.forEach(t => {
-      html += renderTxRow(t);
-    });
-  }
-
-  html += '</div>';
+    '<div id="tx-list">' +
+    (
+      list.length
+        ? list
+            .map(
+              renderTxRow
+            )
+            .join('')
+        : '<div class="empty-state">No hay movimientos registrados.</div>'
+    ) +
+    '</div>';
 
   return html;
 }
@@ -1789,364 +1601,594 @@ export function renderTransactions(
    ========================================================== */
 
 export function renderInvoices(
-  openInvoiceId = null
+  openInvoiceId
 ){
-  const invoices =
-    Array.isArray(DB.invoices)
-      ? DB.invoices
-      : [];
 
   let html = '';
 
   html +=
-    '<div class="page-header">' +
-      '<div>' +
-        '<h2>Facturas</h2>' +
-        '<p>Facturas escaneadas con IA</p>' +
-      '</div>' +
-    '</div>';
+    '<div class="section-title">Facturas Escaneadas</div>';
 
-  if (!invoices.length){
+  const list =
+    (
+      DB.invoices || []
+    )
+      .slice()
+      .sort(
+        (a,b) =>
+          (
+            b.date +
+            b.id
+          ).localeCompare(
+            a.date +
+            a.id
+          )
+      );
 
-    html +=
-      '<div class="card empty-state">' +
-        '<div class="empty-icon">🧾</div>' +
-        '<h3>Aún no tienes facturas</h3>' +
-        '<p>Usa el botón + para escanear una factura con IA.</p>' +
-      '</div>';
+  if (
+    !list.length
+  ){
 
-    return html;
+    return (
+      html +
+      '<div class="empty-state">Aún no has escaneado ninguna factura.<br>Usa el botón central (+) para escanear una.</div>'
+    );
   }
 
-  html += '<div class="invoice-list">';
+  list.forEach(
+    inv => {
 
-  invoices.forEach(inv => {
-
-    const total =
-      (inv.items || [])
-        .reduce(
-          (sum, item) =>
-            sum +
-            (Number(item.price) || 0),
-          0
-        );
-
-    html +=
-      '<div class="card invoice-card">' +
-        '<div class="invoice-head">' +
-          '<div>' +
-            '<h3>' +
-              esc(
-                inv.title ||
-                'Factura'
-              ) +
-            '</h3>' +
-            '<span>' +
-              esc(inv.date || '') +
-            '</span>' +
-          '</div>' +
-
-          '<strong>' +
-            fmtMoney(total) +
-          '</strong>' +
-        '</div>' +
-
-        '<button class="secondary-btn" data-action="open-invoice" data-id="' +
-          esc(inv.id) +
-          '">' +
-          (
-            openInvoiceId === inv.id
-              ? 'Ocultar detalle'
-              : 'Ver detalle'
-          ) +
-        '</button>';
-
-    if (openInvoiceId === inv.id){
+      const isOpen =
+        openInvoiceId ===
+        inv.id;
 
       html +=
-        '<div class="invoice-items">';
+        '<div class="credit-card"><div class="credit-head"><div><div class="credit-title">' +
+        esc(
+          inv.title
+        ) +
+        '</div><div class="credit-sub">' +
+        esc(
+          inv.date
+        ) +
+        ' · ' +
+        inv.items.length +
+        ' ítem(s)</div></div><button data-action="edit-invoice" data-id="' +
+        inv.id +
+        '">' +
+        icon('pencil') +
+        '</button></div>';
 
-      (inv.items || [])
-        .forEach(item => {
+      html +=
+        '<div class="credit-values"><span>Total:</span><span class="credit-pending against">' +
+        fmtMoney(
+          inv.total
+        ) +
+        '</span></div>';
 
-          html +=
-            '<div class="invoice-item">' +
-              '<span>' +
-                esc(item.name || 'Producto') +
-              '</span>' +
-              '<strong>' +
-                fmtMoney(item.price) +
-              '</strong>' +
-            '</div>';
-        });
+      html +=
+        '<button class="add-pay-btn" data-action="toggle-invoice" data-id="' +
+        inv.id +
+        '">' +
+        (
+          isOpen
+            ? 'Ocultar ítems'
+            : 'Ver ítems'
+        ) +
+        '</button>';
 
-      html += '</div>';
+      if (
+        isOpen
+      ){
+
+        html +=
+          '<div style="margin-top:10px;">';
+
+        inv.items.forEach(
+          it => {
+
+            html +=
+              '<div class="invoice-item-row"><span class="iname">' +
+              esc(
+                it.name
+              ) +
+              '</span><span class="iprice">' +
+              fmtMoney(
+                it.price
+              ) +
+              '</span></div>';
+          }
+        );
+
+        html +=
+          '</div>';
+      }
+
+      html +=
+        '<div style="margin-top:10px;">';
+
+      if (
+        inv.registered
+      ){
+
+        const cat =
+          catById(
+            inv.categoryId
+          );
+
+        html +=
+          '<span class="registered-badge">' +
+          icon('check') +
+          ' Registrada' +
+          (
+            cat
+              ? ' en ' +
+                esc(
+                  cat.name
+                )
+              : ''
+          ) +
+          '</span>';
+
+      } else {
+
+        html +=
+          '<button class="add-pay-btn" data-action="register-invoice" data-id="' +
+          inv.id +
+          '">Elegir categoría y registrar</button>';
+      }
+
+      html +=
+        '</div></div>';
     }
-
-    html += '</div>';
-  });
-
-  html += '</div>';
+  );
 
   return html;
-}
-
-export function renderInvoiceItemsHTML(
-  items = []
-){
-  return items.map((item, idx) => `
-    <div class="invoice-edit-item">
-      <input
-        data-idx="${idx}"
-        data-field="name"
-        value="${esc(item.name || '')}"
-        placeholder="Producto"
-      >
-
-      <input
-        data-idx="${idx}"
-        data-field="price"
-        inputmode="numeric"
-        value="${esc(formatThousandInput(item.price))}"
-        placeholder="0"
-      >
-    </div>
-  `).join('');
 }
 
 /* ==========================================================
    CRÉDITOS
    ========================================================== */
 
-export function computeCreditPaymentBreakdown(
-  credit
-){
-  const total =
-    Number(credit?.total) || 0;
-
-  const paid =
-    (credit?.payments || [])
-      .reduce(
-        (sum, p) =>
-          sum +
-          (Number(p.amount) || 0),
-        0
-      );
-
-  const pending =
-    Math.max(
-      0,
-      total - paid
-    );
-
-  const pct =
-    total > 0
-      ? Math.min(
-          100,
-          Math.round(
-            (paid / total) * 100
-          )
-        )
-      : 0;
-
-  return {
-    total,
-    paid,
-    pending,
-    pct
-  };
-}
-
 export function renderCredits(
-  filter = 'against'
+  creditFilter,
+  openCreditId = null
 ){
-  const credits =
-    (DB.credits || [])
-      .filter(c =>
-        c.type === filter
-      );
 
   let html = '';
 
-  html +=
-    '<div class="page-header">' +
-      '<div>' +
-        '<h2>Créditos</h2>' +
-        '<p>Control de tus compromisos financieros</p>' +
-      '</div>' +
-    '</div>';
+  const summary =
+    computeCreditsSummary();
 
-  html +=
-    '<div class="type-toggle credit-toggle">' +
-      '<button class="' +
-        (
-          filter === 'against'
-            ? 'active-expense'
-            : ''
-        ) +
-        '" data-action="credit-filter" data-filter="against">' +
-        'Mis créditos' +
-      '</button>' +
-
-      '<button class="' +
-        (
-          filter === 'favor'
-            ? 'active-income'
-            : ''
-        ) +
-        '" data-action="credit-filter" data-filter="favor">' +
-        'Me deben' +
-      '</button>' +
-    '</div>';
-
-  if (!credits.length){
+  if (
+    summary.againstCount > 0 ||
+    summary.favorCount > 0
+  ){
 
     html +=
-      '<div class="card empty-state">' +
-        '<div class="empty-icon">💳</div>' +
-        '<h3>No hay créditos registrados</h3>' +
-        '<p>Agrega un crédito para comenzar a hacer seguimiento.</p>' +
-      '</div>';
+      '<div class="balance-card">';
 
-    return html;
-  }
-
-  html += '<div class="credit-list">';
-
-  credits.forEach(c => {
-
-    const info =
-      computeCreditPaymentBreakdown(c);
-
-    html +=
-      '<div class="card credit-card">' +
-
-        '<div class="credit-head">' +
-          '<div>' +
-            '<h3>' +
-              esc(c.title || 'Crédito') +
-            '</h3>' +
-            '<span>' +
-              (
-                c.type === 'against'
-                  ? 'Debo'
-                  : 'Me deben'
-              ) +
-            '</span>' +
-          '</div>' +
-
-          '<button class="icon-btn" data-action="edit-credit" data-id="' +
-            esc(c.id) +
-          '">' +
-            icon('edit') +
-          '</button>' +
-        '</div>' +
-
-        '<div class="credit-amounts">' +
-          '<div>' +
-            '<span>Total</span>' +
-            '<strong>' +
-              fmtMoney(info.total) +
-            '</strong>' +
-          '</div>' +
-
-          '<div>' +
-            '<span>Pagado</span>' +
-            '<strong>' +
-              fmtMoney(info.paid) +
-            '</strong>' +
-          '</div>' +
-
-          '<div>' +
-            '<span>Pendiente</span>' +
-            '<strong>' +
-              fmtMoney(info.pending) +
-            '</strong>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="credit-progress">' +
-          '<div class="credit-progress-head">' +
-            '<span>Avance</span>' +
-            '<span>' +
-              info.pct +
-              '%' +
-            '</span>' +
-          '</div>' +
-
-          '<div class="credit-progress-track">' +
-            '<div class="credit-progress-fill" style="width:' +
-              info.pct +
-              '%"></div>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="credit-actions">' +
-          '<button class="save-btn" data-action="new-payment" data-id="' +
-            esc(c.id) +
-          '">' +
-            'Registrar pago' +
-          '</button>' +
-
-          '<button class="secondary-btn" data-action="edit-credit" data-id="' +
-            esc(c.id) +
-          '">' +
-            'Ver / editar' +
-          '</button>' +
-        '</div>';
-
-    if ((c.payments || []).length){
+    if (
+      summary.againstCount > 0
+    ){
 
       html +=
-        '<div class="payment-history">' +
-          '<div class="payment-history-title">Pagos registrados</div>';
+        '<div class="balance-label">Total que debo</div>';
 
-      (c.payments || [])
-        .slice()
-        .sort(
-          (a, b) =>
-            String(b.date || '')
-              .localeCompare(
-                String(a.date || '')
-              )
-        )
-        .forEach(p => {
+      html +=
+        '<div class="balance-amount" style="color:var(--expense)">' +
+        fmtMoney(
+          summary.againstPending
+        ) +
+        '</div>';
 
-          html +=
-            '<div class="payment-row">' +
-              '<div>' +
-                '<strong>' +
-                  fmtMoney(p.amount) +
-                '</strong>' +
-                '<span>' +
-                  esc(p.date || '') +
-                '</span>' +
-                (
-                  p.note
-                    ? '<small>' +
-                        esc(p.note) +
-                      '</small>'
-                    : ''
-                ) +
-              '</div>' +
+      html +=
+        '<div class="balance-month">de ' +
+        fmtMoney(
+          summary.againstTotal
+        ) +
+        ' en ' +
+        summary.againstCount +
+        ' crédito(s)</div>';
 
-              '<button class="icon-btn" data-action="edit-payment" data-cid="' +
-                esc(c.id) +
-                '" data-pid="' +
-                esc(p.id) +
-                '">' +
-                icon('edit') +
-              '</button>' +
-            '</div>';
-        });
-
-      html += '</div>';
+      html +=
+        '<div class="bar-track" style="margin-top:10px;"><div class="bar-fill" style="width:' +
+        summary.againstProgressPct +
+        '%;background:var(--income)"></div></div>';
     }
 
-    html += '</div>';
-  });
+    if (
+      summary.favorCount > 0
+    ){
 
-  html += '</div>';
+      html +=
+        '<div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(56,189,248,0.2)">';
+
+      html +=
+        '<div class="balance-label">Total que me deben</div>';
+
+      html +=
+        '<div class="balance-amount" style="font-size:26px;color:var(--income)">' +
+        fmtMoney(
+          summary.favorPending
+        ) +
+        '</div>';
+
+      html +=
+        '<div class="balance-month">de ' +
+        fmtMoney(
+          summary.favorTotal
+        ) +
+        ' en ' +
+        summary.favorCount +
+        ' cobro(s)</div></div>';
+    }
+
+    html +=
+      '</div>';
+  }
+
+  html +=
+    '<div class="filter-row" style="margin-bottom:14px;">';
+
+  [
+    [
+      'against',
+      'En contra (Deudas)'
+    ],
+    [
+      'favor',
+      'A favor (Cobros)'
+    ]
+  ].forEach(
+    ([val,label]) => {
+
+      html +=
+        '<button class="chip ' +
+        (
+          creditFilter === val
+            ? 'selected'
+            : ''
+        ) +
+        '" data-action="set-credit-filter" data-filter="' +
+        val +
+        '">' +
+        label +
+        '</button>';
+    }
+  );
+
+  html +=
+    '</div>';
+
+  const list =
+    (
+      DB.credits || []
+    )
+      .filter(
+        c =>
+          c.type ===
+          creditFilter
+      );
+
+  if (
+    !list.length
+  ){
+
+    return (
+      html +
+      '<div class="empty-state">No hay créditos registrados.</div>'
+    );
+  }
+
+  list.forEach(
+    raw => {
+
+      const c = {
+        ...raw,
+        payments:
+          Array.isArray(
+            raw.payments
+          )
+            ? raw.payments
+            : []
+      };
+
+      const plan =
+        computeCreditPlan(
+          c
+        );
+
+      const isAgainst =
+        c.type ===
+        'against';
+
+      const isOpen =
+        openCreditId ===
+        c.id;
+
+      const progressColor =
+        isAgainst
+          ? 'var(--expense)'
+          : 'var(--income)';
+
+      const rateText =
+        plan.interestEnabled
+          ? (
+              plan.interestRate.toLocaleString(
+                'es-CO',
+                {
+                  maximumFractionDigits:2
+                }
+              ) +
+              '% ' +
+              (
+                plan.interestPeriod === 'annual'
+                  ? 'anual'
+                  : 'mensual'
+              )
+            )
+          : 'Sin intereses';
+
+      html +=
+        '<div class="credit-card" style="overflow:hidden;">';
+
+      html +=
+        '<div class="credit-head"><div style="min-width:0"><div class="credit-title">' +
+        esc(
+          c.title
+        ) +
+        '</div><div class="credit-sub">' +
+        (
+          isAgainst
+            ? 'Deuda'
+            : 'Cobro'
+        ) +
+        ' · Capital ' +
+        fmtMoney(
+          plan.principal
+        ) +
+        '</div></div><button data-action="edit-credit" data-id="' +
+        c.id +
+        '">' +
+        icon('pencil') +
+        '</button></div>';
+
+      /*
+       * Resumen visual de tres cifras.
+       */
+
+      html +=
+        '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px;">';
+
+      html +=
+        '<div style="padding:10px 9px;border:1px solid rgba(148,163,184,.14);border-radius:14px;background:rgba(15,23,42,.38);"><div style="font-size:9px;color:var(--ink-muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Saldo</div><div style="font-size:14px;font-weight:800;margin-top:4px">' +
+        fmtMoney(
+          plan.pendingTotal
+        ) +
+        '</div></div>';
+
+      html +=
+        '<div style="padding:10px 9px;border:1px solid rgba(148,163,184,.14);border-radius:14px;background:rgba(15,23,42,.38);"><div style="font-size:9px;color:var(--ink-muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Interés</div><div style="font-size:14px;font-weight:800;margin-top:4px">' +
+        (
+          plan.interestEnabled
+            ? fmtMoney(
+                plan.estimatedInterest
+              )
+            : '—'
+        ) +
+        '</div></div>';
+
+      html +=
+        '<div style="padding:10px 9px;border:1px solid rgba(148,163,184,.14);border-radius:14px;background:rgba(15,23,42,.38);"><div style="font-size:9px;color:var(--ink-muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Avance</div><div style="font-size:14px;font-weight:800;margin-top:4px;color:' +
+        progressColor +
+        '">' +
+        plan.progressPct +
+        '%</div></div>';
+
+      html +=
+        '</div>';
+
+      html +=
+        '<div class="credit-values" style="margin-top:14px"><span>Total estimado</span><span class="credit-pending ' +
+        (
+          isAgainst
+            ? 'against'
+            : 'favor'
+        ) +
+        '">' +
+        fmtMoney(
+          plan.scheduledTotal
+        ) +
+        '</span></div>';
+
+      html +=
+        '<div class="bar-track" style="margin-bottom:12px"><div class="bar-fill" style="width:' +
+        plan.progressPct +
+        '%;background:' +
+        progressColor +
+        '"></div></div>';
+
+      /*
+       * Condiciones del crédito.
+       */
+
+      if (
+        plan.interestEnabled
+      ){
+
+        html +=
+          '<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 12px;border-radius:14px;background:linear-gradient(135deg,rgba(167,139,250,.08),rgba(56,189,248,.06));border:1px solid rgba(167,139,250,.14);margin-bottom:10px;">';
+
+        html +=
+          '<div><div style="font-size:10px;color:var(--ink-muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Condiciones</div><div style="font-size:12px;font-weight:700;margin-top:3px">' +
+          rateText +
+          (
+            plan.termMonths
+              ? ' · ' +
+                plan.termMonths +
+                ' meses'
+              : ''
+          ) +
+          '</div></div>';
+
+        html +=
+          '<div style="text-align:right"><div style="font-size:9px;color:var(--ink-muted);font-weight:800;text-transform:uppercase">Cuota estimada</div><div style="font-size:15px;font-weight:900;color:var(--pink);margin-top:2px">' +
+          (
+            plan.monthlyPayment > 0
+              ? fmtMoney(
+                  plan.monthlyPayment
+                )
+              : '—'
+          ) +
+          '</div></div>';
+
+        html +=
+          '</div>';
+      }
+
+      html +=
+        '<button class="add-pay-btn" data-action="toggle-credit-detail" data-id="' +
+        c.id +
+        '" style="margin-top:2px">' +
+        (
+          isOpen
+            ? 'Ocultar detalle'
+            : 'Ver detalle del crédito'
+        ) +
+        '</button>';
+
+      /*
+       * DETALLE EXPANDIBLE
+       */
+
+      if (
+        isOpen
+      ){
+
+        html +=
+          '<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(148,163,184,.12);">';
+
+        html +=
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+
+        html +=
+          '<div style="padding:10px 12px;border-radius:13px;background:rgba(15,23,42,.42)"><div style="font-size:9px;color:var(--ink-muted);text-transform:uppercase;font-weight:800;letter-spacing:.07em">Capital pagado</div><div style="font-size:14px;font-weight:800;margin-top:3px">' +
+          fmtMoney(
+            plan.paidPrincipal
+          ) +
+          '</div></div>';
+
+        html +=
+          '<div style="padding:10px 12px;border-radius:13px;background:rgba(15,23,42,.42)"><div style="font-size:9px;color:var(--ink-muted);text-transform:uppercase;font-weight:800;letter-spacing:.07em">Interés pagado</div><div style="font-size:14px;font-weight:800;margin-top:3px">' +
+          fmtMoney(
+            plan.paidInterest
+          ) +
+          '</div></div>';
+
+        html +=
+          '</div>';
+
+        html +=
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">';
+
+        html +=
+          '<div style="padding:10px 12px;border-radius:13px;background:rgba(15,23,42,.42)"><div style="font-size:9px;color:var(--ink-muted);text-transform:uppercase;font-weight:800;letter-spacing:.07em">Capital pendiente</div><div style="font-size:14px;font-weight:800;margin-top:3px">' +
+          fmtMoney(
+            plan.remainingPrincipal
+          ) +
+          '</div></div>';
+
+        html +=
+          '<div style="padding:10px 12px;border-radius:13px;background:rgba(15,23,42,.42)"><div style="font-size:9px;color:var(--ink-muted);text-transform:uppercase;font-weight:800;letter-spacing:.07em">Aportes</div><div style="font-size:14px;font-weight:800;margin-top:3px">' +
+          plan.paymentCount +
+          '</div></div>';
+
+        html +=
+          '</div>';
+
+        if (
+          plan.interestEnabled &&
+          plan.termMonths > 0
+        ){
+
+          html +=
+            '<div style="margin-top:12px;padding:11px 12px;border-radius:13px;border:1px solid rgba(56,189,248,.12);background:rgba(56,189,248,.04);font-size:10.5px;color:var(--ink-muted);line-height:1.45">Cálculo de referencia con cuota fija y amortización francesa. Los aportes reales registrados prevalecen sobre la proyección.</div>';
+        }
+
+        if (
+          c.payments.length
+        ){
+
+          const details =
+            computeCreditPaymentBreakdown(
+              c
+            );
+
+          html +=
+            '<div style="margin-top:14px"><div style="font-size:10px;font-weight:800;color:var(--ink-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px">Historial de aportes</div>';
+
+          details.forEach(
+            p => {
+
+              html +=
+                '<div class="payment-item" style="align-items:flex-start;gap:8px"><div style="min-width:0"><div style="font-weight:700">' +
+                esc(
+                  p.date ||
+                  ''
+                ) +
+                '</div><div style="font-size:10px;color:var(--ink-muted);margin-top:2px">' +
+                (
+                  p.note
+                    ? esc(
+                        p.note
+                      ) +
+                      ' · '
+                    : ''
+                ) +
+                'Capital ' +
+                fmtMoney(
+                  p.principalPaid
+                ) +
+                (
+                  plan.interestEnabled
+                    ? ' · Interés ' +
+                      fmtMoney(
+                        p.interestPaid
+                      )
+                    : ''
+                ) +
+                '</div></div><div style="display:flex;align-items:center;gap:4px"><b>+' +
+                fmtMoney(
+                  p.amount
+                ) +
+                '</b><button style="margin-left:4px" data-action="edit-payment" data-cid="' +
+                c.id +
+                '" data-pid="' +
+                p.id +
+                '">' +
+                icon('pencil') +
+                '</button></div></div>';
+            }
+          );
+
+          html +=
+            '</div>';
+        }
+
+        html +=
+          '</div>';
+      }
+
+      html +=
+        '<button class="add-pay-btn" data-action="new-payment" data-id="' +
+        c.id +
+        '">+ Agregar aporte</button>';
+
+      html +=
+        '</div>';
+    }
+  );
 
   return html;
 }
@@ -2156,66 +2198,116 @@ export function renderCredits(
    ========================================================== */
 
 export function renderCategories(){
-  let html = '';
 
-  html +=
-    '<div class="page-header">' +
-      '<div>' +
-        '<h2>Categorías</h2>' +
-        '<p>Personaliza la forma en que organizas tus gastos</p>' +
-      '</div>' +
-    '</div>';
+  const totals =
+    computeCategoryTotals();
 
-  html +=
-    '<div class="card">' +
-      '<div class="section-title">Categorías de gasto</div>';
+  const totalsById =
+    Object.fromEntries(
+      totals.map(
+        r => [
+          r.id,
+          r.total
+        ]
+      )
+    );
 
-  DB.categories
-    .filter(c => c.type === 'expense')
-    .forEach(c => {
+  const income =
+    DB.categories.filter(
+      c =>
+        c.type ===
+        'income'
+    );
 
-      html +=
-        '<div class="category-row">' +
-          '<div class="category-left">' +
-            '<span class="category-color" style="background:' +
-              c.color +
-            '">' +
-              (
-                ICON_EMOJI[c.icon] ||
-                '⭐'
-              ) +
-            '</span>' +
+  const expense =
+    DB.categories.filter(
+      c =>
+        c.type ===
+        'expense'
+    );
 
-            '<div>' +
-              '<strong>' +
-                esc(c.name) +
-              '</strong>' +
-              (
+  const row =
+    c => {
+
+      const emoji =
+        ICON_EMOJI[
+          c.icon
+        ] ||
+        '⭐';
+
+      return (
+        '<button class="cat-item" data-action="edit-cat" data-id="' +
+        c.id +
+        '">' +
+
+        '<div class="avatar" style="background:' +
+        c.color +
+        '22">' +
+        emoji +
+        '</div>' +
+
+        '<div class="tx-main"><div class="cat-name">' +
+        esc(
+          c.name
+        ) +
+        (
+          c.primary
+            ? '<span class="star-badge">Principal</span>'
+            : ''
+        ) +
+        (
+          c.isFixed
+            ? '<span class="fixed-badge">Fijo</span>'
+            : ''
+        ) +
+        '</div>' +
+
+        (
+          c.type === 'expense' &&
+          c.budget
+            ? '<div class="cat-budget">Presupuesto: ' +
+              fmtMoney(
                 c.budget
-                  ? '<small>Presupuesto: ' +
-                      fmtMoney(c.budget) +
-                    '</small>'
-                  : ''
               ) +
-            '</div>' +
-          '</div>' +
+              '</div>'
+            : ''
+        ) +
+        '</div>' +
 
-          '<button class="icon-btn" data-action="edit-category" data-id="' +
-            esc(c.id) +
-          '">' +
-            icon('edit') +
-          '</button>' +
-        '</div>';
-    });
+        (
+          c.type === 'expense' &&
+          totalsById[c.id]
+            ? '<div class="cat-total">' +
+              fmtMoney(
+                totalsById[c.id]
+              ) +
+              '</div>'
+            : ''
+        ) +
 
-  html +=
-    '<button class="save-btn" data-action="new-category" style="width:100%;margin-top:16px">' +
-      '+ Nueva categoría' +
-    '</button>';
+        icon('pencil') +
 
-  html += '</div>';
+        '</button>'
+      );
+    };
 
-  return html;
+  return (
+    '<button class="new-cat-btn" data-action="new-cat">' +
+    icon('plus') +
+    ' Nueva categoría</button>' +
+
+    '<div class="section-title">Ingresos</div>' +
+
+    income
+      .map(row)
+      .join('') +
+
+    '<div class="section-title" style="margin-top:20px">Gastos</div>' +
+
+    expense
+      .map(row)
+      .join('')
+  );
 }
 
 /* ==========================================================
@@ -2223,282 +2315,316 @@ export function renderCategories(){
    ========================================================== */
 
 export function renderSettings(){
-  const currency =
-    DB.settings?.currency ||
-    'COP';
 
-  let html = '';
+  let html =
+    '<div class="section-title">Moneda</div><div class="settings-list">';
 
-  html +=
-    '<div class="page-header">' +
-      '<div>' +
-        '<h2>Ajustes</h2>' +
-        '<p>Configura tu experiencia financiera</p>' +
-      '</div>' +
-    '</div>';
+  Object.entries(
+    CURRENCIES
+  ).forEach(
+    ([code,cfg]) => {
 
-  html +=
-    '<div class="card">' +
-      '<div class="section-title">Moneda</div>' +
+      const active =
+        DB.settings.currency ===
+        code;
 
-      '<div class="field">' +
-        '<div class="field-label">Moneda principal</div>' +
-        '<select id="settings-currency">';
-
-  CURRENCIES.forEach(c => {
-
-    html +=
-      '<option value="' +
-        esc(c.code) +
-        '"' +
+      html +=
+        '<button class="settings-row ' +
         (
-          c.code === currency
-            ? ' selected'
+          active
+            ? 'active'
             : ''
         ) +
-      '>' +
-        esc(c.label) +
-      '</option>';
-  });
+        '" data-action="set-currency" data-code="' +
+        code +
+        '"><span>' +
+        cfg.label +
+        '</span>' +
+        (
+          active
+            ? icon('check')
+            : ''
+        ) +
+        '</button>';
+    }
+  );
 
   html +=
-        '</select>' +
-      '</div>' +
-
-      '<button class="save-btn" data-action="save-settings" style="width:100%">' +
-        'Guardar ajustes' +
-      '</button>' +
     '</div>';
 
   html +=
-    '<div class="card" style="margin-top:16px">' +
-      '<div class="section-title">Datos</div>' +
+    '<div class="section-title" style="margin-top:20px">Configuración de API IA (Producción)</div>';
 
-      '<button class="secondary-btn" data-action="export-backup" style="margin-top:20px">' +
-        'Exportar copia de seguridad' +
-      '</button>' +
+  html +=
+    '<div class="data-box"><div class="field-label">Clave de API de Gemini</div>';
 
-      '<button class="secondary-btn" data-action="import-backup">' +
-        'Importar copia de seguridad' +
-      '</button>' +
+  html +=
+    '<input id="gemini-key-input" type="text" placeholder="Pega aquí tu API key" value="' +
+    esc(
+      DB.settings.geminiApiKey ||
+      ''
+    ) +
+    '">';
 
-      '<input type="file" id="import-file" accept="application/json" style="display:none">' +
+  html +=
+    '<div style="font-size:11px;color:var(--ink-muted);margin-top:8px;">Clave segura para procesamiento en nube.</div></div>';
 
-      '<button class="danger-btn" data-action="reset-data">' +
-        'Borrar todos los datos' +
-      '</button>' +
-    '</div>';
+  html +=
+    '<div class="section-title" style="margin-top:20px">Tus datos</div>';
+
+  html +=
+    '<div class="data-box"><div class="row"><span class="muted">Movimientos</span><span>' +
+    DB.transactions.length +
+    '</span></div>' +
+
+    '<div class="row"><span class="muted">Categorías</span><span>' +
+    DB.categories.length +
+    '</span></div>' +
+
+    '<div class="row"><span class="muted">Créditos</span><span>' +
+    (
+      DB.credits ||
+      []
+    ).length +
+    '</span></div>' +
+
+    '<div class="row"><span class="muted">Facturas</span><span>' +
+    (
+      DB.invoices ||
+      []
+    ).length +
+    '</span></div></div>';
+
+  html +=
+    '<button class="secondary-btn" data-action="export-backup" style="margin-top:20px">Exportar copia de seguridad</button>';
+
+  html +=
+    '<button class="secondary-btn" data-action="import-backup">Importar copia de seguridad</button>';
+
+  html +=
+    '<input type="file" id="import-file" accept="application/json" style="display:none">';
+
+  html +=
+    '<button class="danger-btn" data-action="reset-data">Borrar todos los datos</button>';
 
   return html;
 }
 
 /* ==========================================================
-   MENÚ DEL BOTÓN +
+   MENÚ FAB
    ========================================================== */
 
 export function renderFabMenu(){
+
   return (
     '<div class="fab-menu-backdrop" id="fab-backdrop">' +
-      '<div class="fab-menu-sheet">' +
 
-        '<button class="fab-menu-item" data-action="fab-new-tx">' +
-          '<div class="icon-box">' +
-            icon('plus') +
-          '</div>' +
-          '<span>Registrar movimiento</span>' +
-        '</button>' +
+    '<div class="fab-menu-sheet">' +
 
-        '<button class="fab-menu-item" data-action="fab-new-credit">' +
-          '<div class="icon-box">' +
-            icon('credit') +
-          '</div>' +
-          '<span>Agregar nuevo crédito</span>' +
-        '</button>' +
+    '<button class="fab-menu-item" data-action="fab-new-tx">' +
+    '<div class="icon-box">' +
+    icon('plus') +
+    '</div>' +
+    '<span>Registrar movimiento</span>' +
+    '</button>' +
 
-        '<button class="fab-menu-item" data-action="fab-scan-invoice">' +
-          '<div class="icon-box">' +
-            icon('camera') +
-          '</div>' +
-          '<span>Escanear factura con IA</span>' +
-        '</button>' +
+    '<button class="fab-menu-item" data-action="fab-new-credit">' +
+    '<div class="icon-box">' +
+    icon('credit') +
+    '</div>' +
+    '<span>Agregar nuevo crédito</span>' +
+    '</button>' +
 
-        '<button class="fab-menu-item" data-action="fab-invoices">' +
-          '<div class="icon-box">' +
-            icon('receipt') +
-          '</div>' +
-          '<span>Ver facturas escaneadas</span>' +
-        '</button>' +
+    '<button class="fab-menu-item" data-action="fab-scan-invoice">' +
+    '<div class="icon-box">' +
+    icon('camera') +
+    '</div>' +
+    '<span>Escanear factura con IA</span>' +
+    '</button>' +
 
-        '<button class="fab-menu-item" data-action="fab-settings">' +
-          '<div class="icon-box">' +
-            icon('gear') +
-          '</div>' +
-          '<span>Ajustes y Moneda</span>' +
-        '</button>' +
+    '<button class="fab-menu-item" data-action="fab-invoices">' +
+    '<div class="icon-box">' +
+    icon('receipt') +
+    '</div>' +
+    '<span>Ver facturas escaneadas</span>' +
+    '</button>' +
 
-      '</div>' +
-    '</div>'
+    '<button class="fab-menu-item" data-action="fab-settings">' +
+    '<div class="icon-box">' +
+    icon('gear') +
+    '</div>' +
+    '<span>Ajustes y Moneda</span>' +
+    '</button>' +
+
+    '</div></div>'
   );
 }
 
 /* ==========================================================
-   HOJA: GASTO RÁPIDO
+   HOJA DE GASTO RÁPIDO
    ========================================================== */
 
-export function renderQuickSheet(sheet){
+export function renderQuickSheet(
+  sheet
+){
+
   const cat =
-    catById(sheet.categoryId);
+    catById(
+      sheet.categoryId
+    );
 
   const emoji =
     cat
       ? (
-          ICON_EMOJI[cat.icon] ||
+          ICON_EMOJI[
+            cat.icon
+          ] ||
           '⭐'
         )
       : '⭐';
 
   const valid =
-    Number(sheet.amount) > 0;
+    Number(
+      sheet.amount
+    ) > 0;
 
   return (
-    '<div class="overlay">' +
-      '<div class="sheet">' +
-        '<div class="sheet-handle"></div>' +
+    '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
 
-        '<div class="sheet-head">' +
-          '<h3>Registrar gasto</h3>' +
-          '<button data-action="close-sheet">' +
-            icon('close') +
-          '</button>' +
-        '</div>' +
+    '<div class="sheet-head"><h3>Registrar gasto</h3><button data-action="close-sheet">' +
+    icon('close') +
+    '</button></div>' +
 
-        '<div class="quick-header">' +
-          '<div class="avatar">' +
-            emoji +
-          '</div>' +
+    '<div class="quick-header"><div class="avatar">' +
+    emoji +
+    '</div><div class="qname">' +
+    esc(
+      cat
+        ? cat.name
+        : ''
+    ) +
+    '</div></div>' +
 
-          '<div class="qname">' +
-            esc(
-              cat
-                ? cat.name
-                : ''
-            ) +
-          '</div>' +
-        '</div>' +
+    '<div class="field"><input id="q-amount" class="amount-input" type="text" inputmode="numeric" placeholder="$ 0" value="' +
+    esc(
+      formatThousandInput(
+        sheet.amount
+      )
+    ) +
+    '"></div>' +
 
-        '<div class="field">' +
-          '<input id="q-amount" class="amount-input" type="text" inputmode="numeric" placeholder="$ 0" value="' +
-            esc(
-              formatThousandInput(
-                sheet.amount
-              )
-            ) +
-          '">' +
-        '</div>' +
+    (
+      sheet.showNote
+        ? '<div class="field"><div class="field-label">Nota</div><input id="q-note" value="' +
+          esc(
+            sheet.note
+          ) +
+          '"></div>'
+        : '<button class="link-btn" data-action="show-note">+ Agregar nota</button>'
+    ) +
 
-        (
-          sheet.showNote
-            ? '<div class="field">' +
-                '<div class="field-label">Nota</div>' +
-                '<input id="q-note" value="' +
-                  esc(sheet.note) +
-                '">' +
-              '</div>'
-            : '<button class="link-btn" data-action="show-note">+ Agregar nota</button>'
-        ) +
+    (
+      sheet.showDate
+        ? '<div class="field"><div class="field-label">Fecha</div><input id="q-date" type="date" value="' +
+          esc(
+            sheet.date
+          ) +
+          '"></div>'
+        : '<button class="link-btn" data-action="show-date">Cambiar fecha</button>'
+    ) +
 
-        (
-          sheet.showDate
-            ? '<div class="field">' +
-                '<div class="field-label">Fecha</div>' +
-                '<input id="q-date" type="date" value="' +
-                  esc(sheet.date) +
-                '">' +
-              '</div>'
-            : '<button class="link-btn" data-action="show-date">Cambiar fecha</button>'
-        ) +
+    '<div class="sheet-actions" style="margin-top:14px"><button class="save-btn" id="quick-save-btn" data-action="save-quick" ' +
+    (
+      valid
+        ? ''
+        : 'disabled'
+    ) +
+    '>Guardar gasto</button></div>' +
 
-        '<div class="sheet-actions" style="margin-top:14px">' +
-          '<button class="save-btn" id="quick-save-btn" data-action="save-quick" ' +
-            (
-              valid
-                ? ''
-                : 'disabled'
-            ) +
-          '>' +
-            'Guardar gasto' +
-          '</button>' +
-        '</div>' +
-
-      '</div>' +
-    '</div>'
+    '</div></div>'
   );
 }
 
 /* ==========================================================
-   CHIPS DE CATEGORÍAS
+   CHIPS
    ========================================================== */
 
 export function renderTxCatChips(
   cats,
   selectedId
 ){
-  if (!cats.length){
+
+  if (
+    !cats.length
+  ){
+
     return (
-      '<div class="empty-hint">' +
-        'Crea primero una categoría.' +
-      '</div>'
+      '<div class="empty-hint">Crea primero una categoría.</div>'
     );
   }
 
-  return cats.map(c => {
+  return cats
+    .map(
+      c => {
 
-    const sel =
-      selectedId === c.id;
+        const sel =
+          selectedId ===
+          c.id;
 
-    return (
-      '<button class="pick-chip ' +
-        (
-          sel
-            ? 'selected'
-            : ''
-        ) +
-        '" style="' +
-        (
-          sel
-            ? 'border-color:var(--violet);background:rgba(6,182,212,0.2);'
-            : ''
-        ) +
-        '" data-action="pick-tx-cat" data-id="' +
-        esc(c.id) +
-      '">' +
+        return (
+          '<button class="pick-chip ' +
+          (
+            sel
+              ? 'selected'
+              : ''
+          ) +
+          '" style="' +
+          (
+            sel
+              ? 'border-color:var(--violet);background:rgba(6,182,212,0.2);'
+              : ''
+          ) +
+          '" data-action="pick-tx-cat" data-id="' +
+          c.id +
+          '">' +
 
-        '<span class="chip-icon" style="background:' +
+          '<span class="chip-icon" style="background:' +
           c.color +
           '25">' +
+
           (
-            ICON_EMOJI[c.icon] ||
+            ICON_EMOJI[
+              c.icon
+            ] ||
             '⭐'
           ) +
-        '</span>' +
 
-        '<span class="chip-label">' +
-          esc(c.name) +
-        '</span>' +
+          '</span><span class="chip-label">' +
 
-      '</button>'
-    );
-  }).join('');
+          esc(
+            c.name
+          ) +
+
+          '</span></button>'
+        );
+      }
+    )
+    .join('');
 }
 
 /* ==========================================================
-   HOJA: MOVIMIENTO
+   MOVIMIENTO
    ========================================================== */
 
-export function renderTxSheet(sheet){
+export function renderTxSheet(
+  sheet
+){
+
   const cats =
     DB.categories.filter(
-      c => c.type === sheet.type
+      c =>
+        c.type ===
+        sheet.type
     );
 
   const chips =
@@ -2508,548 +2634,716 @@ export function renderTxSheet(sheet){
     );
 
   const valid =
-    Number(sheet.amount) > 0 &&
+    Number(
+      sheet.amount
+    ) > 0 &&
     sheet.categoryId;
 
   return (
-    '<div class="overlay">' +
-      '<div class="sheet">' +
-        '<div class="sheet-handle"></div>' +
+    '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
 
-        '<div class="sheet-head">' +
-          '<h3>' +
-            (
-              sheet.mode === 'edit'
-                ? 'Editar movimiento'
-                : 'Nuevo movimiento'
-            ) +
-          '</h3>' +
+    '<div class="sheet-head"><h3>' +
+    (
+      sheet.mode === 'edit'
+        ? 'Editar movimiento'
+        : 'Nuevo movimiento'
+    ) +
+    '</h3><button data-action="close-sheet">' +
+    icon('close') +
+    '</button></div>' +
 
-          '<button data-action="close-sheet">' +
-            icon('close') +
-          '</button>' +
-        '</div>' +
+    '<div class="type-toggle"><button class="' +
+    (
+      sheet.type === 'expense'
+        ? 'active-expense'
+        : ''
+    ) +
+    '" data-action="tx-type" data-type="expense">Gasto</button>' +
 
-        '<div class="type-toggle">' +
+    '<button class="' +
+    (
+      sheet.type === 'income'
+        ? 'active-income'
+        : ''
+    ) +
+    '" data-action="tx-type" data-type="income">Ingreso</button></div>' +
 
-          '<button class="' +
-            (
-              sheet.type === 'expense'
-                ? 'active-expense'
-                : ''
-            ) +
-            '" data-action="tx-type" data-type="expense">' +
-            'Gasto' +
-          '</button>' +
+    '<div class="field"><div class="field-label">Monto</div><input id="f-amount" type="text" inputmode="numeric" placeholder="0" value="' +
+    esc(
+      formatThousandInput(
+        sheet.amount
+      )
+    ) +
+    '"></div>' +
 
-          '<button class="' +
-            (
-              sheet.type === 'income'
-                ? 'active-income'
-                : ''
-            ) +
-            '" data-action="tx-type" data-type="income">' +
-            'Ingreso' +
-          '</button>' +
+    '<div class="field"><div class="field-label">Categoría</div><div class="chip-wrap" id="chipList">' +
+    chips +
+    '</div></div>' +
 
-        '</div>' +
+    '<div class="field"><div class="field-label">Fecha</div><input id="f-date" type="date" value="' +
+    esc(
+      sheet.date
+    ) +
+    '"></div>' +
 
-        '<div class="field">' +
-          '<div class="field-label">Monto</div>' +
-          '<input id="f-amount" type="text" inputmode="numeric" placeholder="0" value="' +
-            esc(
-              formatThousandInput(
-                sheet.amount
-              )
-            ) +
-          '">' +
-        '</div>' +
+    '<div class="field"><div class="field-label">Nota</div><input id="f-note" value="' +
+    esc(
+      sheet.note
+    ) +
+    '"></div>' +
 
-        '<div class="field">' +
-          '<div class="field-label">Categoría</div>' +
-          '<div class="chip-wrap" id="chipList">' +
-            chips +
-          '</div>' +
-        '</div>' +
+    '<div class="sheet-actions">' +
 
-        '<div class="field">' +
-          '<div class="field-label">Fecha</div>' +
-          '<input id="f-date" type="date" value="' +
-            esc(sheet.date || todayStr()) +
-          '">' +
-        '</div>' +
+    (
+      sheet.mode === 'edit'
+        ? '<button class="del-btn" data-action="delete-tx">' +
+          icon('trash') +
+          '</button>'
+        : ''
+    ) +
 
-        '<div class="field">' +
-          '<div class="field-label">Nota</div>' +
-          '<input id="f-note" value="' +
-            esc(sheet.note || '') +
-          '" placeholder="Opcional">' +
-        '</div>' +
-
-        '<div class="sheet-actions">' +
-          '<button class="save-btn" data-action="save-tx" ' +
-            (
-              valid
-                ? ''
-                : 'disabled'
-            ) +
-          '>' +
-            'Guardar' +
-          '</button>' +
-
-          (
-            sheet.mode === 'edit'
-              ? '<button class="danger-btn" data-action="delete-tx" data-id="' +
-                  esc(sheet.id) +
-                '">Eliminar</button>'
-              : ''
-          ) +
-
-        '</div>' +
-
-      '</div>' +
-    '</div>'
+    '<button class="save-btn" id="tx-save-btn" data-action="save-tx" ' +
+    (
+      valid
+        ? ''
+        : 'disabled'
+    ) +
+    '>Guardar</button></div></div></div>'
   );
 }
 
 /* ==========================================================
-   HOJA: CATEGORÍA
+   CATEGORÍA
    ========================================================== */
 
-export function renderCatSheet(sheet){
+export function renderCatSheet(
+  sheet
+){
+
+  const swatches =
+    SWATCHES
+      .map(
+        sw =>
+          '<button class="swatch ' +
+          (
+            sheet.color === sw
+              ? 'selected'
+              : ''
+          ) +
+          '" style="background:' +
+          sw +
+          '" data-action="pick-color" data-color="' +
+          sw +
+          '"></button>'
+      )
+      .join('');
+
+  const icons =
+    ICON_KEYS
+      .map(
+        k =>
+          '<button class="emoji-btn ' +
+          (
+            sheet.icon === k
+              ? 'selected'
+              : ''
+          ) +
+          '" data-action="pick-icon" data-icon="' +
+          k +
+          '">' +
+          ICON_EMOJI[k] +
+          '</button>'
+      )
+      .join('');
+
   const valid =
-    String(sheet.name || '').trim();
+    sheet.name.trim().length >
+    0;
+
+  return (
+    '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
+
+    '<div class="sheet-head"><h3>' +
+    (
+      sheet.mode === 'edit'
+        ? 'Editar categoría'
+        : 'Nueva categoría'
+    ) +
+    '</h3><button data-action="close-sheet">' +
+    icon('close') +
+    '</button></div>' +
+
+    '<div class="field"><div class="field-label">Nombre</div><input id="f-name" value="' +
+    esc(
+      sheet.name
+    ) +
+    '"></div>' +
+
+    '<div class="field"><div class="field-label">Tipo</div><div class="type-toggle"><button class="' +
+    (
+      sheet.type === 'expense'
+        ? 'active-neutral'
+        : ''
+    ) +
+    '" data-action="cat-type" data-type="expense">Gasto</button>' +
+
+    '<button class="' +
+    (
+      sheet.type === 'income'
+        ? 'active-neutral'
+        : ''
+    ) +
+    '" data-action="cat-type" data-type="income">Ingreso</button></div></div>' +
+
+    '<div class="field"><div class="field-label">Color</div><div class="chip-wrap" id="swatchList">' +
+    swatches +
+    '</div></div>' +
+
+    '<div class="field"><div class="field-label">Ícono</div><div class="chip-wrap" id="iconList">' +
+    icons +
+    '</div></div>' +
+
+    '<div id="primaryField" style="display:' +
+    (
+      sheet.type === 'income'
+        ? 'block'
+        : 'none'
+    ) +
+    '">' +
+
+    '<div class="toggle-row" data-action="toggle-primary"><div><div class="tlabel">Ingreso principal</div></div><div class="switch ' +
+    (
+      sheet.primary
+        ? 'on'
+        : ''
+    ) +
+    '" id="primarySwitch"><div class="knob"></div></div></div></div>' +
+
+    '<div id="fixedField" style="display:' +
+    (
+      sheet.type === 'expense'
+        ? 'block'
+        : 'none'
+    ) +
+    '">' +
+
+    '<div class="toggle-row" data-action="toggle-fixed"><div><div class="tlabel">Gasto fijo</div></div><div class="switch ' +
+    (
+      sheet.isFixed
+        ? 'on-violet'
+        : ''
+    ) +
+    '" id="fixedSwitch"><div class="knob"></div></div></div></div>' +
+
+    '<div class="field" id="budgetField" style="display:' +
+    (
+      sheet.type === 'expense'
+        ? 'block'
+        : 'none'
+    ) +
+    '">' +
+
+    '<div class="field-label">Presupuesto mensual</div>' +
+
+    '<input id="f-budget" type="text" inputmode="numeric" value="' +
+    esc(
+      formatThousandInput(
+        sheet.budget
+      )
+    ) +
+    '">' +
+
+    '</div>' +
+
+    '<div class="sheet-actions">' +
+
+    (
+      sheet.mode === 'edit'
+        ? '<button class="del-btn" data-action="delete-cat">' +
+          icon('trash') +
+          '</button>'
+        : ''
+    ) +
+
+    '<button class="save-btn" id="cat-save-btn" data-action="save-cat" ' +
+    (
+      valid
+        ? ''
+        : 'disabled'
+    ) +
+    '>Guardar</button></div></div></div>'
+  );
+}
+
+/* ==========================================================
+   CRÉDITO
+   ========================================================== */
+
+export function renderCreditSheet(
+  sheet
+){
+
+  const valid =
+    sheet.title.trim().length > 0 &&
+    Number(sheet.total) > 0 &&
+    (
+      !sheet.hasInterest ||
+      (
+        Number(sheet.interestRate) > 0 &&
+        Number(sheet.termMonths) > 0
+      )
+    );
+
+  const previewCredit = {
+    total:
+      Number(
+        sheet.total
+      ) || 0,
+
+    interestEnabled:
+      !!sheet.hasInterest,
+
+    interestRate:
+      Number(
+        sheet.interestRate
+      ) || 0,
+
+    interestPeriod:
+      sheet.interestPeriod ||
+      'monthly',
+
+    termMonths:
+      Number(
+        sheet.termMonths
+      ) || 0,
+
+    payments:[]
+  };
+
+  const preview =
+    computeCreditPlan(
+      previewCredit
+    );
 
   let html =
-    '<div class="overlay">' +
-      '<div class="sheet">' +
-        '<div class="sheet-handle"></div>' +
-
-        '<div class="sheet-head">' +
-          '<h3>' +
-            (
-              sheet.mode === 'edit'
-                ? 'Editar categoría'
-                : 'Nueva categoría'
-            ) +
-          '</h3>' +
-
-          '<button data-action="close-sheet">' +
-            icon('close') +
-          '</button>' +
-        '</div>' +
-
-        '<div class="field">' +
-          '<div class="field-label">Nombre</div>' +
-          '<input id="cat-name" value="' +
-            esc(sheet.name || '') +
-          '" placeholder="Ej. Alimentación">' +
-        '</div>' +
-
-        '<div class="field">' +
-          '<div class="field-label">Color</div>' +
-          '<div class="swatch-grid">';
-
-  SWATCHES.forEach(color => {
-
-    html +=
-      '<button class="swatch ' +
-        (
-          sheet.color === color
-            ? 'selected'
-            : ''
-        ) +
-        '" style="background:' +
-        color +
-        '" data-action="pick-cat-color" data-color="' +
-        color +
-      '"></button>';
-  });
+    '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>';
 
   html +=
-        '</div>' +
-      '</div>' +
-
-      '<div class="field">' +
-        '<div class="field-label">Icono</div>' +
-        '<div class="icon-grid">';
-
-  ICON_KEYS.forEach(k => {
-
-    html +=
-      '<button class="icon-pick ' +
-        (
-          sheet.icon === k
-            ? 'selected'
-            : ''
-        ) +
-        '" data-action="pick-cat-icon" data-icon="' +
-        esc(k) +
-      '">' +
-        (
-          ICON_EMOJI[k] ||
-          '⭐'
-        ) +
-      '</button>';
-  });
+    '<div class="sheet-head"><h3>' +
+    (
+      sheet.mode === 'edit'
+        ? 'Editar crédito'
+        : 'Nuevo crédito'
+    ) +
+    '</h3><button data-action="close-sheet">' +
+    icon('close') +
+    '</button></div>';
 
   html +=
-        '</div>' +
-      '</div>' +
+    '<div class="type-toggle"><button class="' +
+    (
+      sheet.type === 'against'
+        ? 'active-expense'
+        : ''
+    ) +
+    '" data-action="credit-type" data-type="against">Deuda</button><button class="' +
+    (
+      sheet.type === 'favor'
+        ? 'active-income'
+        : ''
+    ) +
+    '" data-action="credit-type" data-type="favor">Cobro</button></div>';
 
-      '<div class="field">' +
-        '<div class="field-label">Presupuesto mensual</div>' +
-        '<input id="cat-budget" type="text" inputmode="numeric" value="' +
-          esc(
-            formatThousandInput(
-              sheet.budget || ''
-            )
-          ) +
-          '" placeholder="Opcional">' +
-      '</div>' +
+  html +=
+    '<div class="field"><div class="field-label">Concepto / Persona</div><input id="c-title" value="' +
+    esc(
+      sheet.title
+    ) +
+    '"></div>';
 
-      '<div class="sheet-actions">' +
-        '<button class="save-btn" data-action="save-category" ' +
-          (
-            valid
-              ? ''
-              : 'disabled'
-          ) +
-        '>' +
-          'Guardar' +
-        '</button>' +
+  html +=
+    '<div class="field"><div class="field-label">Capital inicial</div><input id="c-total" type="text" inputmode="numeric" placeholder="0" value="' +
+    esc(
+      formatThousandInput(
+        sheet.total
+      )
+    ) +
+    '"></div>';
 
-        (
-          sheet.mode === 'edit'
-            ? '<button class="danger-btn" data-action="delete-category" data-id="' +
-                esc(sheet.id) +
-              '">Eliminar</button>'
-            : ''
-        ) +
+  /*
+   * Activación de intereses.
+   */
 
-      '</div>' +
+  html +=
+    '<div class="toggle-row" data-action="toggle-credit-interest" style="margin-top:4px"><div><div class="tlabel">¿Tiene intereses?</div><div style="font-size:10.5px;color:var(--ink-muted);margin-top:2px">Activa el cálculo financiero del crédito</div></div><div class="switch ' +
+    (
+      sheet.hasInterest
+        ? 'on-violet'
+        : ''
+    ) +
+    '" id="creditInterestSwitch"><div class="knob"></div></div></div>';
 
-      '</div>' +
+  /*
+   * Condiciones.
+   */
+
+  html +=
+    '<div id="creditInterestFields" style="display:' +
+    (
+      sheet.hasInterest
+        ? 'block'
+        : 'none'
+    ) +
+    ';margin-top:10px">';
+
+  html +=
+    '<div style="padding:13px;border-radius:16px;border:1px solid rgba(167,139,250,.18);background:linear-gradient(135deg,rgba(167,139,250,.07),rgba(56,189,248,.04));">';
+
+  html +=
+    '<div style="font-size:10px;color:var(--ink-muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:9px">Condiciones del crédito</div>';
+
+  html +=
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">';
+
+  html +=
+    '<div class="field" style="margin:0"><div class="field-label">Tasa</div><input id="c-interest-rate" type="number" inputmode="decimal" min="0" max="100" step="0.01" placeholder="2" value="' +
+    esc(
+      sheet.interestRate
+    ) +
+    '"></div>';
+
+  html +=
+    '<div class="field" style="margin:0"><div class="field-label">Periodicidad</div><select id="c-interest-period" style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:var(--ink);font-size:14px"><option value="monthly" ' +
+    (
+      sheet.interestPeriod === 'monthly'
+        ? 'selected'
+        : ''
+    ) +
+    '>Mensual</option><option value="annual" ' +
+    (
+      sheet.interestPeriod === 'annual'
+        ? 'selected'
+        : ''
+    ) +
+    '>Anual</option></select></div>';
+
+  html +=
     '</div>';
+
+  html +=
+    '<div class="field" style="margin-top:9px"><div class="field-label">Plazo</div><input id="c-term" type="number" inputmode="numeric" min="1" max="600" step="1" placeholder="12" value="' +
+    esc(
+      sheet.termMonths ||
+      ''
+    ) +
+    '"></div>';
+
+  html +=
+    '<div class="field" style="margin-top:9px"><div class="field-label">Fecha de inicio</div><input id="c-start-date" type="date" value="' +
+    esc(
+      sheet.startDate ||
+      todayStr()
+    ) +
+    '"></div>';
+
+  html +=
+    '</div></div>';
+
+  /*
+   * Preview.
+   */
+
+  html +=
+    '<div id="credit-preview" style="margin-top:12px;padding:13px;border-radius:16px;background:rgba(15,23,42,.52);border:1px solid rgba(56,189,248,.12);display:' +
+    (
+      sheet.hasInterest
+        ? 'block'
+        : 'none'
+    ) +
+    '">';
+
+  html +=
+    '<div style="font-size:10px;color:var(--ink-muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Resumen estimado</div>';
+
+  html +=
+    '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:9px">';
+
+  html +=
+    '<div><div style="font-size:9px;color:var(--ink-muted)">Intereses</div><div id="c-preview-interest" style="font-size:13px;font-weight:800;margin-top:2px">' +
+    fmtMoney(
+      preview.estimatedInterest
+    ) +
+    '</div></div>';
+
+  html +=
+    '<div><div style="font-size:9px;color:var(--ink-muted)">Total</div><div id="c-preview-total" style="font-size:13px;font-weight:800;margin-top:2px">' +
+    fmtMoney(
+      preview.scheduledTotal
+    ) +
+    '</div></div>';
+
+  html +=
+    '<div><div style="font-size:9px;color:var(--ink-muted)">Cuota</div><div id="c-preview-payment" style="font-size:13px;font-weight:900;color:var(--pink);margin-top:2px">' +
+    (
+      preview.monthlyPayment > 0
+        ? fmtMoney(
+            preview.monthlyPayment
+          )
+        : '—'
+    ) +
+    '</div></div>';
+
+  html +=
+    '</div></div>';
+
+  html +=
+    '<div style="font-size:10px;color:var(--ink-muted);line-height:1.4;margin-top:10px">La tasa se usa para una proyección con cuota fija. Los aportes que registres después se contabilizan como pagos reales.</div>';
+
+  html +=
+    '<div class="sheet-actions" style="margin-top:12px">' +
+
+    (
+      sheet.mode === 'edit'
+        ? '<button class="del-btn" data-action="delete-credit">' +
+          icon('trash') +
+          '</button>'
+        : ''
+    ) +
+
+    '<button class="save-btn" id="credit-save-btn" data-action="save-credit" ' +
+    (
+      valid
+        ? ''
+        : 'disabled'
+    ) +
+    '>Guardar</button></div></div></div>';
 
   return html;
 }
 
 /* ==========================================================
-   HOJA: CRÉDITO
+   APORTE
    ========================================================== */
 
-export function renderCreditSheet(sheet){
+export function renderPaymentSheet(
+  sheet
+){
+
   const valid =
-    String(sheet.title || '').trim() &&
-    Number(sheet.total) > 0;
+    Number(
+      sheet.amount
+    ) > 0;
 
   return (
-    '<div class="overlay">' +
-      '<div class="sheet">' +
-        '<div class="sheet-handle"></div>' +
+    '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
 
-        '<div class="sheet-head">' +
-          '<h3>' +
-            (
-              sheet.mode === 'edit'
-                ? 'Editar crédito'
-                : 'Nuevo crédito'
-            ) +
-          '</h3>' +
+    '<div class="sheet-head"><h3>' +
+    (
+      sheet.mode === 'edit'
+        ? 'Editar aporte'
+        : 'Registrar aporte'
+    ) +
+    '</h3><button data-action="close-sheet">' +
+    icon('close') +
+    '</button></div>' +
 
-          '<button data-action="close-sheet">' +
-            icon('close') +
-          '</button>' +
-        '</div>' +
+    '<div style="padding:10px 12px;border-radius:14px;background:rgba(56,189,248,.05);border:1px solid rgba(56,189,248,.10);margin-bottom:12px;font-size:10.5px;color:var(--ink-muted);line-height:1.45">El sistema distribuirá el aporte entre <b>intereses y capital</b> cuando el crédito tenga una tasa configurada.</div>' +
 
-        '<div class="field">' +
-          '<div class="field-label">Concepto</div>' +
-          '<input id="credit-title" value="' +
-            esc(sheet.title || '') +
-            '" placeholder="Ej. Crédito vehículo">' +
-        '</div>' +
+    '<div class="field"><div class="field-label">Monto del aporte</div><input id="p-amount" type="text" inputmode="numeric" placeholder="0" value="' +
+    esc(
+      formatThousandInput(
+        sheet.amount
+      )
+    ) +
+    '"></div>' +
 
-        '<div class="field">' +
-          '<div class="field-label">Tipo</div>' +
+    '<div class="field"><div class="field-label">Fecha del aporte</div><input id="p-date" type="date" value="' +
+    esc(
+      sheet.date
+    ) +
+    '"></div>' +
 
-          '<div class="type-toggle">' +
+    '<div class="field"><div class="field-label">Nota (opcional)</div><input id="p-note" value="' +
+    esc(
+      sheet.note
+    ) +
+    '"></div>' +
 
-            '<button class="' +
-              (
-                sheet.type === 'against'
-                  ? 'active-expense'
-                  : ''
-              ) +
-              '" data-action="credit-type" data-type="against">' +
-              'Debo' +
-            '</button>' +
-
-            '<button class="' +
-              (
-                sheet.type === 'favor'
-                  ? 'active-income'
-                  : ''
-              ) +
-              '" data-action="credit-type" data-type="favor">' +
-              'Me deben' +
-            '</button>' +
-
-          '</div>' +
-        '</div>' +
-
-        '<div class="field">' +
-          '<div class="field-label">Valor total</div>' +
-          '<input id="credit-total" type="text" inputmode="numeric" value="' +
-            esc(
-              formatThousandInput(
-                sheet.total
-              )
-            ) +
-            '" placeholder="0">' +
-        '</div>' +
-
-        '<div class="sheet-actions">' +
-
-          '<button class="save-btn" data-action="save-credit" ' +
-            (
-              valid
-                ? ''
-                : 'disabled'
-            ) +
-          '>' +
-            'Guardar crédito' +
-          '</button>' +
-
-          (
-            sheet.mode === 'edit'
-              ? '<button class="danger-btn" data-action="delete-credit" data-id="' +
-                  esc(sheet.id) +
-                '">Eliminar crédito</button>'
-              : ''
-          ) +
-
-        '</div>' +
-
-      '</div>' +
-    '</div>'
+    '<div class="sheet-actions"><button class="save-btn" id="pay-save-btn" data-action="save-payment" ' +
+    (
+      valid
+        ? ''
+        : 'disabled'
+    ) +
+    '>Guardar aporte</button></div></div></div>'
   );
 }
 
 /* ==========================================================
-   HOJA: PAGO DE CRÉDITO
+   FACTURA
    ========================================================== */
 
-export function renderPaymentSheet(sheet){
-  const valid =
-    Number(sheet.amount) > 0 &&
-    sheet.date;
+export function renderInvoiceItemsHTML(
+  sheet
+){
 
-  return (
-    '<div class="overlay">' +
-      '<div class="sheet">' +
-        '<div class="sheet-handle"></div>' +
+  return sheet.items
+    .map(
+      (
+        it,
+        idx
+      ) => (
 
-        '<div class="sheet-head">' +
-          '<h3>' +
-            (
-              sheet.mode === 'edit'
-                ? 'Editar pago'
-                : 'Registrar pago'
-            ) +
-          '</h3>' +
+        '<div class="item-edit-row"><input class="item-name" data-idx="' +
+        idx +
+        '" data-field="name" placeholder="Ítem" value="' +
+        esc(
+          it.name
+        ) +
+        '">' +
 
-          '<button data-action="close-sheet">' +
-            icon('close') +
-          '</button>' +
-        '</div>' +
+        '<input class="item-price" data-idx="' +
+        idx +
+        '" data-field="price" type="text" inputmode="numeric" placeholder="0" value="' +
+        esc(
+          formatThousandInput(
+            it.price
+          )
+        ) +
+        '">' +
 
-        '<div class="field">' +
-          '<div class="field-label">Monto del pago</div>' +
-          '<input id="p-amount" type="text" inputmode="numeric" value="' +
-            esc(
-              formatThousandInput(
-                sheet.amount
-              )
-            ) +
-            '" placeholder="0">' +
-        '</div>' +
-
-        '<div class="field">' +
-          '<div class="field-label">Fecha</div>' +
-          '<input id="p-date" type="date" value="' +
-            esc(
-              sheet.date ||
-              todayStr()
-            ) +
-          '">' +
-        '</div>' +
-
-        '<div class="field">' +
-          '<div class="field-label">Nota</div>' +
-          '<input id="p-note" value="' +
-            esc(sheet.note || '') +
-            '" placeholder="Opcional">' +
-        '</div>' +
-
-        '<div class="sheet-actions">' +
-
-          '<button class="save-btn" data-action="save-payment" ' +
-            (
-              valid
-                ? ''
-                : 'disabled'
-            ) +
-          '>' +
-            'Guardar pago' +
-          '</button>' +
-
-          (
-            sheet.mode === 'edit'
-              ? '<button class="danger-btn" data-action="delete-payment" data-cid="' +
-                  esc(sheet.creditId) +
-                  '" data-pid="' +
-                  esc(sheet.id) +
-                '">Eliminar pago</button>'
-              : ''
-          ) +
-
-        '</div>' +
-
-      '</div>' +
-    '</div>'
-  );
+        '<button class="item-remove-btn" data-action="remove-invoice-item" data-idx="' +
+        idx +
+        '">' +
+        icon('trash') +
+        '</button></div>'
+      )
+    )
+    .join('');
 }
 
-/* ==========================================================
-   HOJA: FACTURA
-   ========================================================== */
+export function renderInvoiceSheet(
+  sheet
+){
 
-export function renderInvoiceSheet(sheet){
   const total =
-    (sheet.items || [])
-      .reduce(
-        (sum, item) =>
-          sum +
-          (Number(item.price) || 0),
-        0
-      );
+    sheet.items.reduce(
+      (
+        s,
+        it
+      ) =>
+        s +
+        (
+          Number(
+            it.price
+          ) || 0
+        ),
+      0
+    );
 
-  return (
-    '<div class="overlay">' +
-      '<div class="sheet">' +
-        '<div class="sheet-handle"></div>' +
+  const valid =
+    sheet.items.some(
+      it =>
+        it.name.trim() &&
+        Number(
+          it.price
+        ) > 0
+    );
 
-        '<div class="sheet-head">' +
-          '<h3>Factura escaneada</h3>' +
+  let html =
+    '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>';
 
-          '<button data-action="close-sheet">' +
-            icon('close') +
-          '</button>' +
-        '</div>' +
+  html +=
+    '<div class="sheet-head"><h3>Revisar Factura Escaneada</h3><button data-action="close-sheet">' +
+    icon('close') +
+    '</button></div>';
 
-        '<div class="field">' +
-          '<div class="field-label">Título</div>' +
-          '<input id="inv-title" value="' +
-            esc(sheet.title || '') +
-          '">' +
-        '</div>' +
+  html +=
+    '<div class="field"><div class="field-label">Título</div><input id="inv-title" value="' +
+    esc(
+      sheet.title
+    ) +
+    '"></div>';
 
-        '<div class="field">' +
-          '<div class="field-label">Fecha</div>' +
-          '<input id="inv-date" type="date" value="' +
-            esc(sheet.date || todayStr()) +
-          '">' +
-        '</div>' +
+  html +=
+    '<div class="field"><div class="field-label">Fecha</div><input id="inv-date" type="date" value="' +
+    esc(
+      sheet.date
+    ) +
+    '"></div>';
 
-        '<div class="field">' +
-          '<div class="field-label">Productos</div>' +
-          '<div id="inv-items-list">' +
-            renderInvoiceItemsHTML(
-              sheet.items || []
-            ) +
-          '</div>' +
-        '</div>' +
+  html +=
+    '<div class="field-label" style="margin-bottom:8px;">Ítems detectados</div>';
 
-        '<div class="invoice-total">' +
-          '<span>Total</span>' +
-          '<strong id="inv-total-val">' +
-            fmtMoney(total) +
-          '</strong>' +
-        '</div>' +
+  html +=
+    '<div id="inv-items-list">' +
+    renderInvoiceItemsHTML(
+      sheet
+    ) +
+    '</div>';
 
-        '<div class="sheet-actions">' +
-          '<button class="save-btn" data-action="save-invoice">' +
-            'Guardar factura' +
-          '</button>' +
-        '</div>' +
+  html +=
+    '<button class="link-btn" data-action="add-invoice-item">+ Agregar ítem</button>';
 
-      '</div>' +
-    '</div>'
-  );
+  html +=
+    '<div class="mom-single" style="margin-top:14px;"><div class="lbl">Total factura</div><div class="val" style="color:var(--pink)" id="inv-total-val">' +
+    fmtMoney(
+      total
+    ) +
+    '</div></div>';
+
+  html +=
+    '<div class="sheet-actions" style="margin-top:14px;">';
+
+  if (
+    sheet.mode === 'edit'
+  ){
+
+    html +=
+      '<button class="del-btn" data-action="delete-invoice">' +
+      icon('trash') +
+      '</button>';
+  }
+
+  html +=
+    '<button class="save-btn" id="invoice-save-btn" data-action="save-invoice" ' +
+    (
+      valid
+        ? ''
+        : 'disabled'
+    ) +
+    '>Guardar factura</button>';
+
+  html +=
+    '</div></div></div>';
+
+  return html;
 }
 
-/* ==========================================================
-   CONFIRMACIÓN
-   ========================================================== */
-
-export function renderConfirmDialog(state){
-  if (!state) return '';
+export function renderConfirmDialog(
+  confirmState
+){
 
   return (
-    '<div class="overlay confirm-overlay">' +
-      '<div class="confirm-dialog">' +
+    '<div class="overlay overlay-center"><div class="confirm-box"><p>' +
+    esc(
+      confirmState.message
+    ) +
+    '</p>' +
 
-        '<h3>' +
-          esc(
-            state.title ||
-            'Confirmar acción'
-          ) +
-        '</h3>' +
-
-        '<p>' +
-          esc(
-            state.message ||
-            '¿Deseas continuar?'
-          ) +
-        '</p>' +
-
-        '<div class="confirm-actions">' +
-          '<button class="secondary-btn" data-action="close-confirm">' +
-            'Cancelar' +
-          '</button>' +
-
-          '<button class="danger-btn" data-action="confirm-action">' +
-            'Confirmar' +
-          '</button>' +
-        '</div>' +
-
-      '</div>' +
-    '</div>'
+    '<div class="confirm-actions"><button class="confirm-cancel" data-action="cancel-confirm">Cancelar</button><button class="confirm-ok" data-action="confirm-ok">Confirmar</button></div></div></div>'
   );
 }
-
-/* ==========================================================
-   OVERLAY DE ESCANEO
-   ========================================================== */
 
 export function renderScanningOverlay(
-  state
+  scanningOverlay
 ){
-  if (!state) return '';
 
   return (
-    '<div class="overlay scanning-overlay">' +
-      '<div class="scan-card">' +
-        '<div class="scan-spinner"></div>' +
-        '<h3>Analizando factura</h3>' +
-        '<p>' +
-          esc(
-            state.message ||
-            'Procesando...'
-          ) +
-        '</p>' +
-      '</div>' +
-    '</div>'
+    '<div class="overlay overlay-center"><div class="confirm-box" style="text-align:center;"><div class="spinner" style="margin:0 auto 14px;"></div><p>' +
+    esc(
+      scanningOverlay.message
+    ) +
+    '</p></div></div>'
   );
 }
