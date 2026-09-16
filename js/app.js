@@ -18,43 +18,45 @@ export function render(){
   const token = localStorage.getItem('supabase_token');
   const userId = localStorage.getItem('supabase_user_id');
 
-  // Si no hay sesión, mostramos el acceso seguro con los estilos de la app
+  const viewEl = document.getElementById('view');
+  const tabbarEl = document.getElementById('tabbar');
+  const overlaysEl = document.getElementById('overlays');
+
   if (!token || !userId) {
-    renderAuthScreen();
+    if (viewEl) {
+      viewEl.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:80vh;">
+          <div class="card" style="width:100%;max-width:380px;padding:32px 24px;text-align:center;">
+            <div style="font-size:32px;margin-bottom:12px;">⚡</div>
+            <h2 style="font-size:20px;font-weight:700;color:#fff;margin-bottom:4px;">Terminal Cloud</h2>
+            <p style="font-size:13px;color:var(--ink-muted);margin-bottom:24px;">Inicia sesión para sincronizar tus finanzas</p>
+            
+            <div class="field" style="text-align:left;margin-bottom:14px;">
+              <div class="field-label">Correo electrónico</div>
+              <input id="auth-email" type="email" placeholder="tucorreo@email.com" style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;">
+            </div>
+
+            <div class="field" style="text-align:left;margin-bottom:16px;">
+              <div class="field-label">Contraseña</div>
+              <input id="auth-password" type="password" placeholder="••••••••" style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;">
+            </div>
+
+            <div id="auth-error" style="color:var(--expense);font-size:12px;margin-bottom:14px;min-height:16px;"></div>
+
+            <button class="save-btn" id="btn-login" style="width:100%;margin-bottom:10px;padding:14px;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;border:none;cursor:pointer;">Iniciar Sesión</button>
+            <button class="secondary-btn" id="btn-signup" style="width:100%;padding:14px;border-radius:12px;background:transparent;border:1px solid var(--border);color:#fff;font-weight:600;cursor:pointer;">Crear Cuenta Nueva</button>
+          </div>
+        </div>
+      `;
+    }
+    if (tabbarEl) tabbarEl.innerHTML = '';
+    if (overlaysEl) overlaysEl.innerHTML = '';
+    
+    setTimeout(attachAuthEvents, 100);
     return;
   }
 
   renderAppContent();
-}
-
-function renderAuthScreen(){
-  document.getElementById('view').innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:80vh;">
-      <div class="card" style="width:100%;max-width:380px;padding:32px 24px;text-align:center;">
-        <div style="font-size:32px;margin-bottom:12px;">⚡</div>
-        <h2 style="font-size:20px;font-weight:700;color:#fff;margin-bottom:4px;">Terminal Cloud</h2>
-        <p style="font-size:13px;color:var(--ink-muted);margin-bottom:24px;">Inicia sesión para sincronizar tus finanzas</p>
-        
-        <div class="field" style="text-align:left;margin-bottom:14px;">
-          <div class="field-label">Correo electrónico</div>
-          <input id="auth-email" type="email" placeholder="tucorreo@email.com" style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;">
-        </div>
-
-        <div class="field" style="text-align:left;margin-bottom:16px;">
-          <div class="field-label">Contraseña</div>
-          <input id="auth-password" type="password" placeholder="••••••••" style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;">
-        </div>
-
-        <div id="auth-error" style="color:var(--expense);font-size:12px;margin-bottom:14px;min-height:16px;"></div>
-
-        <button class="save-btn" id="btn-login" style="width:100%;margin-bottom:10px;padding:14px;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;border:none;cursor:pointer;">Iniciar Sesión</button>
-        <button class="secondary-btn" id="btn-signup" style="width:100%;padding:14px;border-radius:12px;background:transparent;border:1px solid var(--border);color:#fff;font-weight:600;cursor:pointer;">Crear Cuenta Nueva</button>
-      </div>
-    </div>
-  `;
-  document.getElementById('tabbar').innerHTML = '';
-  document.getElementById('overlays').innerHTML = '';
-  attachAuthEvents();
 }
 
 function attachAuthEvents(){
@@ -69,22 +71,22 @@ function attachAuthEvents(){
 
   document.getElementById('btn-login')?.addEventListener('click', async () => {
     const { email, password } = getCreds();
-    if (!email || !password) { errorDiv.textContent = 'Completa todos los campos.'; return; }
-    errorDiv.textContent = 'Iniciando sesión...';
+    if (!email || !password) { if (errorDiv) errorDiv.textContent = 'Completa todos los campos.'; return; }
+    if (errorDiv) errorDiv.textContent = 'Iniciando sesión...';
     try {
       const data = await signInUser(email, password);
       localStorage.setItem('supabase_token', data.access_token);
       localStorage.setItem('supabase_user_id', data.user.id);
       render();
     } catch (err) {
-      errorDiv.textContent = err.message;
+      if (errorDiv) errorDiv.textContent = err.message;
     }
   });
 
   document.getElementById('btn-signup')?.addEventListener('click', async () => {
     const { email, password } = getCreds();
-    if (!email || !password) { errorDiv.textContent = 'Completa todos los campos.'; return; }
-    errorDiv.textContent = 'Registrando cuenta...';
+    if (!email || !password) { if (errorDiv) errorDiv.textContent = 'Completa todos los campos.'; return; }
+    if (errorDiv) errorDiv.textContent = 'Registrando cuenta...';
     try {
       const data = await signUpUser(email, password);
       if (data.access_token) {
@@ -92,26 +94,29 @@ function attachAuthEvents(){
         localStorage.setItem('supabase_user_id', data.user.id);
         render();
       } else {
-        errorDiv.textContent = '¡Cuenta creada! Inicia sesión ahora.';
+        if (errorDiv) errorDiv.textContent = '¡Cuenta creada! Inicia sesión ahora.';
       }
     } catch (err) {
-      errorDiv.textContent = err.message;
+      if (errorDiv) errorDiv.textContent = err.message;
     }
   });
 }
 
 function renderAppContent(){
-  document.getElementById('view').innerHTML =
-    '<div class="hero"><div class="hero-content">' +
-    '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
-    '<div class="hero-main"><div><h1>Mis Finanzas</h1><p>Control y analítica en tiempo real</p></div><div class="hero-avatar">⚡</div></div>' +
-    '</div></div>' +
-    (UI.tab==='dashboard' ? renderDashboard() :
-     UI.tab==='transactions' ? renderTransactions(UI.search, UI.txFilter) :
-     UI.tab==='invoices' ? renderInvoices(UI.openInvoiceId) :
-     UI.tab==='credits' ? renderCredits(UI.creditFilter) :
-     UI.tab==='categories' ? renderCategories() :
-     renderSettings());
+  const viewEl = document.getElementById('view');
+  if (viewEl) {
+    viewEl.innerHTML =
+      '<div class="hero"><div class="hero-content">' +
+      '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
+      '<div class="hero-main"><div><h1>Mis Finanzas</h1><p>Control y analítica en tiempo real</p></div><div class="hero-avatar">⚡</div></div>' +
+      '</div></div>' +
+      (UI.tab==='dashboard' ? renderDashboard() :
+       UI.tab==='transactions' ? renderTransactions(UI.search, UI.txFilter) :
+       UI.tab==='invoices' ? renderInvoices(UI.openInvoiceId) :
+       UI.tab==='credits' ? renderCredits(UI.creditFilter) :
+       UI.tab==='categories' ? renderCategories() :
+       renderSettings());
+  }
 
   let tabbarHTML = [
     ['dashboard','wallet','Resumen'],
@@ -127,7 +132,8 @@ function renderAppContent(){
       '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' + getIconSvg(ic) + '</span><span>' + label + '</span></button>';
   }).join('');
 
-  document.getElementById('tabbar').innerHTML = tabbarHTML;
+  const tabbarEl = document.getElementById('tabbar');
+  if (tabbarEl) tabbarEl.innerHTML = tabbarHTML;
   if (UI.tab==='transactions') attachSearchListener();
   renderOverlays();
 }
@@ -144,6 +150,7 @@ function getIconSvg(name){
 
 function renderOverlays(){
   const el = document.getElementById('overlays');
+  if (!el) return;
   let html = '';
   if (UI.fabMenuOpen) html += renderFabMenu();
   if (sheet && sheet.kind === 'tx') html += renderTxSheet(sheet);
