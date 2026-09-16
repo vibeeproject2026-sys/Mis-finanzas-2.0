@@ -1,7 +1,7 @@
 import { DB } from './state.js';
 
-const SUPABASE_URL ='https://blsdheekuagurefhzelf.supabase.co';
-const SUPABASE_ANON_KEY ='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsc2RoZWVrdWFndXJlZmh6ZWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MTg2NjUsImV4cCI6MjEwNTA5NDY2NX0.IwNQo4a_UgI4qVDEtUqA-N1JT7mK9znzq7bQLPIAam0'; // <--- Pega tu Anon Key aquí
+const SUPABASE_URL = 'https://blsdheekuagurefhzelf.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsc2RoZWVrdWFndXJlZmh6ZWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MTg2NjUsImV4cCI6MjEwNTA5NDY2NX0.IwNQo4a_UgI4qVDEtUqA-N1JT7mK9znzq7bQLPIAam0'; // <--- Pega tu Anon Key aquí sin borrar las comillas simples
 
 export async function signUpUser(email, password) {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === 'PEGA_AQUI_TU_ANON_KEY') throw new Error('Supabase no está configurado.');
@@ -11,7 +11,6 @@ export async function signUpUser(email, password) {
     headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })
   });
-  
   const data = await response.json();
   if (!response.ok) throw new Error(data.msg || data.error_description || 'Error al registrar usuario');
   return data;
@@ -25,7 +24,6 @@ export async function signInUser(email, password) {
     headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })
   });
-  
   const data = await response.json();
   if (!response.ok) throw new Error(data.error_description || 'Correo o contraseña incorrectos');
   return data;
@@ -33,7 +31,6 @@ export async function signInUser(email, password) {
 
 export async function syncWithSupabase(token, userId) {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === 'PEGA_AQUI_TU_ANON_KEY' || !token || !userId) return;
-  
   try {
     await fetch(`${SUPABASE_URL}/rest/v1/user_data`, {
       method: 'POST',
@@ -50,6 +47,26 @@ export async function syncWithSupabase(token, userId) {
   }
 }
 
+export async function fetchUserData(token, userId) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === 'PEGA_AQUI_TU_ANON_KEY' || !token || !userId) return null;
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${userId}`, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    const data = await response.json();
+    if (data && data.length > 0) return data[0].payload;
+    return null;
+  } catch (error) {
+    console.error('Error al descargar datos:', error);
+    return null;
+  }
+}
+
 export async function scanInvoiceViaProxy(base64Data, mimeType) {
   const PROXY_ENDPOINT = '/api/scan-invoice'; 
   try {
@@ -62,7 +79,6 @@ export async function scanInvoiceViaProxy(base64Data, mimeType) {
     const data = await response.json();
     return Array.isArray(data.items) ? data.items : [];
   } catch (error) {
-    console.error('Falla en escaneo por proxy:', error);
     throw new Error('No se pudo procesar la factura con el servidor seguro.');
   }
 }
