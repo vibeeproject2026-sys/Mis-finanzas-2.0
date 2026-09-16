@@ -196,6 +196,17 @@ function renderOverlays(){
   
   el.innerHTML = html;
   if (sheet) attachSheetFieldSync();
+  
+  // Forzar que el botón de guardar esté siempre activo si hay un monto válido
+  const saveBtn = document.querySelector('button[data-action="save-tx"], button[data-action="save-quick"]');
+  if (saveBtn && sheet) {
+    const amt = Number(sheet.amount);
+    if (amt > 0) {
+      saveBtn.removeAttribute('disabled');
+      saveBtn.style.opacity = '1';
+      saveBtn.style.cursor = 'pointer';
+    }
+  }
 }
 
 function refreshTxList(){ 
@@ -308,8 +319,10 @@ document.addEventListener('click',(e)=>{
   if(action==='save-tx'){
     if(!sheet) return;
     const amt = Number(sheet.amount);
-    if(amt > 0 && sheet.categoryId){
-      const tx = {id:sheet.id||uid(), type:sheet.type, amount:amt, categoryId:sheet.categoryId, date:sheet.date||todayStr(), note:(sheet.note||'').trim()};
+    // Permitir guardar si el monto es mayor a 0 y tiene categoría o se asigna una por defecto
+    const catId = sheet.categoryId || (DB.categories.find(c=>c.type===sheet.type)||{}).id || '';
+    if(amt > 0){
+      const tx = {id:sheet.id||uid(), type:sheet.type, amount:amt, categoryId:catId, date:sheet.date||todayStr(), note:(sheet.note||'').trim()};
       const exists = DB.transactions.some(x => x.id === tx.id);
       DB.transactions = exists ? DB.transactions.map(x => x.id===tx.id?tx:x) : DB.transactions.concat([tx]);
       saveDB(); 
@@ -447,7 +460,23 @@ function attachSheetFieldSync(){
   if (sheet.kind === 'tx' || sheet.kind === 'quick'){
     const prefix = sheet.kind === 'tx' ? 'f' : 'q';
     const a = document.getElementById(prefix + '-amount'), d = document.getElementById(prefix + '-date'), n = document.getElementById(prefix + '-note');
-    if (a) a.addEventListener('input', (e) => { sheet.amount = parseFormattedNumber(e.target.value); e.target.value = formatThousandInput(sheet.amount); });
+    if (a) a.addEventListener('input', (e) => { 
+      sheet.amount = parseFormattedNumber(e.target.value); 
+      e.target.value = formatThousandInput(sheet.amount);
+      
+      // Reactivar botón al vuelo mientras escribe
+      const saveBtn = document.querySelector('button[data-action="save-tx"], button[data-action="save-quick"]');
+      if (saveBtn) {
+        if (Number(sheet.amount) > 0) {
+          saveBtn.removeAttribute('disabled');
+          saveBtn.style.opacity = '1';
+          saveBtn.style.cursor = 'pointer';
+        } else {
+          saveBtn.setAttribute('disabled', 'true');
+          saveBtn.style.opacity = '0.5';
+        }
+      }
+    });
     if (d) d.addEventListener('input', () => { sheet.date = d.value; });
     if (n) n.addEventListener('input', () => { sheet.note = n.value; });
   } else if (sheet.kind === 'cat'){
