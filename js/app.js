@@ -6,8 +6,7 @@ import {
   renderInvoiceSheet, renderConfirmDialog, renderScanningOverlay, 
   filteredTx, renderTxCatChips, formatThousandInput, parseFormattedNumber 
 } from './ui.js';
-import { scanInvoiceViaProxy, syncWithSupabase } from './api.js';
-import { renderAuthScreen, attachAuthListeners } from './auth.js';
+import { scanInvoiceViaProxy, signInUser, signUpUser, syncWithSupabase } from './api.js';
 
 let UI = {tab:'dashboard', txFilter:'all', creditFilter:'against', search:'', openInvoiceId:null, fabMenuOpen:false};
 let sheet = null;
@@ -19,19 +18,85 @@ export function render(){
   const token = localStorage.getItem('supabase_token');
   const userId = localStorage.getItem('supabase_user_id');
 
-  // Si no ha iniciado sesión, mostramos el login en lugar de la app
   if (!token || !userId) {
-    document.getElementById('view').innerHTML = renderAuthScreen();
-    document.getElementById('tabbar').innerHTML = '';
-    document.getElementById('overlays').innerHTML = '';
-    attachAuthListeners(() => {
-      render();
-    });
+    renderAuthScreenOnly();
     return;
   }
 
-  // Si ya inició sesión, cargamos la app con normalidad
   renderAppContent();
+}
+
+function renderAuthScreenOnly(){
+  document.getElementById('view').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;padding:2rem 1rem;min-height:70vh;">
+      <div class="card" style="width:100%;max-width:400px;padding:32px 24px;text-align:center;">
+        <div style="font-size:36px;margin-bottom:12px;">🔐</div>
+        <h2 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;">Terminal Cloud</h2>
+        <p style="font-size:13px;color:var(--ink-muted);margin-bottom:24px;">Inicia sesión para sincronizar tus finanzas</p>
+        
+        <div class="field" style="text-align:left;">
+          <div class="field-label">Correo electrónico</div>
+          <input id="auth-email" type="email" placeholder="tucorreo@email.com" style="width:100%;padding:10px;border-radius:8px;background:var(--card-bg);border:1px solid var(--border);color:#fff;">
+        </div>
+
+        <div class="field" style="text-align:left;margin-top:14px;">
+          <div class="field-label">Contraseña</div>
+          <input id="auth-password" type="password" placeholder="••••••••" style="width:100%;padding:10px;border-radius:8px;background:var(--card-bg);border:1px solid var(--border);color:#fff;">
+        </div>
+
+        <div id="auth-error" style="color:var(--expense);font-size:12px;margin:12px 0;min-height:16px;"></div>
+
+        <button class="save-btn" id="btn-login" style="width:100%;margin-top:8px;padding:12px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;">Iniciar Sesión</button>
+        <button class="secondary-btn" id="btn-signup" style="width:100%;margin-top:10px;padding:12px;border-radius:8px;background:transparent;border:1px solid var(--border);color:#fff;">Crear Cuenta Nueva</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('tabbar').innerHTML = '';
+  document.getElementById('overlays').innerHTML = '';
+  attachInlineAuthListeners();
+}
+
+function attachInlineAuthListeners(){
+  const emailInput = document.getElementById('auth-email');
+  const passInput = document.getElementById('auth-password');
+  const errorDiv = document.getElementById('auth-error');
+
+  const getCreds = () => ({
+    email: emailInput ? emailInput.value.trim() : '',
+    password: passInput ? passInput.value.trim() : ''
+  });
+
+  document.getElementById('btn-login')?.addEventListener('click', async () => {
+    const { email, password } = getCreds();
+    if (!email || !password) { errorDiv.textContent = 'Completa todos los campos.'; return; }
+    errorDiv.textContent = 'Iniciando sesión...';
+    try {
+      const data = await signInUser(email, password);
+      localStorage.setItem('supabase_token', data.access_token);
+      localStorage.setItem('supabase_user_id', data.user.id);
+      render();
+    } catch (err) {
+      errorDiv.textContent = err.message;
+    }
+  });
+
+  document.getElementById('btn-signup')?.addEventListener('click', async () => {
+    const { email, password } = getCreds();
+    if (!email || !password) { errorDiv.textContent = 'Completa todos los campos.'; return; }
+    errorDiv.textContent = 'Registrando cuenta...';
+    try {
+      const data = await signUpUser(email, password);
+      if (data.access_token) {
+        localStorage.setItem('supabase_token', data.access_token);
+        localStorage.setItem('supabase_user_id', data.user.id);
+        render();
+      } else {
+        errorDiv.textContent = '¡Cuenta creada! Inicia sesión ahora.';
+      }
+    } catch (err) {
+      errorDiv.textContent = err.message;
+    }
+  });
 }
 
 function renderAppContent(){
