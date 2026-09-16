@@ -1,125 +1,58 @@
-import {
-  DB,
-  CURRENCIES,
-  SWATCHES,
-  ICON_KEYS,
-  ICON_EMOJI,
-  todayStr
-} from './state.js';
-
-import {
-  computeCreditsSummary
-} from './domain.js';
-
+import { DB, CURRENCIES, SWATCHES, ICON_KEYS, ICON_EMOJI, todayStr } from './state.js';
+import { computeCreditsSummary } from './domain.js';
 
 /* ==========================================================
    SOPORTE DE ICONOS SVG
    ========================================================== */
-
 export function icon(name){
   const svgs = {
-
-    wallet:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
-
-    list:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
-
-    plus:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>',
-
-    credit:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
-
-    tag:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>',
-
-    search:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>',
-
-    pencil:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
-
-    check:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>',
-
-    close:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
-
-    trash:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>',
-
-    alert:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 9v2M12 15h.01M22.61 16.53L13.73 3.15a2 2 0 0 0-3.46 0L1.39 16.53a2 2 0 0 0 1.73 3h17.76a2 2 0 0 0 1.73-3z"/></svg>',
-
-    gear:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09A1.65 1.65 0 0 0 19.4 15z"/></svg>',
-
-    camera:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
-
-    receipt:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 14h-4M16 10H8M8 14h2"/></svg>'
+    'wallet': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
+    'list': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+    'plus': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>',
+    'credit': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
+    'tag': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>',
+    'search': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>',
+    'pencil': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+    'check': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>',
+    'close': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+    'trash': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>',
+    'alert': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 9v2M12 15h.01M22.61 16.53L13.73 3.15a2 2 0 0 0-3.46 0L1.39 16.53a2 2 0 0 0 1.73 3h17.76a2 2 0 0 0 1.73-3z"/></svg>',
+    'gear': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33-1.82V9a1.65 1.65 0 0 0 1.51-1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1 z"/></svg>',
+    'camera': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+    'receipt': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 14h-4M16 10H8M8 14h2"/></svg>'
   };
-
-  return `
-    <span
-      class="icon"
-      style="stroke-linecap:round;stroke-linejoin:round"
-    >
-      ${svgs[name] || ''}
-    </span>
-  `;
+  return `<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">${svgs[name] || ''}</span>`;
 }
-
 
 export const esc = (s) =>
   String(s).replace(
     /[&<>"']/g,
-    c =>
-      ({
-        '&':'&amp;',
-        '<':'&lt;',
-        '>':'&gt;',
-        '"':'&quot;',
-        "'":'&#39;'
-      }[c])
+    c => ({
+      '&':'&amp;',
+      '<':'&lt;',
+      '>':'&gt;',
+      '"':'&quot;',
+      "'":'&#39;'
+    }[c])
   );
 
-
 export function formatThousandInput(val){
-  const digits =
-    String(val).replace(/\D/g, '');
-
+  const digits = String(val).replace(/\D/g, '');
   if (!digits) return '';
-
-  return new Intl.NumberFormat(
-    'es-CO'
-  ).format(digits);
+  return new Intl.NumberFormat('es-CO').format(digits);
 }
-
 
 export function parseFormattedNumber(val){
   if (!val) return '';
-
-  return String(val)
-    .replace(/\D/g, '');
+  return String(val).replace(/\D/g, '');
 }
 
-
 export function fmtMoney(amount){
-  const cur =
-    DB.settings.currency || 'COP';
-
-  const cfg =
-    CURRENCIES[cur] ||
-    CURRENCIES.COP;
-
-  const n =
-    Number(amount) || 0;
+  const cur = DB.settings.currency || 'COP';
+  const cfg = CURRENCIES[cur] || CURRENCIES.COP;
+  const n = Number(amount) || 0;
 
   try {
-
     return new Intl.NumberFormat(
       cfg.locale,
       {
@@ -128,17 +61,10 @@ export function fmtMoney(amount){
         maximumFractionDigits:0
       }
     ).format(n);
-
   } catch(e){
-
-    return (
-      n.toFixed(0) +
-      ' ' +
-      cur
-    );
+    return n.toFixed(0) + ' ' + cur;
   }
 }
-
 
 export function monthLabelStr(date){
   return new Intl.DateTimeFormat(
@@ -150,22 +76,17 @@ export function monthLabelStr(date){
   ).format(date);
 }
 
-
 export function catById(id){
   return DB.categories.find(
     c => c.id === id
   );
 }
 
-
 export function getPrimaryIncomeCat(){
   return DB.categories.find(
-    c =>
-      c.type === 'income' &&
-      c.primary
+    c => c.type === 'income' && c.primary
   ) || null;
 }
-
 
 /* ==========================================================
    CÁLCULOS Y ESTADÍSTICAS
@@ -176,13 +97,9 @@ export function computeTotals(){
   let expense = 0;
 
   DB.transactions.forEach(t => {
+    const amt = Number(t.amount) || 0;
 
-    const amt =
-      Number(t.amount) || 0;
-
-    if (
-      t.type === 'income'
-    ) {
+    if (t.type === 'income'){
       income += amt;
     } else {
       expense += amt;
@@ -192,27 +109,25 @@ export function computeTotals(){
   return {
     income,
     expense,
-    balance:
-      income - expense
+    balance: income - expense
   };
 }
-
 
 export function currentMonthTx(){
   const now = new Date();
 
   const localMonthKey =
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    `${now.getFullYear()}-${String(
+      now.getMonth() + 1
+    ).padStart(2, '0')}`;
 
   return DB.transactions.filter(
     t =>
       t.date &&
       typeof t.date === 'string' &&
-      t.date.substring(0,7) ===
-        localMonthKey
+      t.date.substring(0, 7) === localMonthKey
   );
 }
-
 
 export function computeMonthStats(){
   const primary =
@@ -222,34 +137,22 @@ export function computeMonthStats(){
   let secondaryIncome = 0;
   let expense = 0;
 
-  currentMonthTx()
-    .forEach(t => {
+  currentMonthTx().forEach(t => {
+    const amt = Number(t.amount) || 0;
 
-      const amt =
-        Number(t.amount) || 0;
-
+    if (t.type === 'income'){
       if (
-        t.type === 'income'
-      ) {
-
-        if (
-          primary &&
-          t.categoryId ===
-            primary.id
-        ) {
-
-          primaryIncome += amt;
-
-        } else {
-
-          secondaryIncome += amt;
-        }
-
+        primary &&
+        t.categoryId === primary.id
+      ){
+        primaryIncome += amt;
       } else {
-
-        expense += amt;
+        secondaryIncome += amt;
       }
-    });
+    } else {
+      expense += amt;
+    }
+  });
 
   const income =
     primaryIncome +
@@ -264,9 +167,7 @@ export function computeMonthStats(){
       ? Math.max(
           0,
           Math.round(
-            (netSavings /
-              income) *
-              100
+            (netSavings / income) * 100
           )
         )
       : 0;
@@ -280,7 +181,6 @@ export function computeMonthStats(){
     savingsRate
   };
 }
-
 
 export function computeMonthOverMonthMetrics(){
   const now = new Date();
@@ -299,14 +199,17 @@ export function computeMonthOverMonthMetrics(){
     );
 
   const prevMonthKey =
-    `${prevMDate.getFullYear()}-${String(prevMDate.getMonth() + 1).padStart(2, '0')}`;
+    `${prevMDate.getFullYear()}-${String(
+      prevMDate.getMonth() + 1
+    ).padStart(2, '0')}`;
 
   const currentMonthKey =
-    `${curY}-${String(curM + 1).padStart(2, '0')}`;
+    `${curY}-${String(
+      curM + 1
+    ).padStart(2, '0')}`;
 
   let currentExpense = 0;
   let prevExpense = 0;
-
   let currentIncome = 0;
   let prevIncome = 0;
 
@@ -314,56 +217,37 @@ export function computeMonthOverMonthMetrics(){
   const prevCatMap = {};
 
   DB.transactions.forEach(t => {
-
     if (!t.date) return;
 
     const mKey =
-      t.date.substring(0,7);
+      t.date.substring(0, 7);
 
     const amt =
       Number(t.amount) || 0;
 
-    if (
-      mKey === currentMonthKey
-    ) {
+    if (mKey === currentMonthKey){
 
-      if (
-        t.type === 'expense'
-      ) {
-
+      if (t.type === 'expense'){
         currentExpense += amt;
 
         currentCatMap[t.categoryId] =
-          (
-            currentCatMap[t.categoryId] ||
-            0
-          ) +
+          (currentCatMap[t.categoryId] || 0) +
           amt;
-
       } else {
-
         currentIncome += amt;
       }
 
     } else if (
       mKey === prevMonthKey
-    ) {
+    ){
 
-      if (
-        t.type === 'expense'
-      ) {
-
+      if (t.type === 'expense'){
         prevExpense += amt;
 
         prevCatMap[t.categoryId] =
-          (
-            prevCatMap[t.categoryId] ||
-            0
-          ) +
+          (prevCatMap[t.categoryId] || 0) +
           amt;
-
       } else {
-
         prevIncome += amt;
       }
     }
@@ -381,11 +265,9 @@ export function computeMonthOverMonthMetrics(){
     prevExpense > 0
       ? Math.round(
           (
-            (currentExpense -
-              prevExpense) /
+            (currentExpense - prevExpense) /
             prevExpense
-          ) *
-          100
+          ) * 100
         )
       : (
           currentExpense > 0
@@ -397,11 +279,9 @@ export function computeMonthOverMonthMetrics(){
     prevIncome > 0
       ? Math.round(
           (
-            (currentIncome -
-              prevIncome) /
+            (currentIncome - prevIncome) /
             prevIncome
-          ) *
-          100
+          ) * 100
         )
       : (
           currentIncome > 0
@@ -409,31 +289,25 @@ export function computeMonthOverMonthMetrics(){
             : 0
         );
 
-  let highestGrowthCat =
-    null;
+  let highestGrowthCat = null;
+  let maxDiff = -Infinity;
 
-  let maxDiff =
-    -Infinity;
+  Object.keys(currentCatMap)
+    .forEach(catId => {
 
-  Object.keys(
-    currentCatMap
-  ).forEach(catId => {
+      const diff =
+        currentCatMap[catId] -
+        (prevCatMap[catId] || 0);
 
-    const diff =
-      currentCatMap[catId] -
-      (prevCatMap[catId] || 0);
-
-    if (
-      diff > maxDiff &&
-      diff > 0
-    ) {
-
-      maxDiff = diff;
-
-      highestGrowthCat =
-        catById(catId);
-    }
-  });
+      if (
+        diff > maxDiff &&
+        diff > 0
+      ){
+        maxDiff = diff;
+        highestGrowthCat =
+          catById(catId);
+      }
+    });
 
   const savingsRate =
     currentIncome > 0
@@ -443,8 +317,7 @@ export function computeMonthOverMonthMetrics(){
             (
               currentSavings /
               currentIncome
-            ) *
-            100
+            ) * 100
           )
         )
       : 0;
@@ -464,32 +337,23 @@ export function computeMonthOverMonthMetrics(){
   };
 }
 
-
 export function computeCategoryTotals(){
   const map = {};
 
   currentMonthTx()
     .forEach(t => {
-
       if (
         t.type === 'expense'
-      ) {
-
+      ){
         map[t.categoryId] =
-          (
-            map[t.categoryId] ||
-            0
-          ) +
-          (
-            Number(t.amount) ||
-            0
-          );
+          (map[t.categoryId] || 0) +
+          (Number(t.amount) || 0);
       }
     });
 
   return Object.entries(map)
     .map(
-      ([id,total]) => ({
+      ([id, total]) => ({
         id,
         total,
         cat:catById(id)
@@ -500,11 +364,9 @@ export function computeCategoryTotals(){
     )
     .sort(
       (a,b) =>
-        b.total -
-        a.total
+        b.total - a.total
     );
 }
-
 
 export function computeBurnMetrics(){
   const today =
@@ -513,7 +375,7 @@ export function computeBurnMetrics(){
   const daysInMonth =
     new Date(
       today.getFullYear(),
-      today.getMonth()+1,
+      today.getMonth() + 1,
       0
     ).getDate();
 
@@ -533,8 +395,7 @@ export function computeBurnMetrics(){
       (
         currentDay /
         daysInMonth
-      ) *
-      100
+      ) * 100
     );
 
   const totals =
@@ -573,7 +434,9 @@ export function computeBurnMetrics(){
             .toLowerCase()
             .includes('servicio')
       )
-      .map(c => c.id);
+      .map(
+        c => c.id
+      );
 
   const isDailyExpense =
     t =>
@@ -623,7 +486,7 @@ export function computeBurnMetrics(){
 
     if (
       !isDailyExpense(t)
-    ) {
+    ){
       return;
     }
 
@@ -641,7 +504,7 @@ export function computeBurnMetrics(){
         today.getFullYear() ||
       tDate.getMonth() !==
         today.getMonth()
-    ) {
+    ){
       return;
     }
 
@@ -650,7 +513,7 @@ export function computeBurnMetrics(){
 
     if (
       day > currentDay
-    ) {
+    ){
       return;
     }
 
@@ -664,8 +527,7 @@ export function computeBurnMetrics(){
           );
 
     periodExpenses[p] +=
-      Number(t.amount) ||
-      0;
+      Number(t.amount) || 0;
   });
 
   const currentPeriodExpense =
@@ -681,33 +543,29 @@ export function computeBurnMetrics(){
 
   if (
     avgDailyBurn <= 0
-  ) {
+  ){
 
     for (
       let p =
         periodNumber - 1;
       p >= 0;
       p--
-    ) {
+    ){
 
       if (
         periodExpenses[p] > 0
-      ) {
-
+      ){
         avgDailyBurn =
           periodExpenses[p] /
           10;
-
         break;
       }
     }
   }
 
   const runwayDays =
-    (
-      avgDailyBurn > 0 &&
-      totals.balance > 0
-    )
+    avgDailyBurn > 0 &&
+    totals.balance > 0
       ? Math.floor(
           totals.balance /
           avgDailyBurn
@@ -730,7 +588,6 @@ export function computeBurnMetrics(){
     runwayDays
   };
 }
-
 
 export function computeBudgetRows(){
   const totals =
@@ -758,17 +615,14 @@ export function computeBudgetRows(){
         Math.min(
           100,
           Math.round(
-            (
-              spent /
-              c.budget
-            ) *
+            (spent /
+              c.budget) *
             100
           )
         );
 
       const over =
-        spent >
-        c.budget;
+        spent > c.budget;
 
       const isPacingFast =
         !over &&
@@ -786,13 +640,14 @@ export function computeBudgetRows(){
     });
 }
 
-
 export function computeCreditsPaidThisMonth(){
   const now =
     new Date();
 
   const currentMonthKey =
-    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    `${now.getFullYear()}-${String(
+      now.getMonth() + 1
+    ).padStart(2, '0')}`;
 
   return (
     DB.credits || []
@@ -834,226 +689,6 @@ export function computeCreditsPaidThisMonth(){
     );
 }
 
-
-export function computeCreditsSummary(){
-  const now =
-    new Date();
-
-  const currentMonthKey =
-    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-
-  const prevDate =
-    new Date(
-      now.getFullYear(),
-      now.getMonth()-1,
-      1
-    );
-
-  const prevMonthKey =
-    `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
-
-  let againstTotal = 0;
-  let againstPaidTotal = 0;
-  let againstPaidThisMonth = 0;
-  let againstPaidPrevMonth = 0;
-  let againstCount = 0;
-
-  let favorTotal = 0;
-  let favorPaidTotal = 0;
-  let favorPaidThisMonth = 0;
-  let favorPaidPrevMonth = 0;
-  let favorCount = 0;
-
-  (
-    DB.credits || []
-  ).forEach(c => {
-
-    const total =
-      Number(c.total) ||
-      0;
-
-    const payments =
-      c.payments ||
-      [];
-
-    const paidTotal =
-      payments.reduce(
-        (s,p) =>
-          s +
-          (
-            Number(p.amount) ||
-            0
-          ),
-        0
-      );
-
-    const paidThisMonth =
-      payments
-        .filter(
-          p =>
-            p.date &&
-            typeof p.date === 'string' &&
-            p.date.substring(0,7) ===
-              currentMonthKey
-        )
-        .reduce(
-          (s,p) =>
-            s +
-            (
-              Number(p.amount) ||
-              0
-            ),
-          0
-        );
-
-    const paidPrevMonth =
-      payments
-        .filter(
-          p =>
-            p.date &&
-            typeof p.date === 'string' &&
-            p.date.substring(0,7) ===
-              prevMonthKey
-        )
-        .reduce(
-          (s,p) =>
-            s +
-            (
-              Number(p.amount) ||
-              0
-            ),
-          0
-        );
-
-    if (
-      c.type === 'against'
-    ) {
-
-      againstTotal +=
-        total;
-
-      againstPaidTotal +=
-        paidTotal;
-
-      againstPaidThisMonth +=
-        paidThisMonth;
-
-      againstPaidPrevMonth +=
-        paidPrevMonth;
-
-      againstCount += 1;
-
-    } else if (
-      c.type === 'favor'
-    ) {
-
-      favorTotal +=
-        total;
-
-      favorPaidTotal +=
-        paidTotal;
-
-      favorPaidThisMonth +=
-        paidThisMonth;
-
-      favorPaidPrevMonth +=
-        paidPrevMonth;
-
-      favorCount += 1;
-    }
-  });
-
-  const againstPending =
-    Math.max(
-      0,
-      againstTotal -
-      againstPaidTotal
-    );
-
-  const favorPending =
-    Math.max(
-      0,
-      favorTotal -
-      favorPaidTotal
-    );
-
-  const againstProgressPct =
-    againstTotal > 0
-      ? Math.min(
-          100,
-          Math.round(
-            (
-              againstPaidTotal /
-              againstTotal
-            ) *
-            100
-          )
-        )
-      : 0;
-
-  const favorProgressPct =
-    favorTotal > 0
-      ? Math.min(
-          100,
-          Math.round(
-            (
-              favorPaidTotal /
-              favorTotal
-            ) *
-            100
-          )
-        )
-      : 0;
-
-  let paymentChangePct = 0;
-
-  if (
-    againstPaidPrevMonth > 0
-  ) {
-
-    paymentChangePct =
-      Math.round(
-        (
-          (
-            againstPaidThisMonth -
-            againstPaidPrevMonth
-          ) /
-          againstPaidPrevMonth
-        ) *
-        100
-      );
-
-  } else if (
-    againstPaidThisMonth > 0
-  ) {
-
-    paymentChangePct =
-      100;
-  }
-
-  return {
-    againstTotal,
-    againstPaidTotal,
-    againstPending,
-    againstProgressPct,
-    againstCount,
-
-    againstPaidThisMonth,
-    againstPaidPrevMonth,
-    paymentChangePct,
-
-    favorTotal,
-    favorPaidTotal,
-    favorPending,
-    favorProgressPct,
-    favorCount,
-
-    favorPaidThisMonth,
-    favorPaidPrevMonth
-  };
-}
-
-
 /* ==========================================================
    GRÁFICO CIRCULAR (PIE CHART SVG)
    ========================================================== */
@@ -1064,14 +699,13 @@ export function expensePieSVG(
   monthIncome,
   creditsPending
 ){
-
   creditsPending =
     Number(creditsPending) || 0;
 
   if (
     !catTotals.length &&
     creditsPending <= 0
-  ) {
+  ){
     return '';
   }
 
@@ -1079,7 +713,6 @@ export function expensePieSVG(
   const cy = 60;
   const r = 44;
   const stroke = 16;
-
   const circumference =
     2 * Math.PI * r;
 
@@ -1091,26 +724,41 @@ export function expensePieSVG(
       circumference - gap
     );
 
+  const base =
+    monthIncome > 0
+      ? monthIncome
+      : (
+          monthExpense +
+          creditsPending
+        );
+
+  const remainingPct =
+    monthIncome > 0
+      ? Math.max(
+          0,
+          (
+            monthIncome -
+            monthExpense -
+            creditsPending
+          ) /
+          monthIncome
+        )
+      : 0;
+
   let offset = 0;
-  let slices = [];
+  const slices = [];
 
   catTotals.forEach(rw => {
 
     const pct =
       Math.max(
         0,
-        rw.total /
-        (
-          monthIncome > 0
-            ? monthIncome
-            : monthExpense +
-              creditsPending
-        )
+        rw.total / base
       );
 
     if (
       pct <= 0
-    ) {
+    ){
       return;
     }
 
@@ -1132,27 +780,8 @@ export function expensePieSVG(
 
     offset +=
       rawDash +
-      gap * 0.35;
+      (gap * 0.35);
   });
-
-  const base =
-    monthIncome > 0
-      ? monthIncome
-      : monthExpense +
-        creditsPending;
-
-  const remainingPct =
-    monthIncome > 0
-      ? Math.max(
-          0,
-          (
-            monthIncome -
-            monthExpense -
-            creditsPending
-          ) /
-          monthIncome
-        )
-      : 0;
 
   if (
     creditsPending > 0 &&
@@ -1184,7 +813,7 @@ export function expensePieSVG(
 
     offset +=
       rawDash +
-      gap * 0.35;
+      (gap * 0.35);
   }
 
   if (
@@ -1240,14 +869,16 @@ export function expensePieSVG(
         s.color +
         '" stroke-width="' +
         stroke +
-        '" stroke-dasharray="' +
+        '" ' +
+        'stroke-dasharray="' +
         s.dash.toFixed(2) +
         ' ' +
         (
           circumference -
           s.dash
         ).toFixed(2) +
-        '" stroke-dashoffset="' +
+        '" ' +
+        'stroke-dashoffset="' +
         (
           -s.offset
         ).toFixed(2) +
@@ -1255,18 +886,17 @@ export function expensePieSVG(
     }
   });
 
-  svg += '</svg>';
+  svg +=
+    '</svg>';
 
   return svg;
 }
 
-
 /* ==========================================================
-   VISTAS PRINCIPALES
+   RENDERIZADO DE VISTAS PRINCIPALES
    ========================================================== */
 
 export function renderDashboard(){
-
   const totals =
     computeTotals();
 
@@ -1369,22 +999,20 @@ export function renderDashboard(){
 
   const statusClass =
     burn.dailyAvailable >
-      burn.avgDailyBurn
+    burn.avgDailyBurn
       ? 'ok'
       : (
-          burn.dailyAvailable >
-            0
+          burn.dailyAvailable > 0
             ? 'warn'
             : 'alert'
         );
 
   const statusText =
     burn.dailyAvailable >
-      burn.avgDailyBurn
+    burn.avgDailyBurn
       ? 'En ritmo'
       : (
-          burn.dailyAvailable >
-            0
+          burn.dailyAvailable > 0
             ? 'Ajustar'
             : 'Sin saldo'
         );
@@ -1410,7 +1038,8 @@ export function renderDashboard(){
     '</div>';
 
   if (
-    burn.currentPeriodDays < 10
+    burn.currentPeriodDays <
+    10
   ){
 
     html +=
@@ -1519,10 +1148,12 @@ export function renderDashboard(){
             100,
             Math.round(
               (
-                month.expense +
-                creditsPaid
-              ) /
-              month.income *
+                (
+                  month.expense +
+                  creditsPaid
+                ) /
+                month.income
+              ) *
               100
             )
           )
@@ -1585,8 +1216,10 @@ export function renderDashboard(){
       const creditsBase =
         month.income > 0
           ? month.income
-          : month.expense +
-            creditsPaid;
+          : (
+              month.expense +
+              creditsPaid
+            );
 
       const pctOfCredits =
         creditsBase > 0
@@ -1726,9 +1359,7 @@ export function renderDashboard(){
         ? '+'
         : ''
     ) +
-    fmtMoney(
-      mom.currentSavings
-    ) +
+    fmtMoney(mom.currentSavings) +
     '</div></div><div class="mom-box"><div class="lbl">Ahorro mes pasado</div><div class="val" style="color:' +
     (
       mom.prevSavings >= 0
@@ -1741,9 +1372,7 @@ export function renderDashboard(){
         ? '+'
         : ''
     ) +
-    fmtMoney(
-      mom.prevSavings
-    ) +
+    fmtMoney(mom.prevSavings) +
     '</div></div></div></div>';
 
   html +=
@@ -1757,9 +1386,7 @@ export function renderDashboard(){
 
     html +=
       '<div class="mom-slide"><div class="mom-single"><div class="lbl">Mayor aumento de gasto</div><div class="val" style="color:var(--expense)">' +
-      esc(
-        mom.highestGrowthCat.name
-      ) +
+      esc(mom.highestGrowthCat.name) +
       '</div><div class="sub">Subió ' +
       fmtMoney(mom.maxDiff) +
       ' vs mes anterior</div></div></div>';
@@ -1779,9 +1406,7 @@ export function renderDashboard(){
 
     html +=
       '<div class="mom-insight"><span>💡</span><div><b>Atención en ' +
-      esc(
-        mom.highestGrowthCat.name
-      ) +
+      esc(mom.highestGrowthCat.name) +
       ':</b> Tu gasto subió ' +
       fmtMoney(mom.maxDiff) +
       ' respecto al mes anterior.</div></div>';
@@ -1809,15 +1434,12 @@ export function renderDashboard(){
 
       if (
         b.over
-      ) {
-
+      ){
         barColor =
           'var(--expense)';
-
       } else if (
         b.isPacingFast
-      ) {
-
+      ){
         barColor =
           'var(--amber)';
       }
@@ -1826,8 +1448,7 @@ export function renderDashboard(){
         '<div class="cat-row"><div class="top"><span>' +
         (
           b.over
-            ? icon('alert') +
-              ' '
+            ? icon('alert') + ' '
             : ''
         ) +
         esc(b.cat.name) +
@@ -1855,9 +1476,7 @@ export function renderDashboard(){
   return html;
 }
 
-
 export function renderTxRow(t){
-
   const cat =
     catById(t.categoryId);
 
@@ -1881,13 +1500,11 @@ export function renderTxRow(t){
     '<button class="tx-item" data-action="edit-tx" data-id="' +
     t.id +
     '">' +
-
     '<div class="avatar" style="background:' +
     bg +
     '">' +
     emoji +
     '</div>' +
-
     '<div class="tx-main"><div class="tx-title">' +
     esc(
       cat
@@ -1903,7 +1520,6 @@ export function renderTxRow(t){
         : ''
     ) +
     '</div></div>' +
-
     '<div class="tx-amount ' +
     t.type +
     '">' +
@@ -1917,12 +1533,10 @@ export function renderTxRow(t){
   );
 }
 
-
 export function filteredTx(
   search,
   txFilter
 ){
-
   return DB.transactions
     .filter(
       t =>
@@ -1934,7 +1548,7 @@ export function filteredTx(
 
       if (
         !search.trim()
-      ) {
+      ){
         return true;
       }
 
@@ -1947,15 +1561,17 @@ export function filteredTx(
         );
 
       return (
-        (t.note || '')
-          .toLowerCase()
-          .includes(s) ||
         (
-          cat &&
-          cat.name
-            .toLowerCase()
-            .includes(s)
+          t.note || ''
         )
+          .toLowerCase()
+          .includes(s)
+      ) ||
+      (
+        cat &&
+        cat.name
+          .toLowerCase()
+          .includes(s)
       );
     })
     .sort(
@@ -1970,12 +1586,10 @@ export function filteredTx(
     );
 }
 
-
 export function renderTransactions(
   search,
   txFilter
 ){
-
   const list =
     filteredTx(
       search,
@@ -2024,7 +1638,9 @@ export function renderTransactions(
     (
       list.length
         ? list
-            .map(renderTxRow)
+            .map(
+              renderTxRow
+            )
             .join('')
         : '<div class="empty-state">No hay movimientos registrados.</div>'
     ) +
@@ -2033,11 +1649,9 @@ export function renderTransactions(
   return html;
 }
 
-
 export function renderInvoices(
   openInvoiceId
 ){
-
   let html = '';
 
   html +=
@@ -2062,7 +1676,6 @@ export function renderInvoices(
   if (
     !list.length
   ){
-
     return (
       html +
       '<div class="empty-state">Aún no has escaneado ninguna factura.<br>Usa el botón central (+) para escanear una.</div>'
@@ -2072,8 +1685,7 @@ export function renderInvoices(
   list.forEach(inv => {
 
     const isOpen =
-      openInvoiceId ===
-      inv.id;
+      openInvoiceId === inv.id;
 
     html +=
       '<div class="credit-card"><div class="credit-head"><div><div class="credit-title">' +
@@ -2164,15 +1776,9 @@ export function renderInvoices(
   return html;
 }
 
-
-/* ==========================================================
-   CRÉDITOS
-   ========================================================== */
-
 export function renderCredits(
   creditFilter
 ){
-
   let html = '';
 
   const summary =
@@ -2379,7 +1985,6 @@ export function renderCredits(
   if (
     !list.length
   ){
-
     return (
       html +
       '<div class="empty-state">No hay créditos registrados.</div>'
@@ -2511,13 +2116,7 @@ export function renderCredits(
   return html;
 }
 
-
-/* ==========================================================
-   CATEGORÍAS
-   ========================================================== */
-
 export function renderCategories(){
-
   const totals =
     computeCategoryTotals();
 
@@ -2543,87 +2142,71 @@ export function renderCategories(){
         c.type === 'expense'
     );
 
-  const row = c => {
+  const row =
+    c => {
 
-    const emoji =
-      ICON_EMOJI[c.icon] ||
-      '⭐';
+      const emoji =
+        ICON_EMOJI[c.icon] ||
+        '⭐';
 
-    return (
-      '<button class="cat-item" data-action="edit-cat" data-id="' +
-      c.id +
-      '">' +
-
-      '<div class="avatar" style="background:' +
-      c.color +
-      '22">' +
-      emoji +
-      '</div>' +
-
-      '<div class="tx-main"><div class="cat-name">' +
-      esc(c.name) +
-
-      (
-        c.primary
-          ? '<span class="star-badge">Principal</span>'
-          : ''
-      ) +
-
-      (
-        c.isFixed
-          ? '<span class="fixed-badge">Fijo</span>'
-          : ''
-      ) +
-
-      '</div>' +
-
-      (
-        c.type === 'expense' &&
-        c.budget
-          ? '<div class="cat-budget">Presupuesto: ' +
-            fmtMoney(c.budget) +
-            '</div>'
-          : ''
-      ) +
-
-      '</div>' +
-
-      (
-        c.type === 'expense' &&
-        totalsById[c.id]
-          ? '<div class="cat-total">' +
-            fmtMoney(
-              totalsById[c.id]
-            ) +
-            '</div>'
-          : ''
-      ) +
-
-      icon('pencil') +
-      '</button>'
-    );
-  };
+      return (
+        '<button class="cat-item" data-action="edit-cat" data-id="' +
+        c.id +
+        '">' +
+        '<div class="avatar" style="background:' +
+        c.color +
+        '22">' +
+        emoji +
+        '</div>' +
+        '<div class="tx-main"><div class="cat-name">' +
+        esc(c.name) +
+        (
+          c.primary
+            ? '<span class="star-badge">Principal</span>'
+            : ''
+        ) +
+        (
+          c.isFixed
+            ? '<span class="fixed-badge">Fijo</span>'
+            : ''
+        ) +
+        '</div>' +
+        (
+          c.type === 'expense' &&
+          c.budget
+            ? '<div class="cat-budget">Presupuesto: ' +
+              fmtMoney(c.budget) +
+              '</div>'
+            : ''
+        ) +
+        '</div>' +
+        (
+          c.type === 'expense' &&
+          totalsById[c.id]
+            ? '<div class="cat-total">' +
+              fmtMoney(
+                totalsById[c.id]
+              ) +
+              '</div>'
+            : ''
+        ) +
+        icon('pencil') +
+        '</button>'
+      );
+    };
 
   return (
     '<button class="new-cat-btn" data-action="new-cat">' +
     icon('plus') +
     ' Nueva categoría</button>' +
-
     '<div class="section-title">Ingresos</div>' +
     income.map(row).join('') +
-
     '<div class="section-title" style="margin-top:20px">Gastos</div>' +
     expense.map(row).join('')
   );
 }
 
-
-/* ==========================================================
-   AJUSTES
-   ========================================================== */
-
 export function renderSettings(){
-
   let html =
     '<div class="section-title">Moneda</div><div class="settings-list">';
 
@@ -2645,8 +2228,7 @@ export function renderSettings(){
         ) +
         '" data-action="set-currency" data-code="' +
         code +
-        '">' +
-        '<span>' +
+        '"><span>' +
         cfg.label +
         '</span>' +
         (
@@ -2685,20 +2267,19 @@ export function renderSettings(){
     '<div class="data-box"><div class="row"><span class="muted">Movimientos</span><span>' +
     DB.transactions.length +
     '</span></div>' +
-
     '<div class="row"><span class="muted">Categorías</span><span>' +
     DB.categories.length +
     '</span></div>' +
-
     '<div class="row"><span class="muted">Créditos</span><span>' +
     (
-      DB.credits || []
+      DB.credits ||
+      []
     ).length +
     '</span></div>' +
-
     '<div class="row"><span class="muted">Facturas</span><span>' +
     (
-      DB.invoices || []
+      DB.invoices ||
+      []
     ).length +
     '</span></div></div>';
 
@@ -2717,16 +2298,9 @@ export function renderSettings(){
   return html;
 }
 
-
-/* ==========================================================
-   MENÚ DEL +
-   ========================================================== */
-
 export function renderFabMenu(){
-
   return (
     '<div class="fab-menu-backdrop" id="fab-backdrop">' +
-
       '<div class="fab-menu-sheet">' +
 
         '<button class="fab-menu-item" data-action="fab-new-tx">' +
@@ -2765,18 +2339,15 @@ export function renderFabMenu(){
         '</button>' +
 
       '</div>' +
-
     '</div>'
   );
 }
 
-
 /* ==========================================================
-   HOJAS / MODALES
+   RENDERIZADO DE HOJAS Y MODALES
    ========================================================== */
 
 export function renderQuickSheet(sheet){
-
   const cat =
     catById(
       sheet.categoryId
@@ -2791,16 +2362,13 @@ export function renderQuickSheet(sheet){
       : '⭐';
 
   const valid =
-    Number(sheet.amount) >
-    0;
+    Number(sheet.amount) > 0;
 
   return (
     '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
-
     '<div class="sheet-head"><h3>Registrar gasto</h3><button data-action="close-sheet">' +
     icon('close') +
     '</button></div>' +
-
     '<div class="quick-header"><div class="avatar">' +
     emoji +
     '</div><div class="qname">' +
@@ -2810,7 +2378,6 @@ export function renderQuickSheet(sheet){
         : ''
     ) +
     '</div></div>' +
-
     '<div class="field"><input id="q-amount" class="amount-input" type="text" inputmode="numeric" placeholder="$ 0" value="' +
     esc(
       formatThousandInput(
@@ -2818,7 +2385,6 @@ export function renderQuickSheet(sheet){
       )
     ) +
     '"></div>' +
-
     (
       sheet.showNote
         ? '<div class="field"><div class="field-label">Nota</div><input id="q-note" value="' +
@@ -2826,7 +2392,6 @@ export function renderQuickSheet(sheet){
           '"></div>'
         : '<button class="link-btn" data-action="show-note">+ Agregar nota</button>'
     ) +
-
     (
       sheet.showDate
         ? '<div class="field"><div class="field-label">Fecha</div><input id="q-date" type="date" value="' +
@@ -2834,7 +2399,6 @@ export function renderQuickSheet(sheet){
           '"></div>'
         : '<button class="link-btn" data-action="show-date">Cambiar fecha</button>'
     ) +
-
     '<div class="sheet-actions" style="margin-top:14px"><button class="save-btn" id="quick-save-btn" data-action="save-quick" ' +
     (
       valid
@@ -2842,28 +2406,22 @@ export function renderQuickSheet(sheet){
         : 'disabled'
     ) +
     '>Guardar gasto</button></div>' +
-
     '</div></div>'
   );
 }
-
 
 export function renderTxCatChips(
   cats,
   selectedId
 ){
-
   if (
     !cats.length
   ){
-
-    return (
-      '<div class="empty-hint">Crea primero una categoría.</div>'
-    );
+    return '<div class="empty-hint">Crea primero una categoría.</div>';
   }
 
-  return cats
-    .map(c => {
+  return cats.map(
+    c => {
 
       const sel =
         selectedId === c.id;
@@ -2884,7 +2442,6 @@ export function renderTxCatChips(
         '" data-action="pick-tx-cat" data-id="' +
         c.id +
         '">' +
-
         '<span class="chip-icon" style="background:' +
         c.color +
         '25">' +
@@ -2892,21 +2449,15 @@ export function renderTxCatChips(
           ICON_EMOJI[c.icon] ||
           '⭐'
         ) +
-        '</span>' +
-
-        '<span class="chip-label">' +
+        '</span><span class="chip-label">' +
         esc(c.name) +
-        '</span>' +
-
-        '</button>'
+        '</span></button>'
       );
-    })
-    .join('');
+    }
+  ).join('');
 }
 
-
 export function renderTxSheet(sheet){
-
   const cats =
     DB.categories.filter(
       c =>
@@ -2926,7 +2477,6 @@ export function renderTxSheet(sheet){
 
   return (
     '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
-
     '<div class="sheet-head"><h3>' +
     (
       sheet.mode === 'edit'
@@ -2936,27 +2486,20 @@ export function renderTxSheet(sheet){
     '</h3><button data-action="close-sheet">' +
     icon('close') +
     '</button></div>' +
-
-    '<div class="type-toggle">' +
-
-    '<button class="' +
+    '<div class="type-toggle"><button class="' +
     (
       sheet.type === 'expense'
         ? 'active-expense'
         : ''
     ) +
     '" data-action="tx-type" data-type="expense">Gasto</button>' +
-
     '<button class="' +
     (
       sheet.type === 'income'
         ? 'active-income'
         : ''
     ) +
-    '" data-action="tx-type" data-type="income">Ingreso</button>' +
-
-    '</div>' +
-
+    '" data-action="tx-type" data-type="income">Ingreso</button></div>' +
     '<div class="field"><div class="field-label">Monto</div><input id="f-amount" type="text" inputmode="numeric" placeholder="0" value="' +
     esc(
       formatThousandInput(
@@ -2964,21 +2507,16 @@ export function renderTxSheet(sheet){
       )
     ) +
     '"></div>' +
-
     '<div class="field"><div class="field-label">Categoría</div><div class="chip-wrap" id="chipList">' +
     chips +
     '</div></div>' +
-
     '<div class="field"><div class="field-label">Fecha</div><input id="f-date" type="date" value="' +
     esc(sheet.date) +
     '"></div>' +
-
     '<div class="field"><div class="field-label">Nota</div><input id="f-note" value="' +
     esc(sheet.note) +
     '"></div>' +
-
     '<div class="sheet-actions">' +
-
     (
       sheet.mode === 'edit'
         ? '<button class="del-btn" data-action="delete-tx">' +
@@ -2986,22 +2524,17 @@ export function renderTxSheet(sheet){
           '</button>'
         : ''
     ) +
-
     '<button class="save-btn" id="tx-save-btn" data-action="save-tx" ' +
     (
       valid
         ? ''
         : 'disabled'
     ) +
-    '>Guardar</button>' +
-
-    '</div></div></div>'
+    '>Guardar</button></div></div></div>'
   );
 }
 
-
 export function renderCatSheet(sheet){
-
   const swatches =
     SWATCHES
       .map(
@@ -3039,12 +2572,10 @@ export function renderCatSheet(sheet){
       .join('');
 
   const valid =
-    sheet.name.trim().length >
-    0;
+    sheet.name.trim().length > 0;
 
   return (
     '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
-
     '<div class="sheet-head"><h3>' +
     (
       sheet.mode === 'edit'
@@ -3054,101 +2585,69 @@ export function renderCatSheet(sheet){
     '</h3><button data-action="close-sheet">' +
     icon('close') +
     '</button></div>' +
-
     '<div class="field"><div class="field-label">Nombre</div><input id="f-name" value="' +
     esc(sheet.name) +
     '"></div>' +
-
-    '<div class="field"><div class="field-label">Tipo</div><div class="type-toggle">' +
-
-    '<button class="' +
+    '<div class="field"><div class="field-label">Tipo</div><div class="type-toggle"><button class="' +
     (
       sheet.type === 'expense'
         ? 'active-neutral'
         : ''
     ) +
     '" data-action="cat-type" data-type="expense">Gasto</button>' +
-
     '<button class="' +
     (
       sheet.type === 'income'
         ? 'active-neutral'
         : ''
     ) +
-    '" data-action="cat-type" data-type="income">Ingreso</button>' +
-
-    '</div></div>' +
-
+    '" data-action="cat-type" data-type="income">Ingreso</button></div></div>' +
     '<div class="field"><div class="field-label">Color</div><div class="chip-wrap" id="swatchList">' +
     swatches +
     '</div></div>' +
-
     '<div class="field"><div class="field-label">Ícono</div><div class="chip-wrap" id="iconList">' +
     icons +
     '</div></div>' +
-
     '<div id="primaryField" style="display:' +
     (
       sheet.type === 'income'
         ? 'block'
         : 'none'
     ) +
-    '">' +
-
-    '<div class="toggle-row" data-action="toggle-primary"><div><div class="tlabel">Ingreso principal</div></div>' +
-
-    '<div class="switch ' +
+    '"><div class="toggle-row" data-action="toggle-primary"><div><div class="tlabel">Ingreso principal</div></div><div class="switch ' +
     (
       sheet.primary
         ? 'on'
         : ''
     ) +
-    '" id="primarySwitch"><div class="knob"></div></div>' +
-
-    '</div></div>' +
-
+    '" id="primarySwitch"><div class="knob"></div></div></div></div>' +
     '<div id="fixedField" style="display:' +
     (
       sheet.type === 'expense'
         ? 'block'
         : 'none'
     ) +
-    '">' +
-
-    '<div class="toggle-row" data-action="toggle-fixed"><div><div class="tlabel">Gasto fijo</div></div>' +
-
-    '<div class="switch ' +
+    '"><div class="toggle-row" data-action="toggle-fixed"><div><div class="tlabel">Gasto fijo</div></div><div class="switch ' +
     (
       sheet.isFixed
         ? 'on-violet'
         : ''
     ) +
-    '" id="fixedSwitch"><div class="knob"></div></div>' +
-
-    '</div></div>' +
-
+    '" id="fixedSwitch"><div class="knob"></div></div></div></div>' +
     '<div class="field" id="budgetField" style="display:' +
     (
       sheet.type === 'expense'
         ? 'block'
         : 'none'
     ) +
-    '">' +
-
-    '<div class="field-label">Presupuesto mensual</div>' +
-
-    '<input id="f-budget" type="text" inputmode="numeric" value="' +
+    '"><div class="field-label">Presupuesto mensual</div><input id="f-budget" type="text" inputmode="numeric" value="' +
     esc(
       formatThousandInput(
         sheet.budget
       )
     ) +
-    '">' +
-
-    '</div>' +
-
+    '"></div>' +
     '<div class="sheet-actions">' +
-
     (
       sheet.mode === 'edit'
         ? '<button class="del-btn" data-action="delete-cat">' +
@@ -3156,31 +2655,23 @@ export function renderCatSheet(sheet){
           '</button>'
         : ''
     ) +
-
     '<button class="save-btn" id="cat-save-btn" data-action="save-cat" ' +
     (
       valid
         ? ''
         : 'disabled'
     ) +
-    '>Guardar</button>' +
-
-    '</div></div></div>'
+    '>Guardar</button></div></div></div>'
   );
 }
 
-
 export function renderCreditSheet(sheet){
-
   const valid =
-    sheet.title.trim().length >
-      0 &&
-    Number(sheet.total) >
-      0;
+    sheet.title.trim().length > 0 &&
+    Number(sheet.total) > 0;
 
   return (
     '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
-
     '<div class="sheet-head"><h3>' +
     (
       sheet.mode === 'edit'
@@ -3190,31 +2681,23 @@ export function renderCreditSheet(sheet){
     '</h3><button data-action="close-sheet">' +
     icon('close') +
     '</button></div>' +
-
-    '<div class="type-toggle">' +
-
-    '<button class="' +
+    '<div class="type-toggle"><button class="' +
     (
       sheet.type === 'against'
         ? 'active-expense'
         : ''
     ) +
     '" data-action="credit-type" data-type="against">Deuda</button>' +
-
     '<button class="' +
     (
       sheet.type === 'favor'
         ? 'active-income'
         : ''
     ) +
-    '" data-action="credit-type" data-type="favor">Cobro</button>' +
-
-    '</div>' +
-
+    '" data-action="credit-type" data-type="favor">Cobro</button></div>' +
     '<div class="field"><div class="field-label">Concepto / Persona</div><input id="c-title" value="' +
     esc(sheet.title) +
     '"></div>' +
-
     '<div class="field"><div class="field-label">Valor total</div><input id="c-total" type="text" inputmode="numeric" value="' +
     esc(
       formatThousandInput(
@@ -3222,9 +2705,7 @@ export function renderCreditSheet(sheet){
       )
     ) +
     '"></div>' +
-
     '<div class="sheet-actions">' +
-
     (
       sheet.mode === 'edit'
         ? '<button class="del-btn" data-action="delete-credit">' +
@@ -3232,29 +2713,22 @@ export function renderCreditSheet(sheet){
           '</button>'
         : ''
     ) +
-
     '<button class="save-btn" id="credit-save-btn" data-action="save-credit" ' +
     (
       valid
         ? ''
         : 'disabled'
     ) +
-    '>Guardar</button>' +
-
-    '</div></div></div>'
+    '>Guardar</button></div></div></div>'
   );
 }
 
-
 export function renderPaymentSheet(sheet){
-
   const valid =
-    Number(sheet.amount) >
-    0;
+    Number(sheet.amount) > 0;
 
   return (
     '<div class="overlay"><div class="sheet"><div class="sheet-handle"></div>' +
-
     '<div class="sheet-head"><h3>' +
     (
       sheet.mode === 'edit'
@@ -3264,7 +2738,6 @@ export function renderPaymentSheet(sheet){
     '</h3><button data-action="close-sheet">' +
     icon('close') +
     '</button></div>' +
-
     '<div class="field"><div class="field-label">Monto</div><input id="p-amount" type="text" inputmode="numeric" value="' +
     esc(
       formatThousandInput(
@@ -3272,17 +2745,13 @@ export function renderPaymentSheet(sheet){
       )
     ) +
     '"></div>' +
-
     '<div class="field"><div class="field-label">Fecha</div><input id="p-date" type="date" value="' +
     esc(sheet.date) +
     '"></div>' +
-
     '<div class="field"><div class="field-label">Nota</div><input id="p-note" value="' +
     esc(sheet.note) +
     '"></div>' +
-
     '<div class="sheet-actions">' +
-
     (
       sheet.mode === 'edit'
         ? '<button class="del-btn" data-action="delete-payment">' +
@@ -3290,34 +2759,25 @@ export function renderPaymentSheet(sheet){
           '</button>'
         : ''
     ) +
-
     '<button class="save-btn" id="pay-save-btn" data-action="save-payment" ' +
     (
       valid
         ? ''
         : 'disabled'
     ) +
-    '>Guardar aporte</button>' +
-
-    '</div></div></div>'
+    '>Guardar aporte</button></div></div></div>'
   );
 }
 
-
-export function renderInvoiceItemsHTML(
-  sheet
-){
-
+export function renderInvoiceItemsHTML(sheet){
   return sheet.items
     .map(
-      (it,idx) =>
-
+      (it,idx) => (
         '<div class="item-edit-row"><input class="item-name" data-idx="' +
         idx +
         '" data-field="name" placeholder="Ítem" value="' +
         esc(it.name) +
         '">' +
-
         '<input class="item-price" data-idx="' +
         idx +
         '" data-field="price" type="text" inputmode="numeric" placeholder="0" value="' +
@@ -3327,21 +2787,17 @@ export function renderInvoiceItemsHTML(
           )
         ) +
         '">' +
-
         '<button class="item-remove-btn" data-action="remove-invoice-item" data-idx="' +
         idx +
         '">' +
         icon('trash') +
         '</button></div>'
+      )
     )
     .join('');
 }
 
-
-export function renderInvoiceSheet(
-  sheet
-){
-
+export function renderInvoiceSheet(sheet){
   const total =
     sheet.items.reduce(
       (s,it) =>
@@ -3357,8 +2813,7 @@ export function renderInvoiceSheet(
     sheet.items.some(
       it =>
         it.name.trim() &&
-        Number(it.price) >
-          0
+        Number(it.price) > 0
     );
 
   let html =
@@ -3401,7 +2856,6 @@ export function renderInvoiceSheet(
   if (
     sheet.mode === 'edit'
   ){
-
     html +=
       '<button class="del-btn" data-action="delete-invoice">' +
       icon('trash') +
@@ -3423,40 +2877,23 @@ export function renderInvoiceSheet(
   return html;
 }
 
-
 export function renderConfirmDialog(
   confirmState
 ){
-
   return (
     '<div class="overlay overlay-center"><div class="confirm-box"><p>' +
     esc(confirmState.message) +
     '</p>' +
-
-    '<div class="confirm-actions">' +
-
-    '<button class="confirm-cancel" data-action="cancel-confirm">Cancelar</button>' +
-
-    '<button class="confirm-ok" data-action="confirm-ok">Confirmar</button>' +
-
-    '</div></div></div>'
+    '<div class="confirm-actions"><button class="confirm-cancel" data-action="cancel-confirm">Cancelar</button><button class="confirm-ok" data-action="confirm-ok">Confirmar</button></div></div></div>'
   );
 }
-
 
 export function renderScanningOverlay(
   scanningOverlay
 ){
-
   return (
-    '<div class="overlay overlay-center"><div class="confirm-box" style="text-align:center;">' +
-
-    '<div class="spinner" style="margin:0 auto 14px;"></div>' +
-
-    '<p>' +
+    '<div class="overlay overlay-center"><div class="confirm-box" style="text-align:center;"><div class="spinner" style="margin:0 auto 14px;"></div><p>' +
     esc(scanningOverlay.message) +
-    '</p>' +
-
-    '</div></div>'
+    '</p></div></div>'
   );
 }
