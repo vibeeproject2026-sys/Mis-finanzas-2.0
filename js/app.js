@@ -35,7 +35,6 @@ export function render(){
 
     const viewEl = document.getElementById('view');
     const tabbarEl = document.getElementById('tabbar');
-    const fabSlotEl = document.getElementById('fab-slot');
 
     if (!token || !userId) {
       if (viewEl) {
@@ -65,7 +64,6 @@ export function render(){
         `;
       }
       if (tabbarEl) tabbarEl.innerHTML = '';
-      if (fabSlotEl) fabSlotEl.innerHTML = '';
       setTimeout(attachAuthEvents, 50);
       return;
     }
@@ -139,43 +137,32 @@ function attachAuthEvents(){
 function renderAppContent(){
   const viewEl = document.getElementById('view');
   if (viewEl) {
-    let tabContent = '';
-    if (UI.tab === 'dashboard') tabContent = renderDashboard();
-    else if (UI.tab === 'transactions') tabContent = renderTransactions(UI.search, UI.txFilter);
-    else if (UI.tab === 'invoices') tabContent = renderInvoices(UI.openInvoiceId);
-    else if (UI.tab === 'credits') tabContent = renderCredits(UI.creditFilter);
-    else if (UI.tab === 'categories') tabContent = renderCategories();
-    else tabContent = renderSettings() + '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>';
-
     viewEl.innerHTML =
       '<div class="hero"><div class="hero-content">' +
       '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
       '<div class="hero-main"><div><h1>Mis Finanzas</h1><p>Control y analítica en tiempo real</p></div><div class="hero-avatar">⚡</div></div>' +
-      '</div></div>' + tabContent;
+      '</div></div>' +
+      (UI.tab==='dashboard' ? renderDashboard() :
+       UI.tab==='transactions' ? renderTransactions(UI.search, UI.txFilter) :
+       UI.tab==='invoices' ? renderInvoices(UI.openInvoiceId) :
+       UI.tab==='credits' ? renderCredits(UI.creditFilter) :
+       UI.tab==='categories' ? renderCategories() :
+       (renderSettings() + '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'));
   
+    // Cambiar dinámicamente el título de la sección de ajustes si aparece, unificándolo limpiamente
     if (UI.tab === 'settings') {
       setTimeout(() => {
-        document.querySelectorAll('h1, h2, h3, .section-title, span, div').forEach(el => {
-          if (el.textContent && el.textContent.trim().toLowerCase().includes('ajustes y moneda')) {
-            el.textContent = 'Ajustes';
+        const headers = document.querySelectorAll('h2, h3, .section-title');
+        headers.forEach(h => {
+          if (h.textContent.includes('Moneda') || h.textContent.includes('Configuración')) {
+            h.textContent = 'Ajustes';
           }
         });
-      }, 5);
+      }, 10);
     }
   }
 
-  // Menú flotante central con animaciones y opciones (Escaneo, Ingreso, Egreso, Ajustes)
-  const fabSlotEl = document.getElementById('fab-slot');
-  if (fabSlotEl) {
-    if (UI.fabMenuOpen) {
-      fabSlotEl.innerHTML = renderFabMenu();
-    } else {
-      fabSlotEl.innerHTML = '';
-    }
-  }
-
-  // Barra de navegación exacta de la imagen: Resumen, Movimientos, [Botón central +], Créditos, Categorías
-  const tabbarHTML = [
+  let tabbarHTML = [
     ['dashboard','wallet','Resumen'],
     ['transactions','list','Movimientos'],
     ['center','plus',''],
@@ -183,7 +170,7 @@ function renderAppContent(){
     ['categories','tag','Categorías'],
   ].map(([id,ic,label]) => {
     if(id==='center'){
-      return '<div class="center-fab-container"><button class="tab-btn" data-action="toggle-fab" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;cursor:pointer;outline:none;"><span class="icon" style="width:52px;height:52px;background:linear-gradient(135deg, #38bdf8, #818cf8);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(56,189,248,0.4);transform:translateY(-14px);transition:transform 0.2s;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" style="width:26px;height:26px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></button></div>';
+      return '<div class="center-fab-container"><button class="fab-center" data-action="toggle-fab-menu"><span class="icon" style="stroke-linecap:round;stroke-linejoin:round"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></span></button></div>';
     }
     return '<button class="tab-btn ' + (UI.tab===id?'active':'') + '" data-action="set-tab" data-tab="' + id + '">' +
       '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' + getIconSvg(ic) + '</span><span>' + label + '</span></button>';
@@ -209,6 +196,7 @@ function renderOverlays(){
   const el = document.getElementById('overlays');
   if (!el) return;
   let html = '';
+  if (UI.fabMenuOpen) html += renderFabMenu();
   if (sheet && sheet.kind === 'tx') html += renderTxSheet(sheet);
   if (sheet && sheet.kind === 'quick') html += renderQuickSheet(sheet);
   if (sheet && sheet.kind === 'cat') html += renderCatSheet(sheet);
@@ -221,24 +209,13 @@ function renderOverlays(){
   el.innerHTML = html;
   if (sheet) attachSheetFieldSync();
   
-  const saveBtn = document.querySelector('button[data-action="save-tx"], button[data-action="save-quick"], button[data-action="save-credit"], button[data-action="save-payment"]');
+  const saveBtn = document.querySelector('button[data-action="save-tx"], button[data-action="save-quick"]');
   if (saveBtn && sheet) {
-    if (sheet.kind === 'credit') {
-      if (sheet.title && sheet.title.trim().length > 0 && Number(sheet.total) > 0) {
-        saveBtn.removeAttribute('disabled');
-        saveBtn.style.opacity = '1';
-        saveBtn.style.cursor = 'pointer';
-      } else {
-        saveBtn.setAttribute('disabled', 'true');
-        saveBtn.style.opacity = '0.5';
-      }
-    } else {
-      const amt = Number(sheet.amount);
-      if (amt > 0) {
-        saveBtn.removeAttribute('disabled');
-        saveBtn.style.opacity = '1';
-        saveBtn.style.cursor = 'pointer';
-      }
+    const amt = Number(sheet.amount);
+    if (amt > 0) {
+      saveBtn.removeAttribute('disabled');
+      saveBtn.style.opacity = '1';
+      saveBtn.style.cursor = 'pointer';
     }
   }
 }
@@ -264,15 +241,21 @@ function attachSearchListener(){
   if (input) input.addEventListener('input', (e) => { UI.search = e.target.value; refreshTxList(); });
 }
 
+function closeFabMenu(callback) {
+  const backdrop = document.getElementById('fab-backdrop');
+  if (backdrop) {
+    backdrop.classList.add('closing'); 
+    setTimeout(() => { UI.fabMenuOpen = false; renderAppContent(); if (callback) callback(); }, 350); 
+  } else {
+    UI.fabMenuOpen = false; renderAppContent();
+  }
+}
+
 document.addEventListener('click',(e)=>{
+  if (e.target.id === 'fab-backdrop') { closeFabMenu(); return; }
   const t = e.target.closest('[data-action]');
   if(!t) return;
   const action = t.dataset.action;
-
-  if(action==='set-tab'){ UI.tab = t.dataset.tab; UI.fabMenuOpen = false; renderAppContent(); return; }
-  if(action==='set-filter'){ UI.txFilter = t.dataset.filter; refreshTxList(); return; }
-  if(action==='set-credit-filter'){ UI.creditFilter = t.dataset.filter; renderAppContent(); return; }
-  if(action==='toggle-fab'){ UI.fabMenuOpen = !UI.fabMenuOpen; renderAppContent(); return; }
 
   if(action==='logout'){
     confirmState={message:'¿Seguro que quieres cerrar sesión?', onConfirm:()=>{
@@ -288,11 +271,25 @@ document.addEventListener('click',(e)=>{
     renderOverlays(); return;
   }
 
-  if(action==='new-tx'){ 
-    UI.fabMenuOpen = false;
-    sheet = {kind:'tx', mode:'new', id:null, type:'expense', categoryId:(DB.categories.find(c=>c.type==='expense')||{}).id||'', amount:'', date:todayStr(), note:''}; 
-    renderOverlays(); 
-    return; 
+  if(action==='set-tab'){ UI.tab = t.dataset.tab; UI.fabMenuOpen = false; renderAppContent(); return; }
+  if(action==='set-filter'){ UI.txFilter = t.dataset.filter; refreshTxList(); return; }
+  if(action==='set-credit-filter'){ UI.creditFilter = t.dataset.filter; renderAppContent(); return; }
+
+  if (action === 'toggle-fab-menu') {
+    if (UI.fabMenuOpen) closeFabMenu();
+    else { t.classList.add('pulse-light'); setTimeout(() => { t.classList.remove('pulse-light'); UI.fabMenuOpen = true; renderAppContent(); }, 400); }
+    return;
+  }
+
+  if(action.startsWith('fab-')){
+    t.classList.add('selected-pulse');
+    setTimeout(() => {
+      if(action==='fab-new-tx'){ closeFabMenu(() => { sheet = {kind:'tx', mode:'new', id:null, type:'expense', categoryId:(DB.categories.find(c=>c.type==='expense')||{}).id||'', amount:'', date:todayStr(), note:''}; renderOverlays(); }); }
+      else if(action==='fab-scan-invoice'){ closeFabMenu(() => { document.getElementById('global-camera-input').click(); }); }
+      else if(action==='fab-invoices'){ closeFabMenu(() => { UI.tab='invoices'; renderAppContent(); }); }
+      else if(action==='fab-settings'){ closeFabMenu(() => { UI.tab='settings'; renderAppContent(); }); }
+    }, 220);
+    return;
   }
 
   if(action==='edit-tx'){
@@ -378,50 +375,24 @@ document.addEventListener('click',(e)=>{
   }
   if(action==='delete-cat'){ if(!sheet) return; confirmState={message:'¿Eliminar categoría?', onConfirm:()=>{ DB.categories=DB.categories.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
-  // ----------------- CRÉDITOS -----------------
-  if(action==='new-credit'){ 
-    sheet = {kind:'credit', mode:'new', id:null, title:'', type:UI.creditFilter||'against', total:''}; 
-    renderOverlays(); 
-    return; 
-  }
-  if(action==='edit-credit'){ 
-    const c = DB.credits.find(x=>x.id===t.dataset.id); 
-    if(c){ sheet = {kind:'credit', mode:'edit', id:c.id, title:c.title, type:c.type, total:String(c.total)}; renderOverlays(); } 
-    return; 
-  }
-  if(action==='credit-type'){ 
-    if(!sheet) return; 
-    sheet.type = t.dataset.type; 
-    renderOverlays(); 
-    return; 
-  }
+  if(action==='new-credit'){ sheet={kind:'credit', mode:'new', id:null, title:'', type:UI.creditFilter||'against', total:''}; renderOverlays(); return; }
+  if(action==='edit-credit'){ const c=DB.credits.find(x=>x.id===t.dataset.id); if(c){ sheet={kind:'credit', mode:'edit', id:c.id, title:c.title, type:c.type, total:String(c.total)}; renderOverlays(); } return; }
+  if(action==='credit-type'){ if(!sheet) return; sheet.type=t.dataset.type; renderOverlays(); return; }
   if(action==='save-credit'){
     if(!sheet) return;
     const tot = Number(sheet.total);
     if(sheet.title.trim() && tot > 0){
       if(!DB.credits) DB.credits=[];
-      const credit = {
-        id: sheet.id || uid(),
-        title: sheet.title.trim(),
-        type: sheet.type,
-        total: tot,
-        payments: sheet.id ? ((DB.credits.find(x=>x.id===sheet.id)||{}).payments||[]) : []
-      };
-      const exists = DB.credits.some(x=>x.id===credit.id);
+      const credit={id:sheet.id||uid(), title:sheet.title.trim(), type:sheet.type, total:tot, payments:sheet.id?((DB.credits.find(x=>x.id===sheet.id)||{}).payments||[]):[]};
+      const exists=DB.credits.some(x=>x.id===credit.id);
       DB.credits = exists ? DB.credits.map(x=>x.id===credit.id?credit:x) : DB.credits.concat([credit]);
       saveDB(); 
       safeSync();
-      sheet = null; 
-      renderAppContent();
+      sheet=null; renderAppContent();
     }
     return;
   }
-  if(action==='delete-credit'){ 
-    if(!sheet) return; 
-    confirmState = {message:'¿Eliminar crédito?', onConfirm:()=>{ DB.credits=DB.credits.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; 
-    renderOverlays(); 
-    return; 
-  }
+  if(action==='delete-credit'){ if(!sheet) return; confirmState={message:'¿Eliminar crédito?', onConfirm:()=>{ DB.credits=DB.credits.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
   if(action==='new-payment'){ sheet={kind:'payment', mode:'new', creditId:t.dataset.id, paymentId:null, amount:'', date:todayStr(), note:''}; renderOverlays(); return; }
   if(action==='edit-payment'){
@@ -450,7 +421,6 @@ document.addEventListener('click',(e)=>{
     return;
   }
 
-  if(action==='scan-invoice'){ UI.fabMenuOpen = false; document.getElementById('invoice-camera-input')?.click(); return; }
   if(action==='toggle-invoice'){ UI.openInvoiceId = (UI.openInvoiceId===t.dataset.id)?null:t.dataset.id; renderAppContent(); return; }
   if(action==='edit-invoice'){
     const inv = DB.invoices.find(x=>x.id===t.dataset.id);
@@ -500,23 +470,13 @@ function attachSheetFieldSync(){
   if (sheet.kind === 'tx' || sheet.kind === 'quick'){
     const prefix = sheet.kind === 'tx' ? 'f' : 'q';
     const a = document.getElementById(prefix + '-amount'), d = document.getElementById(prefix + '-date'), n = document.getElementById(prefix + '-note');
-    if (a) a.addEventListener('input', (e) => { sheet.amount = parseFormattedNumber(e.target.value); e.target.value = formatThousandInput(sheet.amount); });
-    if (d) d.addEventListener('input', () => { sheet.date = d.value; });
-    if (n) n.addEventListener('input', () => { sheet.note = n.value; });
-  } else if (sheet.kind === 'cat'){
-    const nm = document.getElementById('f-name'), b = document.getElementById('f-budget');
-    if (nm) nm.addEventListener('input', () => { sheet.name = nm.value; });
-    if (b) b.addEventListener('input', (e) => { sheet.budget = parseFormattedNumber(e.target.value); e.target.value = formatThousandInput(sheet.budget); });
-  } else if (sheet.kind === 'credit'){
-    const title = document.getElementById('c-title'), tot = document.getElementById('c-total');
-    if (title) title.addEventListener('input', () => { sheet.title = title.value; });
-    if (tot) tot.addEventListener('input', (e) => { 
-      sheet.total = parseFormattedNumber(e.target.value); 
-      e.target.value = formatThousandInput(sheet.total); 
+    if (a) a.addEventListener('input', (e) => { 
+      sheet.amount = parseFormattedNumber(e.target.value); 
+      e.target.value = formatThousandInput(sheet.amount);
       
-      const saveBtn = document.querySelector('button[data-action="save-credit"]');
+      const saveBtn = document.querySelector('button[data-action="save-tx"], button[data-action="save-quick"]');
       if (saveBtn) {
-        if (sheet.title && sheet.title.trim().length > 0 && Number(sheet.total) > 0) {
+        if (Number(sheet.amount) > 0) {
           saveBtn.removeAttribute('disabled');
           saveBtn.style.opacity = '1';
           saveBtn.style.cursor = 'pointer';
@@ -526,6 +486,16 @@ function attachSheetFieldSync(){
         }
       }
     });
+    if (d) d.addEventListener('input', () => { sheet.date = d.value; });
+    if (n) n.addEventListener('input', () => { sheet.note = n.value; });
+  } else if (sheet.kind === 'cat'){
+    const nm = document.getElementById('f-name'), b = document.getElementById('f-budget');
+    if (nm) nm.addEventListener('input', () => { sheet.name = nm.value; });
+    if (b) b.addEventListener('input', (e) => { sheet.budget = parseFormattedNumber(e.target.value); e.target.value = formatThousandInput(sheet.budget); });
+  } else if (sheet.kind === 'credit'){
+    const title = document.getElementById('c-title'), tot = document.getElementById('c-total');
+    if (title) title.addEventListener('input', () => { sheet.title = title.value; });
+    if (tot) tot.addEventListener('input', (e) => { sheet.total = parseFormattedNumber(e.target.value); e.target.value = formatThousandInput(sheet.total); });
   } else if (sheet.kind === 'payment'){
     const a = document.getElementById('p-amount'), d = document.getElementById('p-date'), n = document.getElementById('p-note');
     if (a) a.addEventListener('input', (e) => { sheet.amount = parseFormattedNumber(e.target.value); e.target.value = formatThousandInput(sheet.amount); });
@@ -549,5 +519,51 @@ function attachSheetFieldSync(){
     });
   }
 }
+
+function compressImage(file, maxWidth = 800, quality = 0.7) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+        resolve({ mimeType: match[1], base64: match[2] });
+      };
+    };
+  });
+}
+
+document.addEventListener('change',(e)=>{
+  if(e.target.id==='global-camera-input'&&e.target.files[0]){
+    const file = e.target.files[0];
+    scanningOverlay = {message:'Optimizando y analizando factura con IA...'};
+    renderOverlays();
+    
+    compressImage(file, 800, 0.7).then(async ({ base64, mimeType }) => {
+      try {
+        const items = (API.scanInvoiceViaProxy) ? await API.scanInvoiceViaProxy(base64, mimeType) : [];
+        scanningOverlay = null;
+        sheet = {kind:'invoice', mode:'new', id:null, title:'Factura '+todayStr(), date:todayStr(), items:items.length?items:[{id:uid(), name:'', price:''}], registered:false};
+        renderOverlays();
+      } catch(err){
+        scanningOverlay = null; renderOverlays(); alert(err.message || 'Error al procesar la factura.');
+      }
+    });
+  }
+});
 
 render();
