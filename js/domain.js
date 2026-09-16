@@ -8,6 +8,7 @@ export function getPrimaryIncomeCat(){
   return DB.categories.find(c => c.type === 'income' && c.primary) || null;
 }
 
+
 /* ==========================================================
    CÁLCULOS Y ESTADÍSTICAS
    ========================================================== */
@@ -33,6 +34,7 @@ export function computeTotals(){
   };
 }
 
+
 export function currentMonthTx(){
   const now = new Date();
 
@@ -47,6 +49,7 @@ export function currentMonthTx(){
   );
 }
 
+
 export function computeMonthStats(){
   const primary = getPrimaryIncomeCat();
 
@@ -58,22 +61,37 @@ export function computeMonthStats(){
     const amt = Number(t.amount) || 0;
 
     if (t.type === 'income') {
-      if (primary && t.categoryId === primary.id) {
+
+      if (
+        primary &&
+        t.categoryId === primary.id
+      ) {
         primaryIncome += amt;
       } else {
         secondaryIncome += amt;
       }
+
     } else {
       expense += amt;
     }
   });
 
-  const income = primaryIncome + secondaryIncome;
-  const netSavings = income - expense;
+  const income =
+    primaryIncome +
+    secondaryIncome;
+
+  const netSavings =
+    income -
+    expense;
 
   const savingsRate =
     income > 0
-      ? Math.max(0, Math.round((netSavings / income) * 100))
+      ? Math.max(
+          0,
+          Math.round(
+            (netSavings / income) * 100
+          )
+        )
       : 0;
 
   return {
@@ -86,13 +104,15 @@ export function computeMonthStats(){
   };
 }
 
+
 export function computeMonthOverMonthMetrics(){
   const now = new Date();
 
   const curY = now.getFullYear();
   const curM = now.getMonth();
 
-  const prevMDate = new Date(curY, curM - 1, 1);
+  const prevMDate =
+    new Date(curY, curM - 1, 1);
 
   const prevMonthKey =
     `${prevMDate.getFullYear()}-${String(prevMDate.getMonth() + 1).padStart(2, '0')}`;
@@ -102,6 +122,7 @@ export function computeMonthOverMonthMetrics(){
 
   let currentExpense = 0;
   let prevExpense = 0;
+
   let currentIncome = 0;
   let prevIncome = 0;
 
@@ -109,61 +130,116 @@ export function computeMonthOverMonthMetrics(){
   const prevCatMap = {};
 
   DB.transactions.forEach(t => {
+
     if (!t.date) return;
 
-    const mKey = t.date.substring(0, 7);
-    const amt = Number(t.amount) || 0;
+    const mKey =
+      t.date.substring(0, 7);
 
-    if (mKey === currentMonthKey) {
+    const amt =
+      Number(t.amount) || 0;
+
+    if (
+      mKey === currentMonthKey
+    ) {
+
       if (t.type === 'expense') {
+
         currentExpense += amt;
+
         currentCatMap[t.categoryId] =
-          (currentCatMap[t.categoryId] || 0) + amt;
+          (currentCatMap[t.categoryId] || 0) +
+          amt;
+
       } else {
+
         currentIncome += amt;
       }
-    } else if (mKey === prevMonthKey) {
+
+    } else if (
+      mKey === prevMonthKey
+    ) {
+
       if (t.type === 'expense') {
+
         prevExpense += amt;
+
         prevCatMap[t.categoryId] =
-          (prevCatMap[t.categoryId] || 0) + amt;
+          (prevCatMap[t.categoryId] || 0) +
+          amt;
+
       } else {
+
         prevIncome += amt;
       }
     }
   });
 
-  const currentSavings = currentIncome - currentExpense;
-  const prevSavings = prevIncome - prevExpense;
+  const currentSavings =
+    currentIncome -
+    currentExpense;
+
+  const prevSavings =
+    prevIncome -
+    prevExpense;
 
   const expChangePct =
     prevExpense > 0
-      ? Math.round(((currentExpense - prevExpense) / prevExpense) * 100)
-      : (currentExpense > 0 ? 100 : 0);
+      ? Math.round(
+          ((currentExpense - prevExpense) /
+            prevExpense) *
+            100
+        )
+      : (
+          currentExpense > 0
+            ? 100
+            : 0
+        );
 
   const incChangePct =
     prevIncome > 0
-      ? Math.round(((currentIncome - prevIncome) / prevIncome) * 100)
-      : (currentIncome > 0 ? 100 : 0);
+      ? Math.round(
+          ((currentIncome - prevIncome) /
+            prevIncome) *
+            100
+        )
+      : (
+          currentIncome > 0
+            ? 100
+            : 0
+        );
 
   let highestGrowthCat = null;
   let maxDiff = -Infinity;
 
-  Object.keys(currentCatMap).forEach(catId => {
-    const diff =
-      currentCatMap[catId] - (prevCatMap[catId] || 0);
+  Object.keys(currentCatMap)
+    .forEach(catId => {
 
-    if (diff > maxDiff && diff > 0) {
-      maxDiff = diff;
-      highestGrowthCat = catById(catId);
-    }
-  });
+      const diff =
+        currentCatMap[catId] -
+        (prevCatMap[catId] || 0);
+
+      if (
+        diff > maxDiff &&
+        diff > 0
+      ) {
+
+        maxDiff = diff;
+
+        highestGrowthCat =
+          catById(catId);
+      }
+    });
 
   const savingsRate =
     currentIncome > 0
       ? Math.max(
           0,
-          Math.round((currentSavings / currentIncome) * 100)
+          Math.round(
+            (currentSavings /
+              currentIncome) *
+              100
+          )
         )
       : 0;
 
@@ -182,16 +258,22 @@ export function computeMonthOverMonthMetrics(){
   };
 }
 
+
 export function computeCategoryTotals(){
   const map = {};
 
-  currentMonthTx().forEach(t => {
-    if (t.type === 'expense') {
-      map[t.categoryId] =
-        (map[t.categoryId] || 0) +
-        (Number(t.amount) || 0);
-    }
-  });
+  currentMonthTx()
+    .forEach(t => {
+
+      if (
+        t.type === 'expense'
+      ) {
+
+        map[t.categoryId] =
+          (map[t.categoryId] || 0) +
+          (Number(t.amount) || 0);
+      }
+    });
 
   return Object.entries(map)
     .map(([id, total]) => ({
@@ -200,8 +282,12 @@ export function computeCategoryTotals(){
       cat: catById(id)
     }))
     .filter(r => r.cat)
-    .sort((a, b) => b.total - a.total);
+    .sort(
+      (a, b) =>
+        b.total - a.total
+    );
 }
+
 
 export function computeBurnMetrics(){
   const today = new Date();
@@ -213,27 +299,45 @@ export function computeBurnMetrics(){
       0
     ).getDate();
 
-  const currentDay = today.getDate();
+  const currentDay =
+    today.getDate();
 
   const daysRemaining =
-    Math.max(1, daysInMonth - currentDay + 1);
+    Math.max(
+      1,
+      daysInMonth -
+        currentDay +
+        1
+    );
 
   const monthPctPassed =
-    Math.round((currentDay / daysInMonth) * 100);
+    Math.round(
+      (currentDay /
+        daysInMonth) *
+        100
+    );
 
-  const totals = computeTotals();
-  const monthStats = computeMonthStats();
+  const totals =
+    computeTotals();
+
+  const monthStats =
+    computeMonthStats();
 
   const availableFunds =
     totals.balance > 0
       ? totals.balance
       : Math.max(
           0,
-          monthStats.income - monthStats.expense
+          monthStats.income -
+          monthStats.expense
         );
 
   const dailyAvailable =
-    Math.max(0, availableFunds) / daysRemaining;
+    Math.max(
+      0,
+      availableFunds
+    ) /
+    daysRemaining;
 
   const fixedCatIds =
     DB.categories
@@ -251,76 +355,128 @@ export function computeBurnMetrics(){
       )
       .map(c => c.id);
 
-  const isDailyExpense = t =>
-    t &&
-    t.type === 'expense' &&
-    !fixedCatIds.includes(t.categoryId) &&
-    !!t.date;
+  const isDailyExpense =
+    t =>
+      t &&
+      t.type === 'expense' &&
+      !fixedCatIds.includes(
+        t.categoryId
+      ) &&
+      !!t.date;
 
   const periodNumber =
     currentDay <= 10
       ? 0
-      : (currentDay <= 20 ? 1 : 2);
+      : (
+          currentDay <= 20
+            ? 1
+            : 2
+        );
 
   const periodStartDay =
     periodNumber === 0
       ? 1
-      : (periodNumber === 1 ? 11 : 21);
+      : (
+          periodNumber === 1
+            ? 11
+            : 21
+        );
 
   const periodEndDay =
     periodNumber === 0
       ? 10
-      : (periodNumber === 1 ? 20 : daysInMonth);
+      : (
+          periodNumber === 1
+            ? 20
+            : daysInMonth
+        );
 
   const currentPeriodDays =
-    currentDay - periodStartDay + 1;
+    currentDay -
+    periodStartDay +
+    1;
 
-  const periodExpenses = [0, 0, 0];
+  const periodExpenses =
+    [0, 0, 0];
 
   DB.transactions.forEach(t => {
-    if (!isDailyExpense(t)) return;
-
-    const tDate =
-      new Date(t.date + 'T00:00:00');
 
     if (
-      Number.isNaN(tDate.getTime()) ||
-      tDate.getFullYear() !== today.getFullYear() ||
-      tDate.getMonth() !== today.getMonth()
+      !isDailyExpense(t)
     ) {
       return;
     }
 
-    const day = tDate.getDate();
+    const tDate =
+      new Date(
+        t.date +
+        'T00:00:00'
+      );
 
-    if (day > currentDay) return;
+    if (
+      Number.isNaN(
+        tDate.getTime()
+      ) ||
+      tDate.getFullYear() !==
+        today.getFullYear() ||
+      tDate.getMonth() !==
+        today.getMonth()
+    ) {
+      return;
+    }
+
+    const day =
+      tDate.getDate();
+
+    if (
+      day > currentDay
+    ) {
+      return;
+    }
 
     const p =
       day <= 10
         ? 0
-        : (day <= 20 ? 1 : 2);
+        : (
+            day <= 20
+              ? 1
+              : 2
+          );
 
     periodExpenses[p] +=
       Number(t.amount) || 0;
   });
 
   const currentPeriodExpense =
-    periodExpenses[periodNumber];
+    periodExpenses[
+      periodNumber
+    ];
 
   let avgDailyBurn =
     currentPeriodExpense > 0
-      ? currentPeriodExpense / currentPeriodDays
+      ? currentPeriodExpense /
+        currentPeriodDays
       : 0;
 
-  if (avgDailyBurn <= 0) {
+  if (
+    avgDailyBurn <= 0
+  ) {
+
     for (
-      let p = periodNumber - 1;
+      let p =
+        periodNumber - 1;
       p >= 0;
       p--
     ) {
-      if (periodExpenses[p] > 0) {
+
+      if (
+        periodExpenses[p] > 0
+      ) {
+
         avgDailyBurn =
-          periodExpenses[p] / 10;
+          periodExpenses[p] /
+          10;
+
         break;
       }
     }
@@ -330,7 +486,8 @@ export function computeBurnMetrics(){
     avgDailyBurn > 0 &&
     totals.balance > 0
       ? Math.floor(
-          totals.balance / avgDailyBurn
+          totals.balance /
+          avgDailyBurn
         )
       : 0;
 
@@ -351,9 +508,13 @@ export function computeBurnMetrics(){
   };
 }
 
+
 export function computeBudgetRows(){
-  const totals = computeCategoryTotals();
-  const burn = computeBurnMetrics();
+  const totals =
+    computeCategoryTotals();
+
+  const burn =
+    computeBurnMetrics();
 
   return DB.categories
     .filter(
@@ -362,15 +523,21 @@ export function computeBudgetRows(){
         c.budget
     )
     .map(c => {
+
       const spent =
-        (totals.find(r => r.id === c.id) || {})
-          .total || 0;
+        (
+          totals.find(
+            r => r.id === c.id
+          ) || {}
+        ).total || 0;
 
       const spentPct =
         Math.min(
           100,
           Math.round(
-            (spent / c.budget) * 100
+            (spent /
+              c.budget) *
+              100
           )
         );
 
@@ -380,7 +547,8 @@ export function computeBudgetRows(){
       const isPacingFast =
         !over &&
         spentPct >
-          burn.monthPctPassed + 10;
+          burn.monthPctPassed +
+          10;
 
       return {
         cat: c,
@@ -392,6 +560,7 @@ export function computeBudgetRows(){
     });
 }
 
+
 export function computeCreditsPaidThisMonth(){
   const now = new Date();
 
@@ -399,10 +568,91 @@ export function computeCreditsPaidThisMonth(){
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   return (DB.credits || [])
-    .filter(c => c.type === 'against')
-    .reduce((sum, c) => {
-      const monthlyPaid =
-        (c.payments || [])
+    .filter(
+      c =>
+        c.type === 'against'
+    )
+    .reduce(
+      (sum, c) => {
+
+        const monthlyPaid =
+          (c.payments || [])
+            .filter(
+              p =>
+                p.date &&
+                typeof p.date === 'string' &&
+                p.date.substring(0, 7) ===
+                  currentMonthKey
+            )
+            .reduce(
+              (s, p) =>
+                s +
+                (Number(p.amount) || 0),
+              0
+            );
+
+        return (
+          sum +
+          monthlyPaid
+        );
+      },
+      0
+    );
+}
+
+
+/* ==========================================================
+   LÓGICA DE CRÉDITOS
+   Recuperada del código original
+   ========================================================== */
+
+export function computeCreditsSummary(){
+  const now = new Date();
+
+  const currentMonthKey =
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  const prevDate =
+    new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1
+    );
+
+  const prevMonthKey =
+    `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+
+  let againstTotal = 0;
+  let againstPaidTotal = 0;
+  let againstPaidThisMonth = 0;
+  let againstPaidPrevMonth = 0;
+  let againstCount = 0;
+
+  let favorTotal = 0;
+  let favorPaidTotal = 0;
+  let favorPaidThisMonth = 0;
+  let favorPaidPrevMonth = 0;
+  let favorCount = 0;
+
+  (DB.credits || [])
+    .forEach(c => {
+
+      const total =
+        Number(c.total) || 0;
+
+      const payments =
+        c.payments || [];
+
+      const paidTotal =
+        payments.reduce(
+          (s, p) =>
+            s +
+            (Number(p.amount) || 0),
+          0
+        );
+
+      const paidThisMonth =
+        payments
           .filter(
             p =>
               p.date &&
@@ -412,85 +662,136 @@ export function computeCreditsPaidThisMonth(){
           )
           .reduce(
             (s, p) =>
-              s + (Number(p.amount) || 0),
+              s +
+              (Number(p.amount) || 0),
             0
           );
 
-      return sum + monthlyPaid;
-    }, 0);
-}
+      const paidPrevMonth =
+        payments
+          .filter(
+            p =>
+              p.date &&
+              typeof p.date === 'string' &&
+              p.date.substring(0, 7) ===
+                prevMonthKey
+          )
+          .reduce(
+            (s, p) =>
+              s +
+              (Number(p.amount) || 0),
+            0
+          );
 
-export function computeCreditsSummary(){
-  let againstTotal = 0;
-  let againstPaidTotal = 0;
-  let againstCount = 0;
+      if (
+        c.type === 'against'
+      ) {
 
-  let favorTotal = 0;
-  let favorPaidTotal = 0;
-  let favorCount = 0;
+        againstTotal += total;
+        againstPaidTotal +=
+          paidTotal;
+        againstPaidThisMonth +=
+          paidThisMonth;
+        againstPaidPrevMonth +=
+          paidPrevMonth;
+        againstCount += 1;
 
-  (DB.credits || []).forEach(c => {
-    const total =
-      Number(c.total) || 0;
+      } else if (
+        c.type === 'favor'
+      ) {
 
-    const paidTotal =
-      (c.payments || [])
-        .reduce(
-          (s, p) =>
-            s + (Number(p.amount) || 0),
-          0
-        );
+        favorTotal += total;
+        favorPaidTotal +=
+          paidTotal;
+        favorPaidThisMonth +=
+          paidThisMonth;
+        favorPaidPrevMonth +=
+          paidPrevMonth;
+        favorCount += 1;
+      }
+    });
 
-    if (c.type === 'against') {
-      againstTotal += total;
-      againstPaidTotal += paidTotal;
-      againstCount += 1;
-    } else if (c.type === 'favor') {
-      favorTotal += total;
-      favorPaidTotal += paidTotal;
-      favorCount += 1;
-    }
-  });
+  const againstPending =
+    Math.max(
+      0,
+      againstTotal -
+      againstPaidTotal
+    );
+
+  const favorPending =
+    Math.max(
+      0,
+      favorTotal -
+      favorPaidTotal
+    );
+
+  const againstProgressPct =
+    againstTotal > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (againstPaidTotal /
+              againstTotal) *
+              100
+          )
+        )
+      : 0;
+
+  const favorProgressPct =
+    favorTotal > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (favorPaidTotal /
+              favorTotal) *
+              100
+          )
+        )
+      : 0;
+
+  let paymentChangePct = 0;
+
+  if (
+    againstPaidPrevMonth > 0
+  ) {
+
+    paymentChangePct =
+      Math.round(
+        (
+          (
+            againstPaidThisMonth -
+            againstPaidPrevMonth
+          ) /
+          againstPaidPrevMonth
+        ) *
+        100
+      );
+
+  } else if (
+    againstPaidThisMonth > 0
+  ) {
+
+    paymentChangePct = 100;
+  }
 
   return {
     againstTotal,
     againstPaidTotal,
-    againstPending:
-      Math.max(
-        0,
-        againstTotal - againstPaidTotal
-      ),
-    againstProgressPct:
-      againstTotal > 0
-        ? Math.min(
-            100,
-            Math.round(
-              (againstPaidTotal /
-                againstTotal) *
-                100
-            )
-          )
-        : 0,
+    againstPending,
+    againstProgressPct,
     againstCount,
+
+    againstPaidThisMonth,
+    againstPaidPrevMonth,
+    paymentChangePct,
 
     favorTotal,
     favorPaidTotal,
-    favorPending:
-      Math.max(
-        0,
-        favorTotal - favorPaidTotal
-      ),
-    favorProgressPct:
-      favorTotal > 0
-        ? Math.min(
-            100,
-            Math.round(
-              (favorPaidTotal /
-                favorTotal) *
-                100
-            )
-          )
-        : 0,
-    favorCount
+    favorPending,
+    favorProgressPct,
+    favorCount,
+
+    favorPaidThisMonth,
+    favorPaidPrevMonth
   };
 }
