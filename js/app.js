@@ -164,28 +164,27 @@ function renderAppContent(){
     }
   }
 
-  // Botón flotante principal original con sus animaciones
+  // Menú flotante central con animaciones y opciones (Escaneo, Ingreso, Egreso, Ajustes)
   const fabSlotEl = document.getElementById('fab-slot');
   if (fabSlotEl) {
     if (UI.fabMenuOpen) {
       fabSlotEl.innerHTML = renderFabMenu();
     } else {
-      if (UI.tab === 'credits') {
-        fabSlotEl.innerHTML = '<button class="fab" data-action="new-credit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="width:24px;height:24px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>';
-      } else {
-        fabSlotEl.innerHTML = '<button class="fab" data-action="toggle-fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="width:24px;height:24px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>';
-      }
+      fabSlotEl.innerHTML = '';
     }
   }
 
-  let tabbarHTML = [
+  // Barra de navegación exacta de la imagen: Resumen, Movimientos, [Botón central +], Créditos, Categorías
+  const tabbarHTML = [
     ['dashboard','wallet','Resumen'],
     ['transactions','list','Movimientos'],
-    ['invoices','receipt','Facturas'],
+    ['center','plus',''],
     ['credits','credit','Créditos'],
     ['categories','tag','Categorías'],
-    ['settings','gear','Ajustes'],
   ].map(([id,ic,label]) => {
+    if(id==='center'){
+      return '<div class="center-fab-container"><button class="tab-btn" data-action="toggle-fab" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;cursor:pointer;outline:none;"><span class="icon" style="width:52px;height:52px;background:linear-gradient(135deg, #38bdf8, #818cf8);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(56,189,248,0.4);transform:translateY(-14px);transition:transform 0.2s;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" style="width:26px;height:26px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></button></div>';
+    }
     return '<button class="tab-btn ' + (UI.tab===id?'active':'') + '" data-action="set-tab" data-tab="' + id + '">' +
       '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' + getIconSvg(ic) + '</span><span>' + label + '</span></button>';
   }).join('');
@@ -200,10 +199,8 @@ function getIconSvg(name){
   const svgs = {
     'wallet': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
     'list': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
-    'receipt': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path d="M6 2v20l2-1.5L10 22l2-1.5L14 22l2-1.5L18 22V2l-2 1.5L14 2l-2 1.5L10 2 8 3.5 6 2z"/><line x1="8.5" y1="7.5" x2="15.5" y2="7.5"/><line x1="8.5" y1="11.5" x2="15.5" y2="11.5"/><line x1="8.5" y1="15.5" x2="13" y2="15.5"/></svg>',
     'credit': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
-    'tag': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>',
-    'gear': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>'
+    'tag': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>'
   };
   return svgs[name] || '';
 }
