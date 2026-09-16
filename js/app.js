@@ -110,7 +110,6 @@ function reconcileCreditTransactions() {
   activePaymentsMap.forEach((payInfo, key) => {
     const existingTx = existingCreditTxsMap.get(key);
     if (existingTx) {
-      // Actualizar si cambió monto, fecha o nota para mantenerse sincronizado
       reconciledCreditTxs.push({
         ...existingTx,
         amount: payInfo.amount,
@@ -122,7 +121,6 @@ function reconcileCreditTransactions() {
         paymentId: payInfo.paymentId
       });
     } else {
-      // Crear movimiento nuevo asociado
       reconciledCreditTxs.push({
         id: uid(),
         type: 'expense',
@@ -637,8 +635,57 @@ function attachAuthEvents(){
 }
 
 /* ==========================================================
-   CONTENIDO
+   CONTENIDO Y CARRUSEL MES A MES
    ========================================================== */
+
+function attachMomCarousel(){
+  const track = document.getElementById('mom-track');
+  const dots = document.querySelectorAll('.mom-dot');
+  if (!track || !dots.length) return;
+
+  let currentIndex = 0;
+  const totalSlides = dots.length;
+
+  const updateCarousel = (index) => {
+    currentIndex = (index + totalSlides) % totalSlides;
+    track.style.transform = `translateX(-${currentIndex * 100}%)`;
+    dots.forEach((dot, i) => {
+      dot.classList.toggle('active', i === currentIndex);
+    });
+  };
+
+  let startX = 0;
+  let isDragging = false;
+
+  track.addEventListener('touchstart', (e) => {
+    startX = e.touches[0].clientX;
+    isDragging = true;
+  }, {passive: true});
+
+  track.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    const currentX = e.touches[0].clientX;
+    const diff = startX - currentX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        updateCarousel(currentIndex + 1);
+      } else {
+        updateCarousel(currentIndex - 1);
+      }
+      isDragging = false;
+    }
+  }, {passive: true});
+
+  track.addEventListener('touchend', () => {
+    isDragging = false;
+  });
+
+  dots.forEach((dot, index) => {
+    dot.addEventListener('click', () => {
+      updateCarousel(index);
+    });
+  });
+}
 
 function renderAppContent(){
 
@@ -688,6 +735,12 @@ function renderAppContent(){
                         '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'
                       )
         );
+
+      if (
+        UI.tab === 'dashboard'
+      ){
+        setTimeout(attachMomCarousel, 50);
+      }
 
       if (
         UI.tab === 'settings'
@@ -1468,7 +1521,6 @@ document.addEventListener(
       if (
         tx
       ){
-        // Si el movimiento es un pago de crédito, al editarlo abrimos la hoja de edición del pago correspondiente en el crédito
         if (tx.source === 'credit-payment' && tx.creditId && tx.paymentId) {
           const c = DB.credits.find(x => x.id === tx.creditId);
           const p = (c?.payments || []).find(x => x.id === tx.paymentId);
@@ -1755,7 +1807,6 @@ document.addEventListener(
 
       const txToDelete = DB.transactions.find(x => x.id === sheet.id);
 
-      // Si es un pago de crédito, al eliminar el movimiento desde Movimientos borramos también el pago original del crédito
       if (txToDelete && txToDelete.source === 'credit-payment' && txToDelete.creditId && txToDelete.paymentId) {
         confirmState = {
           message: '¿Eliminar este pago de crédito?',
