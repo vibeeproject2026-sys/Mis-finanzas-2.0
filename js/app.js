@@ -173,7 +173,6 @@ function renderAppContent(){
        UI.tab==='categories' ? renderCategories() :
        (renderSettings() + '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'));
   
-    // Cambiar dinámicamente el título de la sección de ajustes si aparece, unificándolo limpiamente
     if (UI.tab === 'settings') {
       setTimeout(() => {
         const headers = document.querySelectorAll('h2, h3, .section-title');
@@ -321,184 +320,596 @@ document.addEventListener('click',(e)=>{
     if(tx){ sheet = {kind:'tx', mode:'edit', id:tx.id, type:tx.type, categoryId:tx.categoryId, amount:String(tx.amount), date:tx.date, note:tx.note||''}; renderOverlays(); }
     return;
   }
+
   if(action==='quick-cat'){
     sheet = {kind:'quick', categoryId:t.dataset.id, amount:'', note:'', date:todayStr(), showNote:false, showDate:false};
     renderOverlays(); return;
   }
+
   if(action==='show-note'){ if(!sheet) return; sheet.showNote=true; renderOverlays(); return; }
   if(action==='show-date'){ if(!sheet) return; sheet.showDate=true; renderOverlays(); return; }
+
   if(action==='save-quick'){
     if(!sheet) return;
     const amt = Number(sheet.amount);
     if(amt > 0){ 
-      DB.transactions.push({id:uid(), type:'expense', amount:amt, categoryId:sheet.categoryId, date:todayStr(), note:(sheet.note||'').trim()}); 
+      DB.transactions.push({
+        id:uid(),
+        type:'expense',
+        amount:amt,
+        categoryId:sheet.categoryId,
+        date:todayStr(),
+        note:(sheet.note||'').trim()
+      }); 
       saveDB(); 
       safeSync();
-      sheet=null; renderAppContent(); 
+      sheet=null; 
+      renderAppContent(); 
     }
     return;
   }
+
   if(action==='tx-type'){
     if(!sheet) return;
     sheet.type = t.dataset.type;
     sheet.categoryId = (DB.categories.find(c=>c.type===sheet.type)||{}).id || '';
     renderOverlays(); return;
   }
+
   if(action==='pick-tx-cat'){
     if(!sheet) return;
     sheet.categoryId = t.dataset.id;
     const chipContainer = document.getElementById('chipList');
-    if(chipContainer) chipContainer.innerHTML = renderTxCatChips(DB.categories.filter(c => c.type === sheet.type), sheet.categoryId);
+    if(chipContainer) chipContainer.innerHTML = renderTxCatChips(
+      DB.categories.filter(c => c.type === sheet.type),
+      sheet.categoryId
+    );
     return;
   }
+
   if(action==='save-tx'){
     if(!sheet) return;
     const amt = Number(sheet.amount);
     const catId = sheet.categoryId || (DB.categories.find(c=>c.type===sheet.type)||{}).id || '';
     if(amt > 0){
-      const tx = {id:sheet.id||uid(), type:sheet.type, amount:amt, categoryId:catId, date:sheet.date||todayStr(), note:(sheet.note||'').trim()};
+      const tx = {
+        id:sheet.id||uid(),
+        type:sheet.type,
+        amount:amt,
+        categoryId:catId,
+        date:sheet.date||todayStr(),
+        note:(sheet.note||'').trim()
+      };
+
       const exists = DB.transactions.some(x => x.id === tx.id);
-      DB.transactions = exists ? DB.transactions.map(x => x.id===tx.id?tx:x) : DB.transactions.concat([tx]);
+      DB.transactions = exists
+        ? DB.transactions.map(x => x.id===tx.id?tx:x)
+        : DB.transactions.concat([tx]);
+
       saveDB(); 
       safeSync();
-      sheet=null; renderAppContent();
+      sheet=null; 
+      renderAppContent();
     }
     return;
   }
-  if(action==='delete-tx'){ if(!sheet) return; confirmState={message:'¿Eliminar este movimiento?', onConfirm:()=>{ DB.transactions=DB.transactions.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
-  if(action==='new-cat'){ sheet={kind:'cat',mode:'new',id:null,name:'',type:'expense',color:'#06B6D4',icon:'food',budget:'',primary:false,isFixed:false}; renderOverlays(); return; }
+  if(action==='delete-tx'){
+    if(!sheet) return;
+
+    confirmState={
+      message:'¿Eliminar este movimiento?',
+      onConfirm:()=>{
+        DB.transactions=DB.transactions.filter(x=>x.id!==sheet.id);
+        saveDB();
+        safeSync();
+        sheet=null;
+        confirmState=null;
+        renderAppContent();
+      }
+    };
+
+    renderOverlays();
+    return;
+  }
+
+  if(action==='new-cat'){
+    sheet={
+      kind:'cat',
+      mode:'new',
+      id:null,
+      name:'',
+      type:'expense',
+      color:'#06B6D4',
+      icon:'food',
+      budget:'',
+      primary:false,
+      isFixed:false
+    };
+    renderOverlays();
+    return;
+  }
+
   if(action==='edit-cat'){
     const c = DB.categories.find(x=>x.id===t.dataset.id);
-    if(c){ sheet={kind:'cat',mode:'edit',id:c.id,name:c.name,type:c.type,color:c.color,icon:c.icon,budget:c.budget?String(c.budget):'',primary:!!c.primary,isFixed:!!c.isFixed}; renderOverlays(); }
+
+    if(c){
+      sheet={
+        kind:'cat',
+        mode:'edit',
+        id:c.id,
+        name:c.name,
+        type:c.type,
+        color:c.color,
+        icon:c.icon,
+        budget:c.budget?String(c.budget):'',
+        primary:!!c.primary,
+        isFixed:!!c.isFixed
+      };
+      renderOverlays();
+    }
+
     return;
   }
+
   if(action==='cat-type'){
     if(!sheet) return;
+
     sheet.type = t.dataset.type;
-    document.getElementById('budgetField').style.display = sheet.type==='expense'?'block':'none';
-    document.getElementById('primaryField').style.display = sheet.type==='income'?'block':'none';
-    document.getElementById('fixedField').style.display = sheet.type==='expense'?'block':'none';
+
+    document.getElementById('budgetField').style.display =
+      sheet.type==='expense'?'block':'none';
+
+    document.getElementById('primaryField').style.display =
+      sheet.type==='income'?'block':'none';
+
+    document.getElementById('fixedField').style.display =
+      sheet.type==='expense'?'block':'none';
+
     return;
   }
-  if(action==='toggle-primary'){ if(!sheet) return; sheet.primary=!sheet.primary; document.getElementById('primarySwitch').classList.toggle('on',sheet.primary); return; }
-  if(action==='toggle-fixed'){ if(!sheet) return; sheet.isFixed=!sheet.isFixed; document.getElementById('fixedSwitch').classList.toggle('on-violet',sheet.isFixed); return; }
-  if(action==='pick-color'){ if(!sheet) return; sheet.color=t.dataset.color; document.querySelectorAll('#swatchList .swatch').forEach(s=>s.classList.toggle('selected',s.dataset.color===sheet.color)); return; }
-  if(action==='pick-icon'){ if(!sheet) return; sheet.icon=t.dataset.icon; document.querySelectorAll('#iconList .emoji-btn').forEach(b=>b.classList.toggle('selected',b.dataset.icon===sheet.icon)); return; }
+
+  if(action==='toggle-primary'){
+    if(!sheet) return;
+    sheet.primary=!sheet.primary;
+    document.getElementById('primarySwitch').classList.toggle('on',sheet.primary);
+    return;
+  }
+
+  if(action==='toggle-fixed'){
+    if(!sheet) return;
+    sheet.isFixed=!sheet.isFixed;
+    document.getElementById('fixedSwitch').classList.toggle('on-violet',sheet.isFixed);
+    return;
+  }
+
+  if(action==='pick-color'){
+    if(!sheet) return;
+    sheet.color=t.dataset.color;
+    document.querySelectorAll('#swatchList .swatch')
+      .forEach(s=>s.classList.toggle('selected',s.dataset.color===sheet.color));
+    return;
+  }
+
+  if(action==='pick-icon'){
+    if(!sheet) return;
+    sheet.icon=t.dataset.icon;
+    document.querySelectorAll('#iconList .emoji-btn')
+      .forEach(b=>b.classList.toggle('selected',b.dataset.icon===sheet.icon));
+    return;
+  }
+
   if(action==='save-cat'){
     if(!sheet) return;
+
     if(sheet.name.trim()){
-      const cat={id:sheet.id||uid(), name:sheet.name.trim(), type:sheet.type, color:sheet.color, icon:sheet.icon, budget:sheet.type==='expense'&&sheet.budget?Number(sheet.budget):null, primary:sheet.type==='income'?!!sheet.primary:false, isFixed:sheet.type==='expense'?!!sheet.isFixed:false};
+      const cat={
+        id:sheet.id||uid(),
+        name:sheet.name.trim(),
+        type:sheet.type,
+        color:sheet.color,
+        icon:sheet.icon,
+        budget:sheet.type==='expense'&&sheet.budget
+          ?Number(sheet.budget)
+          :null,
+        primary:sheet.type==='income'
+          ?!!sheet.primary
+          :false,
+        isFixed:sheet.type==='expense'
+          ?!!sheet.isFixed
+          :false
+      };
+
       const exists=DB.categories.some(x=>x.id===cat.id);
-      DB.categories = exists ? DB.categories.map(x=>x.id===cat.id?cat:x) : DB.categories.concat([cat]);
+
+      DB.categories = exists
+        ? DB.categories.map(x=>x.id===cat.id?cat:x)
+        : DB.categories.concat([cat]);
+
       saveDB(); 
       safeSync();
-      sheet=null; renderAppContent();
+      sheet=null; 
+      renderAppContent();
     }
+
     return;
   }
-  if(action==='delete-cat'){ if(!sheet) return; confirmState={message:'¿Eliminar categoría?', onConfirm:()=>{ DB.categories=DB.categories.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
-  if(action==='new-credit'){ sheet={kind:'credit', mode:'new', id:null, title:'', type:UI.creditFilter||'against', total:''}; renderOverlays(); return; }
-  if(action==='edit-credit'){ const c=DB.credits.find(x=>x.id===t.dataset.id); if(c){ sheet={kind:'credit', mode:'edit', id:c.id, title:c.title, type:c.type, total:String(c.total)}; renderOverlays(); } return; }
-  if(action==='credit-type'){ if(!sheet) return; sheet.type=t.dataset.type; renderOverlays(); return; }
+  if(action==='delete-cat'){
+    if(!sheet) return;
+
+    confirmState={
+      message:'¿Eliminar categoría?',
+      onConfirm:()=>{
+        DB.categories=DB.categories.filter(x=>x.id!==sheet.id);
+        saveDB();
+        safeSync();
+        sheet=null;
+        confirmState=null;
+        renderAppContent();
+      }
+    };
+
+    renderOverlays();
+    return;
+  }
+
+  if(action==='new-credit'){
+    sheet={
+      kind:'credit',
+      mode:'new',
+      id:null,
+      title:'',
+      type:UI.creditFilter||'against',
+      total:''
+    };
+    renderOverlays();
+    return;
+  }
+
+  if(action==='edit-credit'){
+    const c=DB.credits.find(x=>x.id===t.dataset.id);
+
+    if(c){
+      sheet={
+        kind:'credit',
+        mode:'edit',
+        id:c.id,
+        title:c.title,
+        type:c.type,
+        total:String(c.total)
+      };
+      renderOverlays();
+    }
+
+    return;
+  }
+
+  if(action==='credit-type'){
+    if(!sheet) return;
+    sheet.type=t.dataset.type;
+    renderOverlays();
+    return;
+  }
+
   if(action==='save-credit'){
     if(!sheet) return;
+
     const tot = Number(sheet.total);
+
     if(sheet.title.trim() && tot > 0){
       if(!DB.credits) DB.credits=[];
-      const credit={id:sheet.id||uid(), title:sheet.title.trim(), type:sheet.type, total:tot, payments:sheet.id?((DB.credits.find(x=>x.id===sheet.id)||{}).payments||[]):[]};
+
+      const credit={
+        id:sheet.id||uid(),
+        title:sheet.title.trim(),
+        type:sheet.type,
+        total:tot,
+        payments:sheet.id
+          ?((DB.credits.find(x=>x.id===sheet.id)||{}).payments||[])
+          :[]
+      };
+
       const exists=DB.credits.some(x=>x.id===credit.id);
-      DB.credits = exists ? DB.credits.map(x=>x.id===credit.id?credit:x) : DB.credits.concat([credit]);
+
+      DB.credits = exists
+        ? DB.credits.map(x=>x.id===credit.id?credit:x)
+        : DB.credits.concat([credit]);
+
       saveDB(); 
       safeSync();
-      sheet=null; renderAppContent();
+      sheet=null; 
+      renderAppContent();
     }
-    return;
-  }
-  if(action==='delete-credit'){ if(!sheet) return; confirmState={message:'¿Eliminar crédito?', onConfirm:()=>{ DB.credits=DB.credits.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
-  if(action==='new-payment'){ sheet={kind:'payment', mode:'new', creditId:t.dataset.id, paymentId:null, amount:'', date:todayStr(), note:''}; renderOverlays(); return; }
-  if(action==='edit-payment'){
-    const c=DB.credits.find(x=>x.id===t.dataset.cid); const p=(c?.payments||[]).find(x=>x.id===t.dataset.pid);
-    if(p){ sheet={kind:'payment', mode:'edit', creditId:t.dataset.cid, paymentId:p.id, amount:String(p.amount), date:p.date, note:p.note||''}; renderOverlays(); }
     return;
   }
+
+  if(action==='delete-credit'){
+    if(!sheet) return;
+
+    confirmState={
+      message:'¿Eliminar crédito?',
+      onConfirm:()=>{
+        DB.credits=DB.credits.filter(x=>x.id!==sheet.id);
+        saveDB();
+        safeSync();
+        sheet=null;
+        confirmState=null;
+        renderAppContent();
+      }
+    };
+
+    renderOverlays();
+    return;
+  }
+
+  if(action==='new-payment'){
+    sheet={
+      kind:'payment',
+      mode:'new',
+      creditId:t.dataset.id,
+      paymentId:null,
+      amount:'',
+      date:todayStr(),
+      note:''
+    };
+    renderOverlays();
+    return;
+  }
+
+  if(action==='edit-payment'){
+    const c=DB.credits.find(x=>x.id===t.dataset.cid);
+    const p=(c?.payments||[]).find(x=>x.id===t.dataset.pid);
+
+    if(p){
+      sheet={
+        kind:'payment',
+        mode:'edit',
+        creditId:t.dataset.cid,
+        paymentId:p.id,
+        amount:String(p.amount),
+        date:p.date,
+        note:p.note||''
+      };
+      renderOverlays();
+    }
+
+    return;
+  }
+
   if(action==='save-payment'){
     if(!sheet) return;
+
     const amt=Number(sheet.amount);
+
     if(amt>0){
-      const pay={id:sheet.paymentId||uid(), amount:amt, date:sheet.date||todayStr(), note:(sheet.note||'').trim()};
+      const pay={
+        id:sheet.paymentId||uid(),
+        amount:amt,
+        date:sheet.date||todayStr(),
+        note:(sheet.note||'').trim()
+      };
+
       DB.credits = DB.credits.map(c=>{
         if(c.id===sheet.creditId){
           let pays=c.payments||[];
           const exists=pays.some(x=>x.id===pay.id);
-          pays=exists?pays.map(x=>x.id===pay.id?pay:x):pays.concat([pay]);
+
+          pays=exists
+            ?pays.map(x=>x.id===pay.id?pay:x)
+            :pays.concat([pay]);
+
           return {...c, payments:pays};
         }
+
         return c;
       });
+
       saveDB(); 
       safeSync();
-      sheet=null; renderAppContent();
+      sheet=null; 
+      renderAppContent();
     }
+
     return;
   }
 
-  if(action==='toggle-invoice'){ UI.openInvoiceId = (UI.openInvoiceId===t.dataset.id)?null:t.dataset.id; renderAppContent(); return; }
+  if(action==='toggle-invoice'){
+    UI.openInvoiceId =
+      (UI.openInvoiceId===t.dataset.id)
+        ?null
+        :t.dataset.id;
+
+    renderAppContent();
+    return;
+  }
+
   if(action==='edit-invoice'){
     const inv = DB.invoices.find(x=>x.id===t.dataset.id);
-    if(inv){ sheet={kind:'invoice', mode:'edit', id:inv.id, title:inv.title, date:inv.date, items:inv.items.map(it=>({...it, price:String(it.price)})), registered:!!inv.registered}; renderOverlays(); }
+
+    if(inv){
+      sheet={
+        kind:'invoice',
+        mode:'edit',
+        id:inv.id,
+        title:inv.title,
+        date:inv.date,
+        items:inv.items.map(it=>({...it, price:String(it.price)})),
+        registered:!!inv.registered
+      };
+
+      renderOverlays();
+    }
+
     return;
   }
+
   if(action==='register-invoice'){
     const inv = DB.invoices.find(x=>x.id===t.dataset.id);
-    if(inv){ sheet={kind:'tx', mode:'new', id:null, type:'expense', categoryId:(DB.categories.find(c=>c.type==='expense')||{}).id||'', amount:String(inv.total), date:inv.date||todayStr(), note:inv.title||'', sourceInvoiceId:inv.id}; renderOverlays(); }
+
+    if(inv){
+      sheet={
+        kind:'tx',
+        mode:'new',
+        id:null,
+        type:'expense',
+        categoryId:(DB.categories.find(c=>c.type==='expense')||{}).id||'',
+        amount:String(inv.total),
+        date:inv.date||todayStr(),
+        note:inv.title||'',
+        sourceInvoiceId:inv.id
+      };
+
+      renderOverlays();
+    }
+
     return;
   }
-  if(action==='add-invoice-item'){ if(!sheet) return; sheet.items.push({id:uid(), name:'', price:''}); document.getElementById('inv-items-list').innerHTML=renderInvoiceItemsHTML(sheet); return; }
-  if(action==='remove-invoice-item'){ if(!sheet) return; sheet.items.splice(Number(t.dataset.idx),1); if(!sheet.items.length) sheet.items.push({id:uid(), name:'', price:''}); document.getElementById('inv-items-list').innerHTML=renderInvoiceItemsHTML(sheet); return; }
+
+  if(action==='add-invoice-item'){
+    if(!sheet) return;
+
+    sheet.items.push({
+      id:uid(),
+      name:'',
+      price:''
+    });
+
+    document.getElementById('inv-items-list').innerHTML =
+      renderInvoiceItemsHTML(sheet);
+
+    return;
+  }
+
+  if(action==='remove-invoice-item'){
+    if(!sheet) return;
+
+    sheet.items.splice(Number(t.dataset.idx),1);
+
+    if(!sheet.items.length){
+      sheet.items.push({
+        id:uid(),
+        name:'',
+        price:''
+      });
+    }
+
+    document.getElementById('inv-items-list').innerHTML =
+      renderInvoiceItemsHTML(sheet);
+
+    return;
+  }
+
   if(action==='save-invoice'){
     if(!sheet) return;
-    const items = sheet.items.filter(it=>it.name.trim()&&Number(it.price)>0).map(it=>({id:it.id||uid(), name:it.name.trim().slice(0,60), price:Number(it.price)}));
+
+    const items = sheet.items
+      .filter(it=>it.name.trim()&&Number(it.price)>0)
+      .map(it=>({
+        id:it.id||uid(),
+        name:it.name.trim().slice(0,60),
+        price:Number(it.price)
+      }));
+
     if(items.length){
       const total = items.reduce((s,it)=>s+it.price,0);
-      const invoice={id:sheet.id||uid(), title:(sheet.title||'').trim()||('Factura '+todayStr()), date:todayStr(), items, total, registered:!!sheet.registered};
+
+      const invoice={
+        id:sheet.id||uid(),
+        title:(sheet.title||'').trim()||('Factura '+todayStr()),
+        date:todayStr(),
+        items,
+        total,
+        registered:!!sheet.registered
+      };
+
       if(!DB.invoices) DB.invoices=[];
+
       const exists=DB.invoices.some(x=>x.id===invoice.id);
-      DB.invoices=exists?DB.invoices.map(x=>x.id===invoice.id?invoice:x):DB.invoices.concat([invoice]);
+
+      DB.invoices=exists
+        ?DB.invoices.map(x=>x.id===invoice.id?invoice:x)
+        :DB.invoices.concat([invoice]);
+
       saveDB(); 
       safeSync();
-      sheet=null; renderAppContent();
+      sheet=null; 
+      renderAppContent();
     }
+
     return;
   }
-  if(action==='delete-invoice'){ if(!sheet) return; confirmState={message:'¿Eliminar factura?', onConfirm:()=>{ DB.invoices=DB.invoices.filter(x=>x.id!==sheet.id); saveDB(); safeSync(); sheet=null; confirmState=null; renderAppContent(); }}; renderOverlays(); return; }
 
-  if(action==='close-sheet'){ sheet=null; renderOverlays(); return; }
-  if(action==='cancel-confirm'){ confirmState=null; renderOverlays(); return; }
-  if(action==='confirm-ok'){ 
-    if(!confirmState) return; 
-    const fn=confirmState.onConfirm; 
-    confirmState=null; 
-    renderOverlays(); 
-    fn(); 
-    return; 
+  if(action==='delete-invoice'){
+    if(!sheet) return;
+
+    confirmState={
+      message:'¿Eliminar factura?',
+      onConfirm:()=>{
+        DB.invoices=DB.invoices.filter(x=>x.id!==sheet.id);
+        saveDB();
+        safeSync();
+        sheet=null;
+        confirmState=null;
+        renderAppContent();
+      }
+    };
+
+    renderOverlays();
+    return;
   }
 
-  if(action==='set-currency'){ DB.settings.currency=t.dataset.code; saveDB(); safeSync(); renderAppContent(); return; }
+  if(action==='close-sheet'){
+    sheet=null;
+    renderOverlays();
+    return;
+  }
+
+  if(action==='cancel-confirm'){
+    confirmState=null;
+    renderOverlays();
+    return;
+  }
+
+  if(action==='confirm-ok'){
+    if(!confirmState) return;
+
+    const fn=confirmState.onConfirm;
+    confirmState=null;
+    renderOverlays();
+    fn();
+
+    return;
+  }
+
+  if(action==='set-currency'){
+    DB.settings.currency=t.dataset.code;
+    saveDB();
+    safeSync();
+    renderAppContent();
+    return;
+  }
 });
 
 function attachSheetFieldSync(){
   if (!sheet) return;
+
   if (sheet.kind === 'tx' || sheet.kind === 'quick'){
     const prefix = sheet.kind === 'tx' ? 'f' : 'q';
-    const a = document.getElementById(prefix + '-amount'), d = document.getElementById(prefix + '-date'), n = document.getElementById(prefix + '-note');
+
+    const a = document.getElementById(prefix + '-amount');
+    const d = document.getElementById(prefix + '-date');
+    const n = document.getElementById(prefix + '-note');
+
     if (a) a.addEventListener('input', (e) => { 
       sheet.amount = parseFormattedNumber(e.target.value); 
       e.target.value = formatThousandInput(sheet.amount);
       
-      const saveBtn = document.querySelector('button[data-action="save-tx"], button[data-action="save-quick"]');
+      const saveBtn = document.querySelector(
+        'button[data-action="save-tx"], button[data-action="save-quick"]'
+      );
+
       if (saveBtn) {
         if (Number(sheet.amount) > 0) {
           saveBtn.removeAttribute('disabled');
@@ -510,36 +921,110 @@ function attachSheetFieldSync(){
         }
       }
     });
-    if (d) d.addEventListener('input', () => { sheet.date = d.value; });
-    if (n) n.addEventListener('input', () => { sheet.note = n.value; });
+
+    if (d) d.addEventListener('input', () => {
+      sheet.date = d.value;
+    });
+
+    if (n) n.addEventListener('input', () => {
+      sheet.note = n.value;
+    });
+
   } else if (sheet.kind === 'cat'){
-    const nm = document.getElementById('f-name'), b = document.getElementById('f-budget');
-    if (nm) nm.addEventListener('input', () => { sheet.name = nm.value; });
-    if (b) b.addEventListener('input', (e) => { sheet.budget = parseFormattedNumber(e.target.value); e.target.value = formatThousandInput(sheet.budget); });
+
+    const nm = document.getElementById('f-name');
+    const b = document.getElementById('f-budget');
+
+    if (nm) nm.addEventListener('input', () => {
+      sheet.name = nm.value;
+    });
+
+    if (b) b.addEventListener('input', (e) => {
+      sheet.budget = parseFormattedNumber(e.target.value);
+      e.target.value = formatThousandInput(sheet.budget);
+    });
+
   } else if (sheet.kind === 'credit'){
-    const title = document.getElementById('c-title'), tot = document.getElementById('c-total');
-    if (title) title.addEventListener('input', () => { sheet.title = title.value; });
-    if (tot) tot.addEventListener('input', (e) => { sheet.total = parseFormattedNumber(e.target.value); e.target.value = formatThousandInput(sheet.total); });
+
+    const title = document.getElementById('c-title');
+    const tot = document.getElementById('c-total');
+
+    if (title) title.addEventListener('input', () => {
+      sheet.title = title.value;
+    });
+
+    if (tot) tot.addEventListener('input', (e) => {
+      sheet.total = parseFormattedNumber(e.target.value);
+      e.target.value = formatThousandInput(sheet.total);
+    });
+
   } else if (sheet.kind === 'payment'){
-    const a = document.getElementById('p-amount'), d = document.getElementById('p-date'), n = document.getElementById('p-note');
-    if (a) a.addEventListener('input', (e) => { sheet.amount = parseFormattedNumber(e.target.value); e.target.value = formatThousandInput(sheet.amount); });
-    if (d) d.addEventListener('input', () => { sheet.date = d.value; });
-    if (n) n.addEventListener('input', () => { sheet.note = n.value; });
+
+    const a = document.getElementById('p-amount');
+    const d = document.getElementById('p-date');
+    const n = document.getElementById('p-note');
+
+    if (a) a.addEventListener('input', (e) => {
+      sheet.amount = parseFormattedNumber(e.target.value);
+      e.target.value = formatThousandInput(sheet.amount);
+    });
+
+    if (d) d.addEventListener('input', () => {
+      sheet.date = d.value;
+    });
+
+    if (n) n.addEventListener('input', () => {
+      sheet.note = n.value;
+    });
+
   } else if (sheet.kind === 'invoice'){
-    const ti = document.getElementById('inv-title'), da = document.getElementById('inv-date');
-    if (ti) ti.addEventListener('input', () => { sheet.title = ti.value; });
-    if (da) da.addEventListener('input', () => { sheet.date = da.value; });
+
+    const ti = document.getElementById('inv-title');
+    const da = document.getElementById('inv-date');
+
+    if (ti) ti.addEventListener('input', () => {
+      sheet.title = ti.value;
+    });
+
+    if (da) da.addEventListener('input', () => {
+      sheet.date = da.value;
+    });
+
     const list = document.getElementById('inv-items-list');
+
     if (list) list.addEventListener('input', (e) => {
-      const idx = e.target.dataset.idx, field = e.target.dataset.field;
+      const idx = e.target.dataset.idx;
+      const field = e.target.dataset.field;
+
       if (idx === undefined || !field) return;
+
       if (field === 'price'){
-        sheet.items[idx].price = parseFormattedNumber(e.target.value);
-        e.target.value = formatThousandInput(sheet.items[idx].price);
-      } else { sheet.items[idx][field] = e.target.value; }
-      const totalVal = sheet.items.reduce((s,it)=>s+(Number(it.price)||0),0);
-      const totalEl = document.getElementById('inv-total-val');
-      if (totalEl) totalEl.textContent = new Intl.NumberFormat('es-CO', {style:'currency', currency:DB.settings.currency||'COP', maximumFractionDigits:0}).format(totalVal);
+        sheet.items[idx].price =
+          parseFormattedNumber(e.target.value);
+
+        e.target.value =
+          formatThousandInput(sheet.items[idx].price);
+
+      } else {
+        sheet.items[idx][field] = e.target.value;
+      }
+
+      const totalVal = sheet.items.reduce(
+        (s,it)=>s+(Number(it.price)||0),
+        0
+      );
+
+      const totalEl =
+        document.getElementById('inv-total-val');
+
+      if (totalEl) {
+        totalEl.textContent =
+          new Intl.NumberFormat('es-CO', {
+            style:'currency',
+            currency:DB.settings.currency||'COP',
+            maximumFractionDigits:0
+          }).format(totalVal);
+      }
     });
   }
 }
@@ -547,25 +1032,51 @@ function attachSheetFieldSync(){
 function compressImage(file, maxWidth = 800, quality = 0.7) {
   return new Promise((resolve) => {
     const reader = new FileReader();
+
     reader.readAsDataURL(file);
+
     reader.onload = (event) => {
       const img = new Image();
       img.src = event.target.result;
+
       img.onload = () => {
         const canvas = document.createElement('canvas');
+
         let width = img.width;
         let height = img.height;
+
         if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
+          height = Math.round(
+            (height * maxWidth) / width
+          );
           width = maxWidth;
         }
+
         canvas.width = width;
         canvas.height = height;
+
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
-        resolve({ mimeType: match[1], base64: match[2] });
+
+        ctx.drawImage(
+          img,
+          0,
+          0,
+          width,
+          height
+        );
+
+        const dataUrl =
+          canvas.toDataURL('image/jpeg', quality);
+
+        const match =
+          dataUrl.match(
+            /^data:([^;]+);base64,(.*)$/
+          );
+
+        resolve({
+          mimeType: match[1],
+          base64: match[2]
+        });
       };
     };
   });
@@ -574,17 +1085,43 @@ function compressImage(file, maxWidth = 800, quality = 0.7) {
 document.addEventListener('change',(e)=>{
   if(e.target.id==='global-camera-input'&&e.target.files[0]){
     const file = e.target.files[0];
-    scanningOverlay = {message:'Optimizando y analizando factura con IA...'};
+
+    scanningOverlay = {
+      message:'Optimizando y analizando factura con IA...'
+    };
+
     renderOverlays();
     
     compressImage(file, 800, 0.7).then(async ({ base64, mimeType }) => {
       try {
-        const items = (API.scanInvoiceViaProxy) ? await API.scanInvoiceViaProxy(base64, mimeType) : [];
+        const items =
+          (API.scanInvoiceViaProxy)
+            ? await API.scanInvoiceViaProxy(base64, mimeType)
+            : [];
+
         scanningOverlay = null;
-        sheet = {kind:'invoice', mode:'new', id:null, title:'Factura '+todayStr(), date:todayStr(), items:items.length?items:[{id:uid(), name:'', price:''}], registered:false};
+
+        sheet = {
+          kind:'invoice',
+          mode:'new',
+          id:null,
+          title:'Factura '+todayStr(),
+          date:todayStr(),
+          items:items.length
+            ?items
+            :[{id:uid(), name:'', price:''}],
+          registered:false
+        };
+
         renderOverlays();
+
       } catch(err) {
-        scanningOverlay = null; renderOverlays(); alert(err.message || 'Error al procesar la factura.');
+        scanningOverlay = null;
+        renderOverlays();
+        alert(
+          err.message ||
+          'Error al procesar la factura.'
+        );
       }
     });
   }
