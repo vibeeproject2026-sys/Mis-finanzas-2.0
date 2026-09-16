@@ -8,7 +8,6 @@ export function getPrimaryIncomeCat(){
   return DB.categories.find(c => c.type === 'income' && c.primary) || null;
 }
 
-
 /* ==========================================================
    CÁLCULOS Y ESTADÍSTICAS
    ========================================================== */
@@ -34,7 +33,6 @@ export function computeTotals(){
   };
 }
 
-
 export function currentMonthTx(){
   const now = new Date();
 
@@ -49,7 +47,6 @@ export function currentMonthTx(){
   );
 }
 
-
 export function computeMonthStats(){
   const primary = getPrimaryIncomeCat();
 
@@ -61,37 +58,22 @@ export function computeMonthStats(){
     const amt = Number(t.amount) || 0;
 
     if (t.type === 'income') {
-
-      if (
-        primary &&
-        t.categoryId === primary.id
-      ) {
+      if (primary && t.categoryId === primary.id) {
         primaryIncome += amt;
       } else {
         secondaryIncome += amt;
       }
-
     } else {
       expense += amt;
     }
   });
 
-  const income =
-    primaryIncome +
-    secondaryIncome;
-
-  const netSavings =
-    income -
-    expense;
+  const income = primaryIncome + secondaryIncome;
+  const netSavings = income - expense;
 
   const savingsRate =
     income > 0
-      ? Math.max(
-          0,
-          Math.round(
-            (netSavings / income) * 100
-          )
-        )
+      ? Math.max(0, Math.round((netSavings / income) * 100))
       : 0;
 
   return {
@@ -104,15 +86,13 @@ export function computeMonthStats(){
   };
 }
 
-
 export function computeMonthOverMonthMetrics(){
   const now = new Date();
 
   const curY = now.getFullYear();
   const curM = now.getMonth();
 
-  const prevMDate =
-    new Date(curY, curM - 1, 1);
+  const prevMDate = new Date(curY, curM - 1, 1);
 
   const prevMonthKey =
     `${prevMDate.getFullYear()}-${String(prevMDate.getMonth() + 1).padStart(2, '0')}`;
@@ -122,7 +102,6 @@ export function computeMonthOverMonthMetrics(){
 
   let currentExpense = 0;
   let prevExpense = 0;
-
   let currentIncome = 0;
   let prevIncome = 0;
 
@@ -130,65 +109,47 @@ export function computeMonthOverMonthMetrics(){
   const prevCatMap = {};
 
   DB.transactions.forEach(t => {
-
     if (!t.date) return;
 
-    const mKey =
-      t.date.substring(0, 7);
+    const mKey = t.date.substring(0, 7);
+    const amt = Number(t.amount) || 0;
 
-    const amt =
-      Number(t.amount) || 0;
-
-    if (
-      mKey === currentMonthKey
-    ) {
-
+    if (mKey === currentMonthKey) {
       if (t.type === 'expense') {
-
         currentExpense += amt;
 
         currentCatMap[t.categoryId] =
-          (currentCatMap[t.categoryId] || 0) +
-          amt;
-
+          (currentCatMap[t.categoryId] || 0) + amt;
       } else {
-
         currentIncome += amt;
       }
 
-    } else if (
-      mKey === prevMonthKey
-    ) {
+    } else if (mKey === prevMonthKey) {
 
       if (t.type === 'expense') {
-
         prevExpense += amt;
 
         prevCatMap[t.categoryId] =
-          (prevCatMap[t.categoryId] || 0) +
-          amt;
-
+          (prevCatMap[t.categoryId] || 0) + amt;
       } else {
-
         prevIncome += amt;
       }
     }
   });
 
   const currentSavings =
-    currentIncome -
-    currentExpense;
+    currentIncome - currentExpense;
 
   const prevSavings =
-    prevIncome -
-    prevExpense;
+    prevIncome - prevExpense;
 
   const expChangePct =
     prevExpense > 0
       ? Math.round(
-          ((currentExpense - prevExpense) /
-            prevExpense) *
-            100
+          (
+            (currentExpense - prevExpense) /
+            prevExpense
+          ) * 100
         )
       : (
           currentExpense > 0
@@ -199,9 +160,10 @@ export function computeMonthOverMonthMetrics(){
   const incChangePct =
     prevIncome > 0
       ? Math.round(
-          ((currentIncome - prevIncome) /
-            prevIncome) *
-            100
+          (
+            (currentIncome - prevIncome) /
+            prevIncome
+          ) * 100
         )
       : (
           currentIncome > 0
@@ -212,33 +174,30 @@ export function computeMonthOverMonthMetrics(){
   let highestGrowthCat = null;
   let maxDiff = -Infinity;
 
-  Object.keys(currentCatMap)
-    .forEach(catId => {
+  Object.keys(currentCatMap).forEach(catId => {
 
-      const diff =
-        currentCatMap[catId] -
-        (prevCatMap[catId] || 0);
+    const diff =
+      currentCatMap[catId] -
+      (prevCatMap[catId] || 0);
 
-      if (
-        diff > maxDiff &&
-        diff > 0
-      ) {
-
-        maxDiff = diff;
-
-        highestGrowthCat =
-          catById(catId);
-      }
-    });
+    if (
+      diff > maxDiff &&
+      diff > 0
+    ) {
+      maxDiff = diff;
+      highestGrowthCat = catById(catId);
+    }
+  });
 
   const savingsRate =
     currentIncome > 0
       ? Math.max(
           0,
           Math.round(
-            (currentSavings /
-              currentIncome) *
-              100
+            (
+              currentSavings /
+              currentIncome
+            ) * 100
           )
         )
       : 0;
@@ -258,38 +217,42 @@ export function computeMonthOverMonthMetrics(){
   };
 }
 
-
 export function computeCategoryTotals(){
   const map = {};
 
-  currentMonthTx()
-    .forEach(t => {
+  currentMonthTx().forEach(t => {
 
-      if (
-        t.type === 'expense'
-      ) {
+    if (t.type === 'expense') {
 
-        map[t.categoryId] =
-          (map[t.categoryId] || 0) +
-          (Number(t.amount) || 0);
-      }
-    });
+      map[t.categoryId] =
+        (map[t.categoryId] || 0) +
+        (Number(t.amount) || 0);
+    }
+  });
 
   return Object.entries(map)
-    .map(([id, total]) => ({
-      id,
-      total,
-      cat: catById(id)
-    }))
-    .filter(r => r.cat)
+    .map(
+      ([id, total]) => ({
+        id,
+        total,
+        cat: catById(id)
+      })
+    )
+    .filter(
+      r => r.cat
+    )
     .sort(
       (a, b) =>
         b.total - a.total
     );
 }
 
+/* ==========================================================
+   RITMO DE GASTO DIARIO
+   ========================================================== */
 
 export function computeBurnMetrics(){
+
   const today = new Date();
 
   const daysInMonth =
@@ -306,15 +269,16 @@ export function computeBurnMetrics(){
     Math.max(
       1,
       daysInMonth -
-        currentDay +
-        1
+      currentDay +
+      1
     );
 
   const monthPctPassed =
     Math.round(
-      (currentDay /
-        daysInMonth) *
-        100
+      (
+        currentDay /
+        daysInMonth
+      ) * 100
     );
 
   const totals =
@@ -346,14 +310,33 @@ export function computeBurnMetrics(){
           c.isFixed ||
           c.icon === 'home' ||
           c.icon === 'zap' ||
-          (c.name || '')
+          (
+            c.name || ''
+          )
             .toLowerCase()
             .includes('arriendo') ||
-          (c.name || '')
+          (
+            c.name || ''
+          )
             .toLowerCase()
             .includes('servicio')
       )
-      .map(c => c.id);
+      .map(
+        c => c.id
+      );
+
+  /*
+   * IMPORTANTE:
+   *
+   * Los pagos de créditos viven en:
+   *
+   * DB.credits[].payments
+   *
+   * y no son gastos diarios.
+   *
+   * Además protegemos el cálculo por si en el futuro
+   * algún módulo guarda un pago como transacción técnica.
+   */
 
   const isDailyExpense =
     t =>
@@ -362,7 +345,10 @@ export function computeBurnMetrics(){
       !fixedCatIds.includes(
         t.categoryId
       ) &&
-      !!t.date;
+      !!t.date &&
+      !t.isCreditPayment &&
+      !t.creditPayment &&
+      !t.creditId;
 
   const periodNumber =
     currentDay <= 10
@@ -508,8 +494,8 @@ export function computeBurnMetrics(){
   };
 }
 
-
 export function computeBudgetRows(){
+
   const totals =
     computeCategoryTotals();
 
@@ -527,7 +513,8 @@ export function computeBudgetRows(){
       const spent =
         (
           totals.find(
-            r => r.id === c.id
+            r =>
+              r.id === c.id
           ) || {}
         ).total || 0;
 
@@ -535,9 +522,10 @@ export function computeBudgetRows(){
         Math.min(
           100,
           Math.round(
-            (spent /
-              c.budget) *
-              100
+            (
+              spent /
+              c.budget
+            ) * 100
           )
         );
 
@@ -560,23 +548,514 @@ export function computeBudgetRows(){
     });
 }
 
+/* ==========================================================
+   MOTOR FINANCIERO DE CRÉDITOS
+   ========================================================== */
+
+/*
+ * Normaliza créditos antiguos y nuevos.
+ *
+ * Los créditos existentes de versiones anteriores no necesitan
+ * ser recreados: simplemente se interpretan como créditos
+ * sin intereses.
+ */
+
+export function normalizeCredit(credit){
+
+  const c =
+    credit || {};
+
+  const interestRate =
+    Math.max(
+      0,
+      Number(
+        c.interestRate
+      ) || 0
+    );
+
+  const termMonths =
+    Math.max(
+      0,
+      Math.floor(
+        Number(
+          c.termMonths
+        ) || 0
+      )
+    );
+
+  const interestEnabled =
+    Boolean(
+      c.interestEnabled
+    ) ||
+    interestRate > 0;
+
+  const interestPeriod =
+    c.interestPeriod === 'annual'
+      ? 'annual'
+      : 'monthly';
+
+  return {
+    ...c,
+
+    total:
+      Math.max(
+        0,
+        Number(
+          c.total
+        ) || 0
+      ),
+
+    interestEnabled,
+
+    interestRate,
+
+    interestPeriod,
+
+    termMonths,
+
+    startDate:
+      c.startDate ||
+      c.date ||
+      '',
+
+    amortization:
+      c.amortization ||
+      'french',
+
+    payments:
+      Array.isArray(
+        c.payments
+      )
+        ? c.payments.map(
+            p => ({
+              ...p,
+              amount:
+                Math.max(
+                  0,
+                  Number(
+                    p.amount
+                  ) || 0
+                )
+            })
+          )
+        : []
+  };
+}
+
+/*
+ * Calcula:
+ *
+ * - Capital
+ * - Tasa
+ * - Cuota estimada
+ * - Intereses estimados
+ * - Total estimado
+ * - Capital pagado
+ * - Intereses pagados
+ * - Capital pendiente
+ * - Saldo total
+ * - Avance
+ */
+
+export function computeCreditPlan(
+  credit
+){
+
+  const c =
+    normalizeCredit(
+      credit
+    );
+
+  const principal =
+    c.total;
+
+  const rate =
+    c.interestRate;
+
+  const termMonths =
+    c.termMonths;
+
+  const monthlyRate =
+    c.interestEnabled
+      ? (
+          c.interestPeriod === 'annual'
+            ? rate / 100 / 12
+            : rate / 100
+        )
+      : 0;
+
+  let monthlyPayment =
+    0;
+
+  let scheduledTotal =
+    principal;
+
+  let estimatedInterest =
+    0;
+
+  /*
+   * Sistema francés:
+   *
+   * cuota =
+   * P * [r(1+r)^n] / [(1+r)^n - 1]
+   */
+
+  if (
+    principal > 0 &&
+    termMonths > 0 &&
+    monthlyRate > 0
+  ){
+
+    const factor =
+      Math.pow(
+        1 + monthlyRate,
+        termMonths
+      );
+
+    monthlyPayment =
+      principal *
+      (
+        monthlyRate *
+        factor
+      ) /
+      (
+        factor - 1
+      );
+
+    scheduledTotal =
+      monthlyPayment *
+      termMonths;
+
+    estimatedInterest =
+      Math.max(
+        0,
+        scheduledTotal -
+        principal
+      );
+
+  } else if (
+    principal > 0 &&
+    termMonths > 0
+  ){
+
+    monthlyPayment =
+      principal /
+      termMonths;
+
+    scheduledTotal =
+      principal;
+
+    estimatedInterest =
+      0;
+  }
+
+  const breakdown =
+    computeCreditPaymentBreakdown(
+      c,
+      monthlyRate
+    );
+
+  const paidTotal =
+    breakdown.reduce(
+      (
+        sum,
+        p
+      ) =>
+        sum +
+        p.amount,
+      0
+    );
+
+  const paidInterest =
+    breakdown.reduce(
+      (
+        sum,
+        p
+      ) =>
+        sum +
+        p.interestPaid,
+      0
+    );
+
+  const paidPrincipal =
+    breakdown.reduce(
+      (
+        sum,
+        p
+      ) =>
+        sum +
+        p.principalPaid,
+      0
+    );
+
+  const remainingPrincipal =
+    Math.max(
+      0,
+      principal -
+      paidPrincipal
+    );
+
+  const pendingTotal =
+    Math.max(
+      0,
+      scheduledTotal -
+      paidTotal
+    );
+
+  const progressPct =
+    scheduledTotal > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (
+              paidTotal /
+              scheduledTotal
+            ) * 100
+          )
+        )
+      : 0;
+
+  return {
+    principal,
+
+    interestEnabled:
+      c.interestEnabled &&
+      rate > 0,
+
+    interestRate:
+      rate,
+
+    interestPeriod:
+      c.interestPeriod,
+
+    termMonths,
+
+    monthlyRate,
+
+    monthlyPayment,
+
+    scheduledTotal,
+
+    estimatedInterest,
+
+    paidTotal,
+
+    paidInterest,
+
+    paidPrincipal,
+
+    remainingPrincipal,
+
+    pendingTotal,
+
+    progressPct,
+
+    paymentCount:
+      c.payments.length,
+
+    breakdown
+  };
+}
+
+/*
+ * Distribución de cada aporte.
+ *
+ * El cálculo aplica primero el interés del período y después
+ * amortiza capital.
+ *
+ * Esto permite mostrar de forma transparente:
+ *
+ * Aporte $500.000
+ * Interés $100.000
+ * Capital $400.000
+ */
+
+export function computeCreditPaymentBreakdown(
+  credit,
+  monthlyRateOverride = null
+){
+
+  const c =
+    normalizeCredit(
+      credit
+    );
+
+  const monthlyRate =
+    monthlyRateOverride === null
+
+      ? (
+          c.interestEnabled
+            ? (
+                c.interestPeriod === 'annual'
+                  ? c.interestRate / 100 / 12
+                  : c.interestRate / 100
+              )
+            : 0
+        )
+
+      : Math.max(
+          0,
+          Number(
+            monthlyRateOverride
+          ) || 0
+        );
+
+  let principalBalance =
+    c.total;
+
+  const sorted =
+    c.payments
+      .map(
+        (
+          p,
+          index
+        ) => ({
+          ...p,
+          __index:index
+        })
+      )
+      .sort(
+        (
+          a,
+          b
+        ) => {
+
+          const da =
+            a.date || '';
+
+          const db =
+            b.date || '';
+
+          return (
+            da +
+            String(
+              a.__index
+            )
+          ).localeCompare(
+            db +
+            String(
+              b.__index
+            )
+          );
+        }
+      );
+
+  return sorted.map(
+    (
+      p,
+      index
+    ) => {
+
+      const amount =
+        Math.max(
+          0,
+          Number(
+            p.amount
+          ) || 0
+        );
+
+      let interestDue =
+        0;
+
+      if (
+        monthlyRate > 0 &&
+        principalBalance > 0
+      ){
+
+        interestDue =
+          principalBalance *
+          monthlyRate;
+      }
+
+      const interestPaid =
+        Math.min(
+          amount,
+          interestDue
+        );
+
+      const principalPaid =
+        Math.min(
+          Math.max(
+            0,
+            principalBalance
+          ),
+          Math.max(
+            0,
+            amount -
+            interestPaid
+          )
+        );
+
+      const excess =
+        Math.max(
+          0,
+          amount -
+          interestPaid -
+          principalPaid
+        );
+
+      principalBalance =
+        Math.max(
+          0,
+          principalBalance -
+          principalPaid
+        );
+
+      return {
+        ...p,
+
+        sequence:
+          index + 1,
+
+        amount,
+
+        interestDue,
+
+        interestPaid,
+
+        principalPaid,
+
+        excess,
+
+        remainingPrincipal:
+          principalBalance
+      };
+    }
+  );
+}
+
+/* ==========================================================
+   PAGOS DE CRÉDITOS DEL MES
+   ========================================================== */
 
 export function computeCreditsPaidThisMonth(){
-  const now = new Date();
+
+  const now =
+    new Date();
 
   const currentMonthKey =
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    `${now.getFullYear()}-${String(
+      now.getMonth() + 1
+    ).padStart(2, '0')}`;
 
-  return (DB.credits || [])
+  return (
+    DB.credits || []
+  )
     .filter(
       c =>
-        c.type === 'against'
+        c.type ===
+        'against'
     )
     .reduce(
-      (sum, c) => {
+      (
+        sum,
+        c
+      ) => {
 
         const monthlyPaid =
-          (c.payments || [])
+          (
+            c.payments || []
+          )
             .filter(
               p =>
                 p.date &&
@@ -585,9 +1064,16 @@ export function computeCreditsPaidThisMonth(){
                   currentMonthKey
             )
             .reduce(
-              (s, p) =>
+              (
+                s,
+                p
+              ) =>
                 s +
-                (Number(p.amount) || 0),
+                (
+                  Number(
+                    p.amount
+                  ) || 0
+                ),
               0
             );
 
@@ -600,17 +1086,19 @@ export function computeCreditsPaidThisMonth(){
     );
 }
 
-
 /* ==========================================================
-   LÓGICA DE CRÉDITOS
-   Recuperada del código original
+   RESUMEN DE CRÉDITOS
    ========================================================== */
 
 export function computeCreditsSummary(){
-  const now = new Date();
+
+  const now =
+    new Date();
 
   const currentMonthKey =
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    `${now.getFullYear()}-${String(
+      now.getMonth() + 1
+    ).padStart(2, '0')}`;
 
   const prevDate =
     new Date(
@@ -620,7 +1108,9 @@ export function computeCreditsSummary(){
     );
 
   const prevMonthKey =
-    `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+    `${prevDate.getFullYear()}-${String(
+      prevDate.getMonth() + 1
+    ).padStart(2, '0')}`;
 
   let againstTotal = 0;
   let againstPaidTotal = 0;
@@ -634,25 +1124,26 @@ export function computeCreditsSummary(){
   let favorPaidPrevMonth = 0;
   let favorCount = 0;
 
-  (DB.credits || [])
-    .forEach(c => {
+  (
+    DB.credits || []
+  ).forEach(
+    raw => {
 
-      const total =
-        Number(c.total) || 0;
-
-      const payments =
-        c.payments || [];
-
-      const paidTotal =
-        payments.reduce(
-          (s, p) =>
-            s +
-            (Number(p.amount) || 0),
-          0
+      const c =
+        normalizeCredit(
+          raw
         );
 
+      const plan =
+        computeCreditPlan(
+          c
+        );
+
+      const paidTotal =
+        plan.paidTotal;
+
       const paidThisMonth =
-        payments
+        c.payments
           .filter(
             p =>
               p.date &&
@@ -661,14 +1152,21 @@ export function computeCreditsSummary(){
                 currentMonthKey
           )
           .reduce(
-            (s, p) =>
+            (
+              s,
+              p
+            ) =>
               s +
-              (Number(p.amount) || 0),
+              (
+                Number(
+                  p.amount
+                ) || 0
+              ),
             0
           );
 
       const paidPrevMonth =
-        payments
+        c.payments
           .filter(
             p =>
               p.date &&
@@ -677,39 +1175,61 @@ export function computeCreditsSummary(){
                 prevMonthKey
           )
           .reduce(
-            (s, p) =>
+            (
+              s,
+              p
+            ) =>
               s +
-              (Number(p.amount) || 0),
+              (
+                Number(
+                  p.amount
+                ) || 0
+              ),
             0
           );
 
       if (
-        c.type === 'against'
-      ) {
+        c.type ===
+        'against'
+      ){
 
-        againstTotal += total;
+        againstTotal +=
+          plan.scheduledTotal;
+
         againstPaidTotal +=
           paidTotal;
+
         againstPaidThisMonth +=
           paidThisMonth;
+
         againstPaidPrevMonth +=
           paidPrevMonth;
-        againstCount += 1;
+
+        againstCount +=
+          1;
 
       } else if (
-        c.type === 'favor'
-      ) {
+        c.type ===
+        'favor'
+      ){
 
-        favorTotal += total;
+        favorTotal +=
+          plan.scheduledTotal;
+
         favorPaidTotal +=
           paidTotal;
+
         favorPaidThisMonth +=
           paidThisMonth;
+
         favorPaidPrevMonth +=
           paidPrevMonth;
-        favorCount += 1;
+
+        favorCount +=
+          1;
       }
-    });
+    }
+  );
 
   const againstPending =
     Math.max(
@@ -730,9 +1250,10 @@ export function computeCreditsSummary(){
       ? Math.min(
           100,
           Math.round(
-            (againstPaidTotal /
-              againstTotal) *
-              100
+            (
+              againstPaidTotal /
+              againstTotal
+            ) * 100
           )
         )
       : 0;
@@ -742,18 +1263,20 @@ export function computeCreditsSummary(){
       ? Math.min(
           100,
           Math.round(
-            (favorPaidTotal /
-              favorTotal) *
-              100
+            (
+              favorPaidTotal /
+              favorTotal
+            ) * 100
           )
         )
       : 0;
 
-  let paymentChangePct = 0;
+  let paymentChangePct =
+    0;
 
   if (
     againstPaidPrevMonth > 0
-  ) {
+  ){
 
     paymentChangePct =
       Math.round(
@@ -763,15 +1286,15 @@ export function computeCreditsSummary(){
             againstPaidPrevMonth
           ) /
           againstPaidPrevMonth
-        ) *
-        100
+        ) * 100
       );
 
   } else if (
     againstPaidThisMonth > 0
-  ) {
+  ){
 
-    paymentChangePct = 100;
+    paymentChangePct =
+      100;
   }
 
   return {
@@ -780,7 +1303,6 @@ export function computeCreditsSummary(){
     againstPending,
     againstProgressPct,
     againstCount,
-
     againstPaidThisMonth,
     againstPaidPrevMonth,
     paymentChangePct,
@@ -790,7 +1312,6 @@ export function computeCreditsSummary(){
     favorPending,
     favorProgressPct,
     favorCount,
-
     favorPaidThisMonth,
     favorPaidPrevMonth
   };
