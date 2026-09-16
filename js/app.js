@@ -12,7 +12,7 @@ import {
 } from './ui.js';
 import * as API from './api.js';
 
-let UI = {tab:'dashboard', txFilter:'all', creditFilter:'against', search:'', openInvoiceId:null, fabMenuOpen:false};
+let UI = {tab:'dashboard', txFilter:'all', creditFilter:'against', search:'', openInvoiceId:null};
 let sheet = null;
 let confirmState = null;
 let scanningOverlay = null;
@@ -35,6 +35,7 @@ export function render(){
 
     const viewEl = document.getElementById('view');
     const tabbarEl = document.getElementById('tabbar');
+    const fabSlotEl = document.getElementById('fab-slot');
 
     if (!token || !userId) {
       if (viewEl) {
@@ -64,6 +65,7 @@ export function render(){
         `;
       }
       if (tabbarEl) tabbarEl.innerHTML = '';
+      if (fabSlotEl) fabSlotEl.innerHTML = '';
       setTimeout(attachAuthEvents, 50);
       return;
     }
@@ -137,19 +139,21 @@ function attachAuthEvents(){
 function renderAppContent(){
   const viewEl = document.getElementById('view');
   if (viewEl) {
+    let tabContent = '';
+    if (UI.tab === 'dashboard') tabContent = renderDashboard();
+    else if (UI.tab === 'transactions') tabContent = renderTransactions();
+    else if (UI.tab === 'invoices') tabContent = renderInvoices();
+    else if (UI.tab === 'credits') tabContent = renderCredits();
+    else if (UI.tab === 'categories') tabContent = renderCategories();
+    else tabContent = renderSettings() + '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>';
+
     viewEl.innerHTML =
       '<div class="hero"><div class="hero-content">' +
       '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
       '<div class="hero-main"><div><h1>Mis Finanzas</h1><p>Control y analítica en tiempo real</p></div><div class="hero-avatar">⚡</div></div>' +
-      '</div></div>' +
-      (UI.tab==='dashboard' ? renderDashboard() :
-       UI.tab==='transactions' ? renderTransactions(UI.search, UI.txFilter) :
-       UI.tab==='invoices' ? renderInvoices(UI.openInvoiceId) :
-       UI.tab==='credits' ? renderCredits(UI.creditFilter) :
-       UI.tab==='categories' ? renderCategories() :
-       (renderSettings() + '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'));
-
-    // Limpiar texto de ajustes a solo "Ajustes"
+      '</div></div>' + tabContent;
+  
+    // Unificar título de Ajustes limpiamente
     if (UI.tab === 'settings') {
       setTimeout(() => {
         document.querySelectorAll('h1, h2, h3, .section-title, span, div').forEach(el => {
@@ -161,7 +165,7 @@ function renderAppContent(){
     }
   }
 
-  // Botón flotante idéntico al original según la pestaña
+  // Botón flotante dinámico según la pestaña activa
   const fabSlotEl = document.getElementById('fab-slot');
   if (fabSlotEl) {
     if (UI.tab === 'dashboard' || UI.tab === 'transactions') {
@@ -175,13 +179,17 @@ function renderAppContent(){
     }
   }
 
-  let tabbarHTML = [
+  // Barra de navegación original de 5 elementos: Resumen, Movimientos, +, Créditos y Categorías
+  const tabbarHTML = [
     ['dashboard','wallet','Resumen'],
     ['transactions','list','Movimientos'],
+    ['center','plus',''],
     ['credits','credit','Créditos'],
     ['categories','tag','Categorías'],
-    ['settings','gear','Ajustes'],
   ].map(([id,ic,label]) => {
+    if(id==='center'){
+      return '<div class="center-fab-container"><button class="tab-btn" data-action="new-tx" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;color:var(--violet);"><span class="icon" style="width:26px;height:26px;background:var(--violet);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span><span style="font-size:10px;font-weight:700;margin-top:2px;">Nuevo</span></button></div>';
+    }
     return '<button class="tab-btn ' + (UI.tab===id?'active':'') + '" data-action="set-tab" data-tab="' + id + '">' +
       '<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">' + getIconSvg(ic) + '</span><span>' + label + '</span></button>';
   }).join('');
@@ -194,11 +202,10 @@ function renderAppContent(){
 
 function getIconSvg(name){
   const svgs = {
-    'wallet': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
-    'list': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
-    'credit': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
-    'tag': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>',
-    'gear': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>'
+    'wallet': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="17" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg>',
+    'list': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg>',
+    'credit': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
+    'tag': '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path d="M12 3h6a2 2 0 0 1 2 2v6a2 2 0 0 1-.6 1.4l-8 8a2 2 0 0 1-2.8 0l-6-6a2 2 0 0 1 0-2.8l8-8A2 2 0 0 1 12 3z"/><circle cx="15.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/></svg>'
   };
   return svgs[name] || '';
 }
@@ -219,7 +226,6 @@ function renderOverlays(){
   el.innerHTML = html;
   if (sheet) attachSheetFieldSync();
   
-  // Activar botón de guardar dinámicamente si los campos son válidos
   const saveBtn = document.querySelector('button[data-action="save-tx"], button[data-action="save-quick"], button[data-action="save-credit"], button[data-action="save-payment"]');
   if (saveBtn && sheet) {
     if (sheet.kind === 'credit') {
@@ -271,6 +277,20 @@ document.addEventListener('click',(e)=>{
   if(action==='set-tab'){ UI.tab = t.dataset.tab; renderAppContent(); return; }
   if(action==='set-filter'){ UI.txFilter = t.dataset.filter; refreshTxList(); return; }
   if(action==='set-credit-filter'){ UI.creditFilter = t.dataset.filter; renderAppContent(); return; }
+
+  if(action==='logout'){
+    confirmState={message:'¿Seguro que quieres cerrar sesión?', onConfirm:()=>{
+      localStorage.removeItem('supabase_token');
+      localStorage.removeItem('supabase_user_id');
+      window.hasLoadedCloudData = false;
+      Object.assign(DB, {transactions:[], categories:DEFAULT_CATEGORIES.slice(), credits:[], invoices:[], settings:{currency:'COP'}});
+      saveDB(); 
+      UI.tab = 'dashboard';
+      confirmState = null; 
+      render(); 
+    }};
+    renderOverlays(); return;
+  }
 
   if(action==='new-tx'){ 
     sheet = {kind:'tx', mode:'new', id:null, type:'expense', categoryId:(DB.categories.find(c=>c.type==='expense')||{}).id||'', amount:'', date:todayStr(), note:''}; 
@@ -497,7 +517,6 @@ function attachSheetFieldSync(){
       sheet.total = parseFormattedNumber(e.target.value); 
       e.target.value = formatThousandInput(sheet.total); 
       
-      // Reactivar botón al escribir
       const saveBtn = document.querySelector('button[data-action="save-credit"]');
       if (saveBtn) {
         if (sheet.title && sheet.title.trim().length > 0 && Number(sheet.total) > 0) {
