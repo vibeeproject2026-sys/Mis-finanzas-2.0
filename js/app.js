@@ -137,6 +137,21 @@ function attachAuthEvents(){
 function renderAppContent(){
   const viewEl = document.getElementById('view');
   if (viewEl) {
+    let creditContent = renderCredits(UI.creditFilter);
+    
+    // Si estamos en la pestaña de créditos, inyectamos un botón elegante en la parte superior para añadir créditos fácilmente
+    if (UI.tab === 'credits') {
+      const addCreditHeader = `
+        <div style="margin-bottom: 16px;">
+          <button class="save-btn" data-action="new-credit" style="width: 100%; padding: 12px; border-radius: 14px; background: var(--accent); color: #fff; font-weight: 700; font-size: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:18px;height:18px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Añadir Nuevo Crédito
+          </button>
+        </div>
+      `;
+      creditContent = addCreditHeader + creditContent;
+    }
+
     viewEl.innerHTML =
       '<div class="hero"><div class="hero-content">' +
       '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
@@ -145,7 +160,7 @@ function renderAppContent(){
       (UI.tab==='dashboard' ? renderDashboard() :
        UI.tab==='transactions' ? renderTransactions(UI.search, UI.txFilter) :
        UI.tab==='invoices' ? renderInvoices(UI.openInvoiceId) :
-       UI.tab==='credits' ? renderCredits(UI.creditFilter) :
+       UI.tab==='credits' ? creditContent :
        UI.tab==='categories' ? renderCategories() :
        (renderSettings() + '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'));
   
@@ -191,41 +206,11 @@ function getIconSvg(name){
   return svgs[name] || '';
 }
 
-// Menú desplegable original restaurado y adaptado para incluir también "Añadir Crédito"
-function renderFabMenuCustom() {
-  return `
-    <div class="fab-backdrop" id="fab-backdrop">
-      <div class="fab-menu-container">
-        <button class="fab-menu-item" data-action="fab-new-tx">
-          <span class="fab-menu-icon" style="background:var(--expense-bg); color:var(--expense);">💸</span>
-          <span>Registrar Transacción</span>
-        </button>
-        <button class="fab-menu-item" data-action="fab-new-credit">
-          <span class="fab-menu-icon" style="background:var(--income-bg); color:var(--income);">💳</span>
-          <span>Añadir Crédito</span>
-        </button>
-        <button class="fab-menu-item" data-action="fab-scan-invoice">
-          <span class="fab-menu-icon" style="background:var(--violet-bg); color:var(--violet);">📷</span>
-          <span>Escanear Factura con IA</span>
-        </button>
-        <button class="fab-menu-item" data-action="fab-invoices">
-          <span class="fab-menu-icon" style="background:var(--amber-bg); color:var(--amber);">📄</span>
-          <span>Ver Facturas</span>
-        </button>
-        <button class="fab-menu-item" data-action="fab-settings">
-          <span class="fab-menu-icon" style="background:var(--border); color:var(--ink);">&#9881;</span>
-          <span>Ajustes</span>
-        </button>
-      </div>
-    </div>
-  `;
-}
-
 function renderOverlays(){
   const el = document.getElementById('overlays');
   if (!el) return;
   let html = '';
-  if (UI.fabMenuOpen) html += renderFabMenuCustom();
+  if (UI.fabMenuOpen) html += renderFabMenu();
   if (sheet && sheet.kind === 'tx') html += renderTxSheet(sheet);
   if (sheet && sheet.kind === 'quick') html += renderQuickSheet(sheet);
   if (sheet && sheet.kind === 'cat') html += renderCatSheet(sheet);
@@ -314,7 +299,6 @@ document.addEventListener('click',(e)=>{
     t.classList.add('selected-pulse');
     setTimeout(() => {
       if(action==='fab-new-tx'){ closeFabMenu(() => { sheet = {kind:'tx', mode:'new', id:null, type:'expense', categoryId:(DB.categories.find(c=>c.type==='expense')||{}).id||'', amount:'', date:todayStr(), note:''}; renderOverlays(); }); }
-      else if(action==='fab-new-credit'){ closeFabMenu(() => { sheet = {kind:'credit', mode:'new', id:null, title:'', type:UI.creditFilter||'against', total:''}; renderOverlays(); }); }
       else if(action==='fab-scan-invoice'){ closeFabMenu(() => { document.getElementById('global-camera-input').click(); }); }
       else if(action==='fab-invoices'){ closeFabMenu(() => { UI.tab='invoices'; renderAppContent(); }); }
       else if(action==='fab-settings'){ closeFabMenu(() => { UI.tab='settings'; renderAppContent(); }); }
