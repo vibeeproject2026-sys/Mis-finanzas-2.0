@@ -501,17 +501,6 @@ export function renderDashboard(){
         0
       );
 
-    const uncategorizedExpense =
-      Math.max(
-        0,
-        (
-          Number(
-            month.expense
-          ) || 0
-        ) -
-        categorizedExpense
-      );
-
     const palette = [
       '#38BDF8',
       '#A78BFA',
@@ -642,8 +631,7 @@ export function renderDashboard(){
         chartCats,
         month.expense,
         month.income,
-        creditsPaid,
-        uncategorizedExpense
+        creditsPaid
       ) +
       '<div class="pie-center"><strong>' +
       (
@@ -696,29 +684,6 @@ export function renderDashboard(){
           '%</span></div>';
       }
     );
-
-    if (
-      uncategorizedExpense > 0
-    ){
-
-      const pct =
-        (
-          uncategorizedExpense /
-          (month.income > 0 ? month.income : totalOutflow)
-        ) * 100;
-
-      html +=
-        '<div class="pie-legend-row">' +
-        '<span class="pie-dot" style="background:#8B85A3"></span>' +
-        '<span class="pie-name">Sin categoría</span>' +
-        '<span class="pie-pct">' +
-        (
-          pct < 0.1
-            ? '<0.1'
-            : pct.toFixed(1)
-        ) +
-        '%</span></div>';
-    }
 
     if (
       creditsPaid > 0
@@ -1044,8 +1009,7 @@ export function expensePieSVG(
   catTotals,
   monthExpense,
   monthIncome,
-  creditsPaid = 0,
-  uncategorizedExpense = 0
+  creditsPaid = 0
 ){
 
   const expense =
@@ -1069,14 +1033,6 @@ export function expensePieSVG(
       0,
       Number(
         creditsPaid
-      ) || 0
-    );
-
-  const uncategorized =
-    Math.max(
-      0,
-      Number(
-        uncategorizedExpense
       ) || 0
     );
 
@@ -1285,17 +1241,6 @@ export function expensePieSVG(
       );
     }
   );
-
-  if (
-    uncategorized > 0
-  ){
-
-    addSlice(
-      uncategorized,
-      '#8B85A3',
-      'Sin categoría'
-    );
-  }
 
   if (
     credits > 0
