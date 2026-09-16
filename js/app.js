@@ -137,28 +137,35 @@ function attachAuthEvents(){
 function renderAppContent(){
   const viewEl = document.getElementById('view');
   if (viewEl) {
+    let tabContent = '';
+    if (UI.tab === 'dashboard') tabContent = renderDashboard();
+    else if (UI.tab === 'transactions') tabContent = renderTransactions(UI.search, UI.txFilter);
+    else if (UI.tab === 'invoices') tabContent = renderInvoices(UI.openInvoiceId);
+    else if (UI.tab === 'credits') {
+      // Inyectamos de forma segura el botón de nuevo crédito si la vista no lo trae integrado
+      tabContent = renderCredits(UI.creditFilter);
+      if (!tabContent.includes('data-action="new-credit"')) {
+        tabContent = '<div style="margin-bottom:16px;"><button class="save-btn" data-action="new-credit" style="width:100%;padding:14px;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;border:none;cursor:pointer;">+ Nuevo Crédito</button></div>' + tabContent;
+      }
+    }
+    else if (UI.tab === 'categories') tabContent = renderCategories();
+    else tabContent = renderSettings() + '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>';
+
     viewEl.innerHTML =
       '<div class="hero"><div class="hero-content">' +
       '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
       '<div class="hero-main"><div><h1>Mis Finanzas</h1><p>Control y analítica en tiempo real</p></div><div class="hero-avatar">⚡</div></div>' +
-      '</div></div>' +
-      (UI.tab==='dashboard' ? renderDashboard() :
-       UI.tab==='transactions' ? renderTransactions(UI.search, UI.txFilter) :
-       UI.tab==='invoices' ? renderInvoices(UI.openInvoiceId) :
-       UI.tab==='credits' ? renderCredits(UI.creditFilter) :
-       UI.tab==='categories' ? renderCategories() :
-       (renderSettings() + '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'));
+      '</div></div>' + tabContent;
   
-    // Cambiar dinámicamente el título de la sección de ajustes si aparece, unificándolo limpiamente
+    // Reemplazo estricto en tiempo real para que diga únicamente "Ajustes"
     if (UI.tab === 'settings') {
       setTimeout(() => {
-        const headers = document.querySelectorAll('h2, h3, .section-title');
-        headers.forEach(h => {
-          if (h.textContent.includes('Moneda') || h.textContent.includes('Configuración')) {
-            h.textContent = 'Ajustes';
+        document.querySelectorAll('h1, h2, h3, .section-title, span, div').forEach(el => {
+          if (el.textContent && el.textContent.trim().toLowerCase().includes('ajustes y moneda')) {
+            el.textContent = 'Ajustes';
           }
         });
-      }, 10);
+      }, 5);
     }
   }
 
