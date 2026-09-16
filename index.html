@@ -2,13 +2,38 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  >
+
   <title>Terminal Cloud</title>
-  <link rel="stylesheet" href="./css/variables.css">
-  <link rel="stylesheet" href="./css/main.css">
+
+  <!-- =========================================================
+       ESTILOS
+       v=20260916-0300 fuerza al navegador a descargar
+       la versión actual y evita usar archivos antiguos en caché.
+       ========================================================= -->
+
+  <link
+    rel="stylesheet"
+    href="./css/variables.css?v=20260916-0300"
+  >
+
+  <link
+    rel="stylesheet"
+    href="./css/main.css?v=20260916-0300"
+  >
+
   <style>
-    /* Bloqueo estricto de scroll horizontal y control de márgenes seguros */
-    html, body {
+
+    /* =========================================================
+       CONTROL DE SCROLL Y MÁRGENES
+       ========================================================= */
+
+    html,
+    body {
       overflow-x: hidden !important;
       width: 100%;
       max-width: 100vw;
@@ -19,48 +44,117 @@
       padding: 0;
     }
 
-    /* Margen lateral limpio para que las tarjetas no toquen los bordes de la pantalla */
+    /* =========================================================
+       CONTENEDOR PRINCIPAL
+       ========================================================= */
+
     #view {
       width: 100%;
       box-sizing: border-box;
       padding-left: 16px;
       padding-right: 16px;
     }
-    
+
+    /* =========================================================
+       HERO
+       ========================================================= */
+
     .hero {
       width: 100%;
       box-sizing: border-box;
       margin-left: 0;
       margin-right: 0;
     }
-    
-    /* Barra de desplazamiento elegante, fina y dentro de los límites */
+
+    /* =========================================================
+       SCROLLBAR
+       ========================================================= */
+
     ::-webkit-scrollbar {
       width: 4px;
     }
+
     ::-webkit-scrollbar-track {
       background: transparent;
     }
+
     ::-webkit-scrollbar-thumb {
       background: rgba(255, 255, 255, 0.2);
       border-radius: 8px;
     }
 
-    /* Ocultar botones no deseados en modo SaaS comercial (Exportar, Importar y Borrar Datos) */
-    button[data-action="export-backup"], 
+    /* =========================================================
+       ELEMENTOS OCULTOS DEL MODO SAAS
+       ========================================================= */
+
+    button[data-action="export-backup"],
     button[data-action="import-backup"],
     button[data-action="reset-data"] {
       display: none !important;
     }
+
   </style>
 </head>
-<body>
-  <div id="view"></div>
-  <nav id="tabbar" class="tabbar"></nav>
-  <div id="overlays"></div>
-  <input type="file" id="import-file" style="display:none" accept=".json">
-  <input type="file" id="global-camera-input" style="display:none" accept="image/*" capture="environment">
 
-  <script type="module" src="./js/app.js"></script>
+<body>
+
+  <!-- =========================================================
+       CONTENIDO PRINCIPAL
+       ========================================================= -->
+
+  <div id="view"></div>
+
+  <!-- =========================================================
+       NAVEGACIÓN INFERIOR
+       ========================================================= -->
+
+  <nav
+    id="tabbar"
+    class="tabbar"
+  ></nav>
+
+  <!-- =========================================================
+       CAPA DE MODALES / OVERLAYS
+       ========================================================= -->
+
+  <div id="overlays"></div>
+
+  <!-- =========================================================
+       INPUT PARA IMPORTACIÓN DE BACKUP
+       ========================================================= -->
+
+  <input
+    type="file"
+    id="import-file"
+    style="display:none"
+    accept=".json"
+  >
+
+  <!-- =========================================================
+       INPUT GLOBAL PARA CÁMARA / FACTURAS
+       ========================================================= -->
+
+  <input
+    type="file"
+    id="global-camera-input"
+    style="display:none"
+    accept="image/*"
+    capture="environment"
+  >
+
+  <!-- =========================================================
+       APLICACIÓN
+
+       IMPORTANTE:
+       El parámetro ?v=20260916-0300 obliga al navegador a
+       descargar nuevamente app.js en lugar de reutilizar
+       una copia antigua almacenada en caché.
+       ========================================================= -->
+
+  <script
+    type="module"
+    src="./js/app.js?v=20260916-0300"
+  ></script>
+
 </body>
 </html>
