@@ -2,34 +2,125 @@ const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_BASE64_CHARS = 7_000_000;
 const MAX_GEMINI_RETRIES = 4;
 const GEMINI_BACKOFF_MS = [2000, 4000, 8000, 14000];
+const PROVIDER_TIMEOUT_MS = 25_000;
+const BUSY_MESSAGE = '⚠️ El servicio de IA está temporalmente ocupado. Intenta nuevamente en unos segundos.';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function isTransientGeminiError(status, data) {
-  if (status === 503 || status === 429) return true;
-  const message = JSON.stringify(data || '').toLowerCase();
-  return ['unavailable', 'resource exhausted', 'temporarily', 'high demand'].some((term) => message.includes(term));
-}
 
 function normalizeNumber(value) {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   const raw = String(value ?? '').trim().replace(/[^\d,.-]/g, '');
   if (!raw) return 0;
-  const lastComma = raw.lastIndexOf(',');
-  const lastDot = raw.lastIndexOf('.');
+  const comma = raw.lastIndexOf(',');
+  const dot = raw.lastIndexOf('.');
   let normalized = raw;
-  if (lastComma >= 0 && lastDot >= 0) {
-    const decimal = Math.max(lastComma, lastDot);
-    normalized = raw.slice(0, decimal).replace(/[.,]/g, '') + '.' + raw.slice(decimal + 1).replace(/[.,]/g, '');
-  } else if (lastComma >= 0) {
-    const decimals = raw.length - lastComma - 1;
-    normalized = decimals === 1 || decimals === 2 ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(/,/g, '');
-  } else if (lastDot >= 0) {
-    const decimals = raw.length - lastDot - 1;
-    normalized = decimals === 1 || decimals === 2 ? raw.replace(/,/g, '') : raw.replace(/\./g, '');
+  if (comma >= 0 && dot >= 0) {
+    const decimal = Math.max(comma, dot);
+    normalized = `${raw.slice(0, decimal).replace(/[.,]/g, '')}.${raw.slice(decimal + 1).replace(/[.,]/g, '')}`;
+  } else if (comma >= 0) {
+    normalized = raw.length - comma - 1 <= 2 ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(/,/g, '');
+  } else if (dot >= 0) {
+    normalized = raw.length - dot - 1 <= 2 ? raw.replace(/,/g, '') : raw.replace(/\./g, '');
   }
-  const result = Number(normalized);
-  return Number.isFinite(result) ? result : 0;
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function money(value) {
+  if (value == null || value === '') return null;
+  const rawValue = typeof value === 'object' ? String(value.rawValue ?? value.value ?? '') : String(value);
+  return { rawValue, value: normalizeNumber(value?.value ?? value) };
+}
+
+function normalizeResult(input) {
+  const result = input && typeof input === 'object' ? input : {};
+  const items = Array.isArray(result.items) ? result.items : [];
+  const discounts = Array.isArray(result.discounts) ? result.discounts : [];
+  return {
+    items: items.map((item) => ({
+      name: String(item?.name || '').trim().slice(0, 120),
+      rawValue: String(item?.rawValue ?? item?.price ?? ''),
+      price: normalizeNumber(item?.price?.value ?? item?.price)
+    })).filter((item) => item.name && item.price > 0).slice(0, 100),
+    ...(result.subtotal ? { subtotal: money(result.subtotal) } : {}),
+    discounts: discounts.filter((discount) => discount && (discount.value != null || discount.rawValue)).map((discount) => ({
+      name: String(discount.name || 'Descuento').trim().slice(0, 120),
+      rawValue: String(discount.rawValue ?? discount.value ?? ''),
+      value: normalizeNumber(discount.value),
+      percentage: discount.percentage == null ? null : normalizeNumber(discount.percentage)
+    })),
+    ...(result.tax ? { tax: money(result.tax) } : {}),
+    ...(Array.isArray(result.retentions) && result.retentions.length ? { retentions: result.retentions.map(money) } : {}),
+    ...(Array.isArray(result.additionalCharges) && result.additionalCharges.length ? { additionalCharges: result.additionalCharges.map(money) } : {}),
+    ...(result.total ? { total: money(result.total) } : {}),
+    ...(result.netPayable ? { netPayable: money(result.netPayable) } : {})
+  };
+}
+
+function parseModelJson(text) {
+  const cleaned = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  try { return JSON.parse(cleaned); } catch (_) {
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start < 0 || end <= start) throw new Error('Respuesta JSON inválida');
+    return JSON.parse(cleaned.slice(start, end + 1));
+  }
+}
+
+function prompt() {
+  return 'Analiza esta factura y devuelve SOLO JSON válido. Usa items [{name, rawValue, price}], subtotal {rawValue,value}, discounts [{name,rawValue,value,percentage}], tax {rawValue,value}, retentions [{name,rawValue,value}], additionalCharges [{name,rawValue,value}], total {rawValue,value} y netPayable {rawValue,value}. Incluye solo campos realmente detectados; discounts debe ser [] si no hay descuentos. Conserva rawValue como aparece. Normaliza números: 8765,23=8765.23; 8.765,23=8765.23; 8,765.23=8765.23; 8,765 y 8.765 son miles. Distingue descuentos, IVA, retenciones, cargos y propinas. No inventes valores.';
+}
+
+function retryAfterMs(response) {
+  const value = Number(response.headers.get('retry-after'));
+  return Number.isFinite(value) && value >= 0 ? Math.min(value * 1000, 16000) : null;
+}
+
+function transient(status, data) {
+  if (status === 429 || status === 503) return true;
+  const text = JSON.stringify(data || '').toLowerCase();
+  return ['unavailable', 'resource exhausted', 'temporarily', 'high demand', 'timeout'].some((term) => text.includes(term));
+}
+
+async function fetchWithTimeout(url, options) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+  try { return await fetch(url, { ...options, signal: controller.signal }); }
+  finally { clearTimeout(timer); }
+}
+
+async function analyzeWithGemini(apiKey, model, imageBase64, mimeType) {
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const body = { contents: [{ parts: [{ text: prompt() }, { inline_data: { mime_type: mimeType, data: imageBase64 } }] }], generationConfig: { temperature: 0, responseMimeType: 'application/json' } };
+  let lastError;
+  for (let attempt = 0; attempt <= MAX_GEMINI_RETRIES; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await response.json();
+      if (response.ok) return normalizeResult(parseModelJson(data?.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('')));
+      lastError = new Error(`Gemini HTTP ${response.status}`);
+      console.error(`Gemini transient/error status ${response.status}, attempt ${attempt + 1}/${MAX_GEMINI_RETRIES + 1}`);
+      if (!transient(response.status, data)) throw lastError;
+      if (attempt < MAX_GEMINI_RETRIES) await sleep(retryAfterMs(response) ?? GEMINI_BACKOFF_MS[attempt]);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= MAX_GEMINI_RETRIES || (error.message && !/fetch|abort|timeout|503|429/i.test(error.message))) throw error;
+      console.error(`Gemini temporary failure, attempt ${attempt + 1}/${MAX_GEMINI_RETRIES + 1}`);
+      await sleep(GEMINI_BACKOFF_MS[attempt]);
+    }
+  }
+  throw lastError || new Error('Gemini unavailable');
+}
+
+async function analyzeWithOpenAI(apiKey, model, imageBase64, mimeType) {
+  const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'user', content: [{ type: 'text', text: prompt() }, { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } }] }] })
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(`OpenAI HTTP ${response.status}`);
+  return normalizeResult(parseModelJson(data?.choices?.[0]?.message?.content));
 }
 
 export default async function handler(req, res) {
@@ -40,69 +131,28 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ message: 'Método no permitido.' });
 
-  const { GEMINI_API_KEY, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, GEMINI_MODEL } = process.env;
-  if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !GEMINI_MODEL) return res.status(500).json({ message: 'El servicio de IA no está configurado.' });
-
+  const { GEMINI_API_KEY, GEMINI_MODEL, OPENAI_API_KEY, OPENAI_MODEL, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } = process.env;
+  if (!GEMINI_API_KEY || !GEMINI_MODEL || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return res.status(500).json({ message: 'El servicio de IA no está configurado.' });
   const token = String(req.headers.authorization || '').match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) return res.status(401).json({ message: 'Sesión no válida.' });
   try {
     const session = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${token}` } });
     if (!session.ok) return res.status(401).json({ message: 'La sesión ha expirado.' });
-  } catch (error) {
-    console.error('Error validando sesión:', error.message);
-    return res.status(401).json({ message: 'No se pudo validar la sesión.' });
-  }
+  } catch (_) { return res.status(401).json({ message: 'No se pudo validar la sesión.' }); }
 
   const { imageBase64, mimeType } = req.body || {};
   if (typeof imageBase64 !== 'string' || !imageBase64 || imageBase64.length > MAX_BASE64_CHARS || !ALLOWED_MIME_TYPES.has(mimeType)) return res.status(400).json({ message: 'Imagen inválida o demasiado grande.' });
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
-  const requestBody = {
-    contents: [{ parts: [
-      { text: 'Analiza esta factura y devuelve SOLO JSON válido. Usa esta forma: {"items":[{"name":"string","rawValue":"string","price":number}],"subtotal":{"rawValue":"string","value":number},"discounts":[{"name":"string","rawValue":"string","value":number,"percentage":number|null}],"tax":{"rawValue":"string","value":number},"total":{"rawValue":"string","value":number},"netPayable":{"rawValue":"string","value":number}}. Identifica explícitamente subtotal, cada descuento, IVA/impuestos, total y valor neto a pagar. discount debe ser 0 si no existe. No confundas descuentos con impuestos, retenciones, cargos o propinas. Conserva rawValue exactamente como aparece cuando sea posible. Interpreta correctamente formatos 8765,23; 8.765,23; 8,765.23; 8,765 y 8.765. No inventes datos: usa null o 0 cuando no puedas determinar un valor.' },
-      { inline_data: { mime_type: mimeType, data: imageBase64 } }
-    ] }],
-    generationConfig: { temperature: 0, responseMimeType: 'application/json' }
-  };
-
-  let response;
-  let data;
-  for (let attempt = 0; attempt <= MAX_GEMINI_RETRIES; attempt += 1) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25_000);
-    try {
-      response = await fetch(endpoint, { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
-      data = await response.json();
-    } catch (error) {
-      console.error(`Gemini network error, attempt ${attempt + 1}:`, error.message);
-      if (attempt < MAX_GEMINI_RETRIES) { await sleep(GEMINI_BACKOFF_MS[attempt]); continue; }
-      return res.status(504).json({ message: '⚠️ El servicio de IA está temporalmente ocupado. Intenta nuevamente en unos segundos.' });
-    } finally { clearTimeout(timeout); }
-
-    if (response.ok) break;
-    console.error(`Gemini HTTP ${response.status}, attempt ${attempt + 1}/${MAX_GEMINI_RETRIES + 1}`);
-    const retryable = isTransientGeminiError(response.status, data);
-    if (!retryable || attempt >= MAX_GEMINI_RETRIES) return res.status(retryable ? 503 : 502).json({ message: retryable ? '⚠️ El servicio de IA está temporalmente ocupado. Intenta nuevamente en unos segundos.' : 'Gemini no pudo analizar la factura.' });
-    await sleep(GEMINI_BACKOFF_MS[attempt]);
-  }
-
   try {
-    const text = data?.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '';
-    const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-    let parsed;
-    try { parsed = JSON.parse(cleaned); } catch (_) {
-      const start = cleaned.indexOf('{'); const end = cleaned.lastIndexOf('}');
-      if (start < 0 || end <= start) throw new Error('Respuesta JSON inválida');
-      parsed = JSON.parse(cleaned.slice(start, end + 1));
+    try { return res.status(200).json(await analyzeWithGemini(GEMINI_API_KEY, GEMINI_MODEL, imageBase64, mimeType)); }
+    catch (geminiError) {
+      console.error('Gemini exhausted; using fallback:', geminiError.message);
+      if (!OPENAI_API_KEY || !OPENAI_MODEL) return res.status(503).json({ message: BUSY_MESSAGE });
+      try { return res.status(200).json(await analyzeWithOpenAI(OPENAI_API_KEY, OPENAI_MODEL, imageBase64, mimeType)); }
+      catch (openAiError) { console.error('Fallback provider failed:', openAiError.message); return res.status(503).json({ message: '⚠️ No pudimos analizar la factura en este momento. Intenta nuevamente en unos segundos.' }); }
     }
-    const items = Array.isArray(parsed?.items) ? parsed.items : [];
-    return res.status(200).json({
-      ...parsed,
-      discounts: Array.isArray(parsed.discounts) ? parsed.discounts.map((d) => ({ ...d, value: normalizeNumber(d.value), percentage: d.percentage == null ? null : normalizeNumber(d.percentage) })) : [],
-      items: items.map((item) => ({ ...item, name: String(item?.name || '').trim().slice(0, 120), price: normalizeNumber(item?.price) })).filter((item) => item.name && item.price > 0).slice(0, 100)
-    });
   } catch (error) {
-    console.error('Error interpretando respuesta de Gemini:', error.message);
-    return res.status(502).json({ message: 'No se pudo interpretar la factura.' });
+    console.error('Invoice analysis failed:', error.message);
+    return res.status(502).json({ message: 'No se pudo procesar la factura en este momento.' });
   }
 }
