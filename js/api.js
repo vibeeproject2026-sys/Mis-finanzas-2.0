@@ -78,5 +78,5 @@ export async function scanInvoiceViaProxy(base64Data, mimeType) {
   let data = {};
   try { data = await response.json(); } catch (_) {}
   if (!response.ok) throw new Error(data?.message || 'No se pudo procesar la factura.');
-  return Array.isArray(data.items) ? data.items : [];
+  return data || {};
 }
