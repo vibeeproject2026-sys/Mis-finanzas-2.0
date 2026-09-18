@@ -560,17 +560,34 @@ export function computeBudgetRows(){
  * sin intereses.
  */
 
+export function parseInterestRate(value){
+
+  const parsed =
+    Number(
+      String(
+        value ?? ''
+      ).trim().replace(',', '.')
+    );
+
+  return Math.min(
+    100,
+    Math.max(
+      0,
+      Number.isFinite(parsed)
+        ? parsed
+        : 0
+    )
+  );
+}
+
 export function normalizeCredit(credit){
 
   const c =
     credit || {};
 
   const interestRate =
-    Math.max(
-      0,
-      Number(
-        c.interestRate
-      ) || 0
+    parseInterestRate(
+      c.interestRate
     );
 
   const termMonths =
@@ -802,6 +819,13 @@ export function computeCreditPlan(
       paidTotal
     );
 
+  const pendingInterest =
+    Math.max(
+      0,
+      estimatedInterest -
+      paidInterest
+    );
+
   const progressPct =
     scheduledTotal > 0
       ? Math.min(
@@ -841,6 +865,8 @@ export function computeCreditPlan(
     paidTotal,
 
     paidInterest,
+
+    pendingInterest,
 
     paidPrincipal,
 

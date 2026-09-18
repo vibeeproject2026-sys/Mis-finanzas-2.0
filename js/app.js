@@ -40,6 +40,10 @@ import {
 
 import * as API from './api.js';
 
+import {
+  parseInterestRate
+} from './domain.js';
+
 /* ==========================================================
    ESTADO DE LA INTERFAZ
    ========================================================== */
@@ -57,6 +61,7 @@ let UI = {
 let sheet = null;
 let confirmState = null;
 let scanningOverlay = null;
+let momCarouselInterval = null;
 
 const uid = () =>
   Date.now().toString(36) +
@@ -638,7 +643,16 @@ function attachAuthEvents(){
    CONTENIDO Y CARRUSEL MES A MES
    ========================================================== */
 
+function clearMomCarouselAutoAdvance(){
+  if (momCarouselInterval) {
+    clearInterval(momCarouselInterval);
+    momCarouselInterval = null;
+  }
+}
+
 function attachMomCarousel(){
+  clearMomCarouselAutoAdvance();
+
   const track = document.getElementById('mom-track');
   const dots = document.querySelectorAll('.mom-dot');
   if (!track || !dots.length) return;
@@ -655,12 +669,21 @@ function attachMomCarousel(){
     });
   };
 
+  const startAutoAdvance = () => {
+    clearMomCarouselAutoAdvance();
+    momCarouselInterval = setInterval(
+      () => updateCarousel(currentIndex + 1),
+      5000
+    );
+  };
+
   let startX = 0;
   let currentX = 0;
   let isDragging = false;
   let startTime = 0;
 
   track.addEventListener('pointerdown', (e) => {
+    clearMomCarouselAutoAdvance();
     startX = e.clientX;
     currentX = startX;
     isDragging = true;
@@ -692,24 +715,32 @@ function attachMomCarousel(){
     } else {
       updateCarousel(currentIndex); // Regresa a la posición actual
     }
+
+    startAutoAdvance();
   });
 
   track.addEventListener('pointercancel', () => {
     if (isDragging) {
       isDragging = false;
       updateCarousel(currentIndex);
+      startAutoAdvance();
     }
   });
 
   dots.forEach((dot, index) => {
     dot.addEventListener('click', () => {
       updateCarousel(index);
+      startAutoAdvance();
     });
   });
+
+  startAutoAdvance();
 }
 
 
 function renderAppContent(){
+
+  clearMomCarouselAutoAdvance();
 
   const viewEl =
     document.getElementById(
@@ -2272,7 +2303,7 @@ document.addEventListener(
             Boolean(
               c.interestEnabled
             ) ||
-            Number(
+            parseInterestRate(
               c.interestRate
             ) > 0,
 
@@ -2349,11 +2380,8 @@ document.addEventListener(
         );
 
       const rate =
-        Math.max(
-          0,
-          Number(
-            sheet.interestRate
-          ) || 0
+        parseInterestRate(
+          sheet.interestRate
         );
 
       const term =
@@ -3385,9 +3413,9 @@ function attachSheetFieldSync(){
           !!sheet.hasInterest;
 
         const interestRate =
-          Number(
+          parseInterestRate(
             sheet.interestRate
-          ) || 0;
+          );
 
         const interestPeriod =
           sheet.interestPeriod ||
@@ -3530,7 +3558,7 @@ function attachSheetFieldSync(){
             (
               !sheet.hasInterest ||
               (
-                Number(
+                parseInterestRate(
                   sheet.interestRate
                 ) > 0 &&
                 Number(
@@ -3597,15 +3625,7 @@ function attachSheetFieldSync(){
         e => {
 
           sheet.interestRate =
-            Math.min(
-              100,
-              Math.max(
-                0,
-                Number(
-                  e.target.value
-                ) || 0
-              )
-            );
+            e.target.value;
 
           updateCreditPreview();
         }

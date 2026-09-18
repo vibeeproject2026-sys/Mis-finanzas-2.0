@@ -18,7 +18,8 @@ import {
   computeCreditsPaidThisMonth,
   computeCreditsSummary,
   computeCreditPlan,
-  computeCreditPaymentBreakdown
+  computeCreditPaymentBreakdown,
+  parseInterestRate
 } from './domain.js';
 
 /* ==========================================================
@@ -459,11 +460,15 @@ export function renderDashboard(){
     totalOutflow > 0 || creditsPaid > 0
   ){
 
+    const outflowIncludingCredits =
+      totalOutflow +
+      creditsPaid;
+
     const spentPct =
       month.income > 0
         ? Math.round(
             (
-              totalOutflow /
+              outflowIncludingCredits /
               month.income
             ) * 100
           )
@@ -478,7 +483,7 @@ export function renderDashboard(){
                 Math.max(
                   0,
                   month.income -
-                  totalOutflow
+                  outflowIncludingCredits
                 ) /
                 month.income
               ) * 100
@@ -1829,14 +1834,14 @@ export function renderCredits(
         '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px;">';
 
       html +=
-        '<div style="padding:10px 9px;border:1px solid rgba(148,163,184,.14);border-radius:14px;background:rgba(15,23,42,.38);"><div style="font-size:9px;color:var(--ink-muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Saldo</div><div style="font-size:14px;font-weight:800;margin-top:4px">' +
+        '<div style="padding:10px 9px;border:1px solid rgba(148,163,184,.14);border-radius:14px;background:rgba(15,23,42,.38);"><div style="font-size:9px;color:var(--ink-muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Total por pagar</div><div style="font-size:14px;font-weight:800;margin-top:4px">' +
         fmtMoney(
           plan.pendingTotal
         ) +
         '</div></div>';
 
       html +=
-        '<div style="padding:10px 9px;border:1px solid rgba(148,163,184,.14);border-radius:14px;background:rgba(15,23,42,.38);"><div style="font-size:9px;color:var(--ink-muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Interés</div><div style="font-size:14px;font-weight:800;margin-top:4px">' +
+        '<div style="padding:10px 9px;border:1px solid rgba(148,163,184,.14);border-radius:14px;background:rgba(15,23,42,.38);"><div style="font-size:9px;color:var(--ink-muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Interés total</div><div style="font-size:14px;font-weight:800;margin-top:4px">' +
         (
           plan.interestEnabled
             ? fmtMoney(
@@ -1857,7 +1862,7 @@ export function renderCredits(
         '</div>';
 
       html +=
-        '<div class="credit-values" style="margin-top:14px"><span>Total estimado</span><span class="credit-pending ' +
+        '<div class="credit-values" style="margin-top:14px"><span>Total pactado</span><span class="credit-pending ' +
         (
           isAgainst
             ? 'against'
@@ -1967,12 +1972,19 @@ export function renderCredits(
           '</div></div>';
 
         html +=
-          '<div style="padding:10px 12px;border-radius:13px;background:rgba(15,23,42,.42)"><div style="font-size:9px;color:var(--ink-muted);text-transform:uppercase;font-weight:800;letter-spacing:.07em">Aportes</div><div style="font-size:14px;font-weight:800;margin-top:3px">' +
-          plan.paymentCount +
+          '<div style="padding:10px 12px;border-radius:13px;background:rgba(15,23,42,.42)"><div style="font-size:9px;color:var(--ink-muted);text-transform:uppercase;font-weight:800;letter-spacing:.07em">Interés pendiente</div><div style="font-size:14px;font-weight:800;margin-top:3px">' +
+          fmtMoney(
+            plan.pendingInterest
+          ) +
           '</div></div>';
 
         html +=
           '</div>';
+
+        html +=
+          '<div style="margin-top:8px;padding:10px 12px;border-radius:13px;background:rgba(15,23,42,.42);display:flex;justify-content:space-between;align-items:center"><div style="font-size:9px;color:var(--ink-muted);text-transform:uppercase;font-weight:800;letter-spacing:.07em">Aportes realizados</div><div style="font-size:14px;font-weight:800">' +
+          plan.paymentCount +
+          '</div></div>';
 
         if (
           plan.interestEnabled &&
@@ -2756,7 +2768,7 @@ export function renderCreditSheet(
     (
       !sheet.hasInterest ||
       (
-        Number(sheet.interestRate) > 0 &&
+      parseInterestRate(sheet.interestRate) > 0 &&
         Number(sheet.termMonths) > 0
       )
     );
@@ -2771,9 +2783,9 @@ export function renderCreditSheet(
       !!sheet.hasInterest,
 
     interestRate:
-      Number(
-        sheet.interestRate
-      ) || 0,
+        parseInterestRate(
+          sheet.interestRate
+        ),
 
     interestPeriod:
       sheet.interestPeriod ||
@@ -2873,7 +2885,7 @@ export function renderCreditSheet(
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">';
 
   html +=
-    '<div class="field" style="margin:0"><div class="field-label">Tasa</div><input id="c-interest-rate" type="number" inputmode="decimal" min="0" max="100" step="0.01" placeholder="2" value="' +
+    '<div class="field" style="margin:0"><div class="field-label">Tasa</div><input id="c-interest-rate" type="text" inputmode="decimal" min="0" max="100" step="0.01" placeholder="0,5" value="' +
     esc(
       sheet.interestRate
     ) +
