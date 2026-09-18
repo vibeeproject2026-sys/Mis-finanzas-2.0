@@ -1,5 +1,19 @@
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_BASE64_CHARS = 7_000_000;
+const MAX_GEMINI_RETRIES = 3;
+const GEMINI_BACKOFF_MS = [2000, 4000, 8000];
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function isTransientGeminiError(status, data) {
+  if (status === 503 || status === 429) return true;
+
+  const message = JSON.stringify(data || '').toLowerCase();
+  return message.includes('unavailable') ||
+    message.includes('resource exhausted') ||
+    message.includes('temporarily') ||
+    message.includes('high demand');
+}
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -9,8 +23,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ message: 'Método no permitido.' });
 
-  const { GEMINI_API_KEY, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } = process.env;
-  if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  const { GEMINI_API_KEY, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, GEMINI_MODEL } = process.env;
+  if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !GEMINI_MODEL) {
     return res.status(500).json({ message: 'El servicio de IA no está configurado.' });
   }
 
@@ -31,27 +45,60 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: 'Imagen inválida o demasiado grande.' });
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25_000);
-  try {
-    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
-    const response = await fetch(endpoint, {
-      method: 'POST', signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [
-          { text: 'Analiza esta factura. Devuelve SOLO JSON válido con la forma {"items":[{"name":"string","price":number}]}. Extrae solo productos o conceptos comprados. No incluyas impuestos, descuentos, subtotales ni total general. Omite líneas cuyo precio no puedas leer.' },
-          { inline_data: { mime_type: mimeType, data: imageBase64 } }
-        ] }],
-        generationConfig: { temperature: 0, responseMimeType: 'application/json' }
-      })
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      console.error('Gemini error:', response.status, data);
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+  const requestBody = {
+    contents: [{ parts: [
+      { text: 'Analiza esta factura. Devuelve SOLO JSON válido con la forma {"items":[{"name":"string","price":number}]}. Extrae solo productos o conceptos comprados. No incluyas impuestos, descuentos, subtotales ni total general. Omite líneas cuyo precio no puedas leer.' },
+      { inline_data: { mime_type: mimeType, data: imageBase64 } }
+    ] }],
+    generationConfig: { temperature: 0, responseMimeType: 'application/json' }
+  };
+
+  let response;
+  let data;
+
+  for (let attempt = 0; attempt <= MAX_GEMINI_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25_000);
+
+    try {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+      data = await response.json();
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        console.error(`Gemini timeout en intento ${attempt + 1}`);
+      } else {
+        console.error(`Error de red con Gemini en intento ${attempt + 1}:`, error.message);
+      }
+      clearTimeout(timeout);
+      if (attempt < MAX_GEMINI_RETRIES) {
+        await sleep(GEMINI_BACKOFF_MS[attempt]);
+        continue;
+      }
+      return res.status(504).json({ message: 'El servicio de IA está temporalmente ocupado. Intenta nuevamente en unos segundos.' });
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (response.ok) break;
+
+    console.error(`Gemini error HTTP ${response.status}, intento ${attempt + 1}/${MAX_GEMINI_RETRIES + 1}`);
+    if (!isTransientGeminiError(response.status, data) || attempt >= MAX_GEMINI_RETRIES) {
+      if (isTransientGeminiError(response.status, data)) {
+        return res.status(503).json({ message: 'El servicio de IA está temporalmente ocupado. Intenta nuevamente en unos segundos.' });
+      }
       return res.status(502).json({ message: 'Gemini no pudo analizar la factura.' });
     }
+
+    await sleep(GEMINI_BACKOFF_MS[attempt]);
+  }
+
+  try {
     const text = data?.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '';
     const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
     let parsed;
@@ -67,9 +114,7 @@ export default async function handler(req, res) {
       price: Number(item?.price) || 0
     })).filter((item) => item.name && item.price > 0).slice(0, 100) });
   } catch (error) {
-    console.error('Error leyendo factura:', error);
-    return res.status(error.name === 'AbortError' ? 504 : 502).json({ message: 'No se pudo procesar la factura en este momento.' });
-  } finally {
-    clearTimeout(timeout);
+    console.error('Error interpretando respuesta de Gemini:', error.message);
+    return res.status(502).json({ message: 'No se pudo interpretar la factura.' });
   }
 }
