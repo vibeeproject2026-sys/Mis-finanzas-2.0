@@ -91,6 +91,21 @@ let cloudPullError = false;
 let cloudSyncEverSucceeded = false;
 let lastCloudRefreshAt = 0;
 
+// Mensaje pendiente para la pantalla de login, consumido una sola vez
+// (lo llena handleEmailConfirmationReturn() al volver del enlace de
+// confirmación de email; attachAuthEvents() lo muestra y lo limpia).
+let pendingAuthNotice = null;
+
+// Estado de la pantalla de autenticación (mientras no hay sesión):
+// 'login' | 'signup' | 'signup-pending' | 'email-confirmed'.
+// emailJustConfirmed lo activa handleEmailConfirmationReturn() cuando el
+// callback (sin tocar su lógica) valida un token real — antes de esto,
+// render() entraba directo a la app; ahora primero muestra la pantalla de
+// "¡Correo confirmado!" con un botón explícito, sin cambiar en nada cómo
+// se valida/guarda la sesión.
+let authScreenMode = 'login';
+let emailJustConfirmed = false;
+
 const CLOUD_REFRESH_COOLDOWN_MS = 30000;
 const CLOUD_REFRESH_ERROR_BANNER_MS = 6000;
 
@@ -785,6 +800,110 @@ const safeSync = () => {
 };
 
 /* ==========================================================
+   PANTALLA DE AUTENTICACIÓN — helpers de render
+   Liquid Glass premium (mismo lenguaje visual del resto de la app):
+   fondo oscuro, transparencias, cyan/blue/violet/wine, neon controlado.
+   ========================================================== */
+
+// Decoración muy sutil de fondo (nodos + línea financiera abstracta),
+// puramente visual, sin datos reales, sin clicks.
+function authDecorSVG(){
+  return (
+    '<svg viewBox="0 0 400 500" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' +
+    '<defs><linearGradient id="authLineGrad" x1="0" y1="1" x2="1" y2="0">' +
+    '<stop offset="0%" stop-color="#00D1FF"/>' +
+    '<stop offset="50%" stop-color="#2060FF"/>' +
+    '<stop offset="100%" stop-color="#8B5CF6"/>' +
+    '</linearGradient></defs>' +
+    '<polyline points="10,470 80,390 130,420 190,300 250,335 330,170" fill="none" stroke="url(#authLineGrad)" stroke-width="2" opacity="0.5"/>' +
+    '<circle cx="80" cy="390" r="3" fill="#00D1FF" opacity="0.7"/>' +
+    '<circle cx="190" cy="300" r="3" fill="#2060FF" opacity="0.7"/>' +
+    '<circle cx="330" cy="170" r="4" fill="#8B5CF6" opacity="0.8"/>' +
+    '<circle cx="55" cy="95" r="2" fill="#10F5A0" opacity="0.5"/>' +
+    '<circle cx="345" cy="430" r="2" fill="#00D1FF" opacity="0.4"/>' +
+    '<circle cx="270" cy="70" r="2" fill="#8B5CF6" opacity="0.4"/>' +
+    '</svg>'
+  );
+}
+
+function authField(id, type, label, placeholder, iconName){
+  return (
+    '<div class="auth-field">' +
+    '<div class="auth-field-label">' + label + '</div>' +
+    '<div class="auth-input-wrap">' +
+    icon(iconName) +
+    '<input id="' + id + '" type="' + type + '" placeholder="' + placeholder + '" autocomplete="off">' +
+    '</div>' +
+    '</div>'
+  );
+}
+
+function renderAuthShell(bodyHtml){
+  return (
+    '<div class="auth-shell">' +
+    '<div class="auth-shell-bg">' + authDecorSVG() + '</div>' +
+    '<div class="auth-brand">' +
+    '<div class="auth-brand-mark">' + icon('zap') + '</div>' +
+    '<div class="auth-brand-name">Mis Finanzas</div>' +
+    '<div class="auth-brand-tagline">Tu dinero, más claro. Tu vida, más tranquila.</div>' +
+    '</div>' +
+    '<div class="card auth-card">' + bodyHtml + '</div>' +
+    '</div>'
+  );
+}
+
+function renderLoginBody(){
+  return (
+    '<div class="auth-card-title">Iniciar sesión</div>' +
+    '<div class="auth-card-subtitle">Gestión financiera en la nube</div>' +
+    authField('auth-email', 'email', 'Correo electrónico', 'usuario@correo.com', 'mail') +
+    authField('auth-password', 'password', 'Contraseña', '••••••••', 'lock') +
+    '<div id="auth-notice" class="auth-notice-box"></div>' +
+    '<div id="auth-error" class="auth-error-box"></div>' +
+    '<button class="save-btn" id="btn-login" style="width:100%;margin-bottom:10px;">Iniciar Sesión</button>' +
+    '<button class="auth-link-btn" id="btn-go-signup">¿No tienes cuenta? Crear una nueva</button>'
+  );
+}
+
+function renderSignupBody(){
+  return (
+    '<div class="auth-card-title">Crear cuenta</div>' +
+    '<div class="auth-card-subtitle">Únete a Mis Finanzas</div>' +
+    authField('signup-name', 'text', 'Nombre', 'Tu nombre completo', 'user') +
+    authField('signup-username', 'text', 'Usuario', 'usuario123', 'at-sign') +
+    authField('signup-email', 'email', 'Correo electrónico', 'usuario@correo.com', 'mail') +
+    authField('signup-phone', 'tel', 'Teléfono', '3001234567', 'phone') +
+    authField('signup-password', 'password', 'Contraseña', '••••••••', 'lock') +
+    authField('signup-password2', 'password', 'Confirmar contraseña', '••••••••', 'lock') +
+    '<div id="auth-error" class="auth-error-box"></div>' +
+    '<button class="save-btn" id="btn-do-signup" style="width:100%;margin-bottom:10px;margin-top:2px;">Crear mi cuenta</button>' +
+    '<button class="auth-link-btn" id="btn-go-login">Ya tengo cuenta, iniciar sesión</button>'
+  );
+}
+
+function renderPendingConfirmationBody(){
+  return (
+    '<div class="auth-icon-badge is-pending">' + icon('mail') + '</div>' +
+    '<div class="auth-card-title">¡Ya casi estás dentro!</div>' +
+    '<div class="auth-card-subtitle">' +
+    'Enviamos un enlace de confirmación a tu correo electrónico.<br>' +
+    'Confirma tu correo para activar tu cuenta.<br>' +
+    'Si no lo ves, revisa también la carpeta de spam.' +
+    '</div>' +
+    '<button class="auth-link-btn" id="btn-go-login" style="margin-top:4px;">Volver al inicio de sesión</button>'
+  );
+}
+
+function renderEmailConfirmedBody(){
+  return (
+    '<div class="auth-icon-badge is-success">' + icon('check') + '</div>' +
+    '<div class="auth-card-title">¡Correo confirmado!</div>' +
+    '<div class="auth-card-subtitle">Tu cuenta está activa. Ya puedes ingresar a Mis Finanzas.</div>' +
+    '<button class="save-btn" id="btn-enter-app" style="width:100%;">Iniciar sesión</button>'
+  );
+}
+
+/* ==========================================================
    RENDER PRINCIPAL
    ========================================================== */
 
@@ -824,7 +943,13 @@ export function render(){
         'tabbar'
       );
 
+    // La pantalla "¡Correo confirmado!" tiene prioridad incluso cuando ya
+    // hay un token válido guardado (handleEmailConfirmationReturn() lo
+    // guarda ANTES de que se llegue aquí) — de lo contrario esta rama
+    // nunca se alcanzaría, porque !token||!userId ya sería falso y
+    // render() entraría directo a la app sin mostrar el mensaje.
     if (
+      emailJustConfirmed ||
       !token ||
       !userId
     ){
@@ -833,72 +958,19 @@ export function render(){
         viewEl
       ){
 
-        viewEl.innerHTML = `
-          <div style="display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:75vh;">
-            <div class="card" style="width:100%;max-width:380px;padding:32px 24px;text-align:center;">
+        const bodyHtml =
+          emailJustConfirmed
+            ? renderEmailConfirmedBody()
+            : authScreenMode === 'signup'
+              ? renderSignupBody()
+              : authScreenMode === 'signup-pending'
+                ? renderPendingConfirmationBody()
+                : renderLoginBody();
 
-              <div style="width:56px;height:56px;margin:0 auto 12px;border-radius:18px;background:rgba(0,209,255,0.12);border:1px solid rgba(0,209,255,0.3);display:flex;align-items:center;justify-content:center;color:var(--neon-cyan);font-size:26px;">
-                ${icon('cloud')}
-              </div>
-
-              <h2 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;">
-                Terminal Cloud
-              </h2>
-
-              <p style="font-size:13px;color:var(--ink-muted);margin-bottom:24px;">
-                Gestión financiera en la nube
-              </p>
-
-              <div class="field" style="text-align:left;margin-bottom:14px;">
-                <div class="field-label">
-                  Correo electrónico
-                </div>
-
-                <input
-                  id="auth-email"
-                  type="email"
-                  placeholder="usuario@correo.com"
-                  style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;"
-                >
-              </div>
-
-              <div class="field" style="text-align:left;margin-bottom:16px;">
-                <div class="field-label">
-                  Contraseña
-                </div>
-
-                <input
-                  id="auth-password"
-                  type="password"
-                  placeholder="••••••••"
-                  style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:#fff;font-size:14px;outline:none;"
-                >
-              </div>
-
-              <div
-                id="auth-error"
-                style="color:var(--expense);font-size:13px;margin-bottom:14px;min-height:16px;"
-              ></div>
-
-              <button
-                class="save-btn"
-                id="btn-login"
-                style="width:100%;margin-bottom:10px;padding:14px;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;border:none;cursor:pointer;"
-              >
-                Iniciar Sesión
-              </button>
-
-              <button
-                class="secondary-btn"
-                id="btn-signup"
-                style="width:100%;padding:14px;border-radius:12px;background:transparent;border:1px solid var(--border);color:#fff;font-weight:600;cursor:pointer;"
-              >
-                Crear Cuenta Nueva
-              </button>
-
-            </div>
-          </div>
-        `;
+        viewEl.innerHTML =
+          renderAuthShell(
+            bodyHtml
+          );
       }
 
       if (
@@ -940,19 +1012,190 @@ export function render(){
 }
 
 /* ==========================================================
+   CALLBACK DE CONFIRMACIÓN DE EMAIL
+   ========================================================== */
+
+// Se ejecuta una vez al cargar la app, ANTES del primer render(). GoTrue
+// (REST API, sin PKCE porque signUpUser() nunca envía code_challenge)
+// redirige tras /auth/v1/verify con los tokens en el FRAGMENTO de la URL:
+// #access_token=...&refresh_token=...&expires_in=...&type=signup
+// — o con #error=...&error_description=... si el enlace ya expiró o fue
+// usado antes. No se asume nada de esto sin validarlo: el access_token se
+// confirma consultando /auth/v1/user (getUserFromAccessToken) antes de
+// guardarlo como sesión real (Sección 6). No duplica refreshAuthSession()
+// ni crea un sistema de sesión paralelo: usa las mismas claves de
+// localStorage que ya usan login/signup/refresh en toda la app.
+async function handleEmailConfirmationReturn(){
+
+  const hash =
+    window.location.hash || '';
+
+  if (
+    hash.length < 2
+  ){
+    return;
+  }
+
+  const params =
+    new URLSearchParams(
+      hash.slice(1)
+    );
+
+  const accessToken =
+    params.get(
+      'access_token'
+    );
+
+  const refreshToken =
+    params.get(
+      'refresh_token'
+    );
+
+  const hasAuthParams =
+    !!(
+      accessToken ||
+      params.get('error') ||
+      params.get('error_description')
+    );
+
+  if (
+    !hasAuthParams
+  ){
+    return;
+  }
+
+  // Sección 7: limpiar la URL de inmediato (antes de cualquier validación
+  // de red) para no dejar tokens ni detalles de error visibles en la
+  // barra de direcciones, sin recargar la página.
+  try {
+
+    window.history.replaceState(
+      null,
+      '',
+      window.location.pathname +
+      window.location.search
+    );
+
+  } catch(e) {}
+
+  if (
+    !accessToken
+  ){
+
+    pendingAuthNotice =
+      'El enlace de confirmación no es válido o ya expiró. ' +
+      'Crea la cuenta nuevamente o inicia sesión si ya la confirmaste antes.';
+
+    return;
+  }
+
+  try {
+
+    const user =
+      await API.getUserFromAccessToken(
+        accessToken
+      );
+
+    localStorage.setItem(
+      'supabase_token',
+      accessToken
+    );
+
+    if (
+      refreshToken
+    ){
+
+      localStorage.setItem(
+        'supabase_refresh_token',
+        refreshToken
+      );
+    }
+
+    localStorage.setItem(
+      'supabase_user_id',
+      user.id
+    );
+
+    window.hasLoadedCloudData =
+      false;
+
+    // Solo cambia qué se MUESTRA después de validar (pantalla de "correo
+    // confirmado" con botón, en vez de entrar directo) — la validación y
+    // el guardado de sesión de arriba son exactamente los mismos de antes.
+    emailJustConfirmed =
+      true;
+
+  } catch(err) {
+
+    // El enlace sí trajo tokens (Supabase ya validó el correo en
+    // /auth/v1/verify antes de redirigir), pero no pudimos confirmar la
+    // sesión contra /auth/v1/user (token vencido, red, etc.). No se
+    // guarda nada sin validar — se pide iniciar sesión normalmente.
+    pendingAuthNotice =
+      'Tu correo quedó confirmado. Inicia sesión con tu contraseña para continuar.';
+  }
+}
+
+/* ==========================================================
    AUTENTICACIÓN
    ========================================================== */
 
 function attachAuthEvents(){
 
-  const emailInput =
+  // Pantalla "¡Correo confirmado!": un solo botón, entra a la app con la
+  // sesión que handleEmailConfirmationReturn() ya validó y guardó.
+  const btnEnterApp =
     document.getElementById(
-      'auth-email'
+      'btn-enter-app'
     );
 
-  const passInput =
-    document.getElementById(
-      'auth-password'
+  if (
+    btnEnterApp
+  ){
+
+    btnEnterApp.addEventListener(
+      'click',
+      () => {
+
+        emailJustConfirmed =
+          false;
+
+        render();
+      }
+    );
+
+    return;
+  }
+
+  // Navegación entre pantallas (login ⇄ signup ⇄ pending-confirmation).
+  document
+    .getElementById(
+      'btn-go-signup'
+    )
+    ?.addEventListener(
+      'click',
+      () => {
+
+        authScreenMode =
+          'signup';
+
+        render();
+      }
+    );
+
+  document
+    .getElementById(
+      'btn-go-login'
+    )
+    ?.addEventListener(
+      'click',
+      () => {
+
+        authScreenMode =
+          'login';
+
+        render();
+      }
     );
 
   const errorDiv =
@@ -960,18 +1203,26 @@ function attachAuthEvents(){
       'auth-error'
     );
 
-  const getCreds =
-    () => ({
-      email:
-        emailInput
-          ? emailInput.value.trim()
-          : '',
+  const noticeDiv =
+    document.getElementById(
+      'auth-notice'
+    );
 
-      password:
-        passInput
-          ? passInput.value.trim()
-          : ''
-    });
+  // Se consume una sola vez: si el usuario vuelve a esta pantalla más
+  // tarde (por ejemplo tras un logout), no debe reaparecer un aviso viejo.
+  if (
+    noticeDiv &&
+    pendingAuthNotice
+  ){
+
+    noticeDiv.textContent =
+      pendingAuthNotice;
+
+    pendingAuthNotice =
+      null;
+  }
+
+  /* ---- LOGIN ---- */
 
   document
     .getElementById(
@@ -981,11 +1232,25 @@ function attachAuthEvents(){
       'click',
       async () => {
 
-        const {
-          email,
-          password
-        } =
-          getCreds();
+        const emailInput =
+          document.getElementById(
+            'auth-email'
+          );
+
+        const passInput =
+          document.getElementById(
+            'auth-password'
+          );
+
+        const email =
+          emailInput
+            ? emailInput.value.trim()
+            : '';
+
+        const password =
+          passInput
+            ? passInput.value.trim()
+            : '';
 
         if (
           !email ||
@@ -1066,43 +1331,81 @@ function attachAuthEvents(){
       }
     );
 
+  /* ---- SIGNUP (Sección 1: formulario completo con validaciones) ---- */
+
   document
     .getElementById(
-      'btn-signup'
+      'btn-do-signup'
     )
     ?.addEventListener(
       'click',
       async () => {
 
-        const {
-          email,
-          password
-        } =
-          getCreds();
+        const val =
+          id => {
 
-        if (
-          !email ||
-          !password
-        ){
+            const el =
+              document.getElementById(
+                id
+              );
 
-          if (
-            errorDiv
-          ){
+            return el
+              ? el.value.trim()
+              : '';
+          };
 
-            errorDiv.textContent =
-              'Completa todos los campos.';
-          }
+        const fullName =
+          val('signup-name');
 
-          return;
-        }
+        // Usuario: sin espacios y normalizado a minúsculas (Sección 1).
+        const username =
+          val('signup-username')
+            .replace(/\s+/g, '')
+            .toLowerCase();
 
-        if (
-          errorDiv
-        ){
+        const email =
+          val('signup-email');
 
-          errorDiv.textContent =
-            'Registrando cuenta...';
-        }
+        const phone =
+          val('signup-phone');
+
+        const password =
+          document.getElementById('signup-password')?.value || '';
+
+        const password2 =
+          document.getElementById('signup-password2')?.value || '';
+
+        const emailPattern =
+          /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        const setError =
+          msg => {
+
+            if (
+              errorDiv
+            ){
+
+              errorDiv.textContent =
+                msg;
+            }
+          };
+
+        if (!fullName) { setError('Ingresa tu nombre.'); return; }
+        if (!username) { setError('Ingresa un nombre de usuario.'); return; }
+        if (!email || !emailPattern.test(email)) { setError('Ingresa un correo electrónico válido.'); return; }
+        if (!phone) { setError('Ingresa tu teléfono.'); return; }
+        if (!password) { setError('Ingresa una contraseña.'); return; }
+        if (!password2) { setError('Confirma tu contraseña.'); return; }
+        if (password !== password2) { setError('Las contraseñas no coinciden.'); return; }
+
+        // Decisión de esta fase: no se usa public.profiles ni ninguna
+        // tabla propia, por lo tanto no hay verificación previa de
+        // disponibilidad de username contra la base de datos — es una
+        // limitación conocida (username sin UNIQUE real todavía), no
+        // algo a resolver aquí. full_name/username/phone viajan como
+        // metadata del signup (ver signUpUser) y Supabase los guarda en
+        // auth.users.raw_user_meta_data.
+        setError('Creando tu cuenta...');
 
         try {
 
@@ -1118,7 +1421,8 @@ function attachAuthEvents(){
           const data =
             await API.signUpUser(
               email,
-              password
+              password,
+              { fullName, username, phone }
             );
 
           if (
@@ -1152,24 +1456,20 @@ function attachAuthEvents(){
 
           } else {
 
-            if (
-              errorDiv
-            ){
+            // Sección 3: con Confirm Email activo, Supabase no devuelve
+            // sesión todavía — se muestra la pantalla dedicada de "revisa
+            // tu correo", nunca se sugiere que ya puede iniciar sesión.
+            authScreenMode =
+              'signup-pending';
 
-              errorDiv.textContent =
-                '¡Cuenta creada con éxito! Inicia sesión ahora.';
-            }
+            render();
           }
 
         } catch(err) {
 
-          if (
-            errorDiv
-          ){
-
-            errorDiv.textContent =
-              err.message;
-          }
+          setError(
+            err.message
+          );
         }
       }
     );
@@ -1881,6 +2181,12 @@ document.addEventListener(
             );
 
             window.hasLoadedCloudData =
+              false;
+
+            authScreenMode =
+              'login';
+
+            emailJustConfirmed =
               false;
 
             Object.assign(
@@ -5087,4 +5393,24 @@ window.addEventListener(
    INICIO
    ========================================================== */
 
-render();
+// Se espera el posible callback de confirmación de email ANTES del
+// primer render(): si trae una sesión válida, render() ya la encuentra en
+// localStorage y entra directo a la app (sin pantalla intermedia). Si
+// handleEmailConfirmationReturn() fallara por cualquier motivo no
+// previsto, el catch garantiza que la app arranque igual.
+(async () => {
+
+  try {
+
+    await handleEmailConfirmationReturn();
+
+  } catch(e) {
+
+    console.error(
+      'Error procesando confirmación de email:',
+      e
+    );
+  }
+
+  render();
+})();

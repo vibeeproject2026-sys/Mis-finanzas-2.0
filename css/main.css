@@ -29,9 +29,13 @@
    .hero-quote definiera un color distinto más abajo. Esa colisión era la
    causa real del "gris apagado" reportado, no el valor de .hero-quote. */
 
-.cloud-status-badge{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid var(--border-glass);flex-shrink:0;gap:0;position:relative;}
-.cloud-status-icon{font-size:15px;line-height:1;color:var(--ink-muted);}
-.cloud-status-dot{position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--ink-muted);transition:background-color 0.3s ease;}
+/* Sección 6/8 (rediseño del header): la nube pasa al lado izquierdo y se
+   vuelve deliberadamente pequeña/discreta — es información técnica
+   secundaria (estado de sincronización), nunca debe competir con el
+   energy mark, que es el elemento de identidad. */
+.cloud-status-badge{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:9px;background:rgba(255,255,255,0.05);border:1px solid var(--border-glass);flex-shrink:0;gap:0;position:relative;}
+.cloud-status-icon{font-size:12px;line-height:1;color:var(--ink-muted);}
+.cloud-status-dot{position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--ink-muted);transition:background-color 0.3s ease;}
 .cloud-status-dot--ok{background:var(--income);box-shadow:0 0 4px 1px rgba(16,185,129,0.5);}
 .cloud-status-dot--syncing{background:var(--amber);}
 .cloud-status-dot--error{background:var(--expense);}
@@ -834,22 +838,23 @@
 .balance-eye-btn:active{ transform: scale(0.9); background: rgba(0, 217, 255, 0.22); }
 .balance-eye-btn .icon{ width:18px; height:18px; }
 
-/* ---- Línea de fluctuación ascendente — NIVEL 3 neon protagonista
-   (Sección 5/6/7, FASE 1B.7). Ahora compartida por TODO el hero (ver
-   dashHeroTrendLineSVG en ui.js, llamada desde renderDashboardHero Y
-   renderGenericHero). Sin clicks, integrada por el costado derecho, entre
-   la escena SVG y el overlay oscuro para que este último la atenúe hacia
-   abajo (donde está el texto) sin taparla arriba. El glow ya no depende de
-   blur (evita la "estela" por distorsión de preserveAspectRatio), así que
-   aquí solo se controla la opacidad general del conjunto. ---- */
-.hero-trend-line{
+/* ---- Energy mark — NIVEL 3 neon protagonista (Sección 6/7): elemento de
+   identidad de Mis Finanzas, compartido por TODO el hero (ver
+   dashHeroEnergyMarkSVG en ui.js, llamada desde renderDashboardHero Y
+   renderGenericHero — un solo SVG, no duplicado por pantalla). Sin
+   clicks, integrado por el costado derecho, entre la escena SVG y el
+   overlay oscuro para que este último lo atenúe hacia abajo (donde está
+   el texto) sin taparlo arriba. Tamaño contenido (no un rayo gigante) y
+   glow ceñido al propio trazo (ver el filtro en el SVG), sin halo grande
+   ni estela — la nube (ahora a la izquierda) ya no compite con él. ---- */
+.hero-energy-mark{
   position:absolute;
   top:0; right:0;
-  width:62%; height:100%;
+  width:46%; height:100%;
   pointer-events:none;
   z-index:0;
   overflow:hidden;
-  opacity:0.92;
+  opacity:0.94;
 }
 
 /* ---- Motion sutil: entrada de contenido (Sección 6) ----
@@ -895,12 +900,153 @@
   }
   .confirm-box{ animation: confirmPopIn 0.22s ease both; }
 
-  /* Línea de crecimiento del header (Sección 15): respiración lenta y muy
-     sutil, no un parpadeo — idle glow bajo y estable, no algo que "pulse
-     constantemente" de forma llamativa. */
-  @keyframes trendLineBreathe {
+  /* Energy mark del header (Sección 7): respiración de luz lenta y muy
+     sutil sobre el propio símbolo — no un parpadeo ni un movimiento
+     constante de línea, un "pulso financiero" bajo y estable. */
+  @keyframes energyMarkBreathe {
     0%, 100% { opacity: 0.92; }
-    50% { opacity: 0.72; }
+    50% { opacity: 0.68; }
   }
-  .hero-trend-line{ animation: trendLineBreathe 4.5s ease-in-out infinite; }
+  .energy-mark-pulse{ animation: energyMarkBreathe 4s ease-in-out infinite; transform-origin: center; }
+}
+
+/* ==========================================================
+   PANTALLA DE AUTENTICACIÓN (login / registro / confirmación)
+   Liquid Glass premium, mismo lenguaje visual del resto de la app:
+   fondo oscuro, transparencias, cyan/blue/violet/wine, neon controlado.
+   ========================================================== */
+
+.auth-shell{
+  position:relative;
+  min-height:100dvh;
+  min-height:100vh;
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:32px 20px calc(32px + env(safe-area-inset-bottom));
+  overflow:hidden;
+  box-sizing:border-box;
+}
+.auth-shell-bg{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  opacity:0.4;
+}
+.auth-shell-bg svg{ width:100%; height:100%; display:block; }
+
+.auth-brand{
+  position:relative;
+  z-index:1;
+  text-align:center;
+  margin-bottom:20px;
+}
+.auth-brand-mark{
+  width:48px; height:48px;
+  margin:0 auto 10px;
+  border-radius:16px;
+  display:flex; align-items:center; justify-content:center;
+  background: linear-gradient(150deg, rgba(0,209,255,0.14) 0%, rgba(139,92,246,0.12) 100%);
+  border: 1px solid rgba(0,209,255,0.35);
+  box-shadow: var(--glow-border-cyan);
+  color: var(--neon-cyan);
+  font-size:22px;
+}
+.auth-brand-name{
+  font-family:'Outfit',sans-serif;
+  font-size:20px;
+  font-weight:800;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:#fff;
+}
+.auth-brand-tagline{
+  font-size:12.5px;
+  color: rgba(186,224,250,0.85);
+  margin-top:5px;
+}
+
+.auth-card{
+  position:relative;
+  z-index:1;
+  width:100%;
+  max-width:400px;
+  padding:26px 22px;
+  text-align:left;
+  box-sizing:border-box;
+}
+.auth-card-title{
+  font-family:'Outfit',sans-serif;
+  font-size:19px;
+  font-weight:800;
+  color:#fff;
+  margin-bottom:4px;
+  text-align:center;
+}
+.auth-card-subtitle{
+  font-size:12.5px;
+  color:var(--ink-muted);
+  text-align:center;
+  margin-bottom:20px;
+  line-height:1.4;
+}
+
+.auth-field{ margin-bottom:13px; }
+.auth-field-label{
+  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;
+  color:var(--ink-muted); margin-bottom:6px;
+}
+.auth-input-wrap{ position:relative; display:flex; align-items:center; }
+.auth-input-wrap .icon{
+  position:absolute; left:12px; width:16px; height:16px;
+  color:var(--ink-muted); pointer-events:none; transition: color 0.15s ease;
+}
+.auth-input-wrap input{
+  width:100%; padding:12px 12px 12px 38px; border-radius:12px;
+  background:rgba(255,255,255,0.04); border:1px solid var(--border-glass);
+  color:#fff; font-size:14px; outline:none; box-sizing:border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.auth-input-wrap input::placeholder{ color: var(--ink-muted); }
+.auth-input-wrap input:focus{
+  border-color: rgba(0,209,255,0.5);
+  box-shadow: 0 0 0 3px rgba(0,209,255,0.08), 0 0 8px rgba(0,209,255,0.18);
+}
+.auth-input-wrap:focus-within .icon{ color: var(--neon-cyan); }
+
+.auth-field-error{ color:var(--expense); font-size:11.5px; margin-top:5px; min-height:14px; }
+
+.auth-notice-box{
+  color: var(--neon-cyan);
+  font-size:13px;
+  line-height:1.5;
+  margin-bottom:14px;
+  white-space:pre-line;
+}
+.auth-error-box{
+  color:var(--expense);
+  font-size:13px;
+  margin-bottom:14px;
+  min-height:16px;
+}
+
+.auth-link-btn{
+  display:block; width:100%; text-align:center;
+  background:none; border:none; color:var(--neon-cyan);
+  font-size:13px; font-weight:600; padding:10px; margin-top:6px; cursor:pointer;
+}
+
+.auth-icon-badge{
+  width:52px; height:52px; margin:0 auto 14px;
+  border-radius:18px; display:flex; align-items:center; justify-content:center;
+  font-size:24px;
+}
+.auth-icon-badge.is-pending{
+  background: rgba(32,96,255,0.12); border:1px solid rgba(32,96,255,0.35); color:var(--neon-blue);
+}
+.auth-icon-badge.is-success{
+  background: rgba(16,245,160,0.12); border:1px solid rgba(16,245,160,0.4); color:var(--neon-green);
 }

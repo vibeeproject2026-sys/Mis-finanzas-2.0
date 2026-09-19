@@ -126,7 +126,23 @@ export function icon(name){
       '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>',
 
     target:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>'
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+
+    // ---- Iconos del formulario de registro ----
+    user:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+
+    'at-sign':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-5.5 8.28"/></svg>',
+
+    mail:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>',
+
+    phone:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+
+    lock:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
   };
 
   return `<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">${svgs[name] || ''}</span>`;
@@ -357,31 +373,37 @@ function dashHeroSceneSVG(scene){
 //
 // La "estela" reportada venía de combinar preserveAspectRatio="none" (que
 // ESTIRA el viewBox de forma no uniforme para llenar un contenedor con
-// otra proporción) con un filtro feGaussianBlur: al estirarse de forma
-// desigual, el blur —ya redondo en el espacio del viewBox— se deformaba en
-// una mancha/columna hacia el lado más estirado. Se corrige con dos
-// cambios: (1) preserveAspectRatio="xMaxYMid meet" escala SIEMPRE de forma
-// uniforme (nunca distorsiona), anclado al borde derecho; (2) el glow ya
-// no usa blur — es un segundo trazo ancho y translúcido DEBAJO del trazo
-// fino y brillante, así el resplandor queda geométricamente pegado al
-// trazo mismo y no puede "derramarse" como una mancha independiente.
-function dashHeroTrendLineSVG(){
+// Energy mark de Mis Finanzas (Sección 7, FASE actual): reemplaza la línea
+// ascendente oscilante por una marca propia — un rayo geométrico (misma
+// silueta que icon('zap'), a mayor escala) relleno con degradado
+// cyan→blue→violet, con un pequeño nodo verde en la punta (continuidad
+// con la identidad anterior) y un glow CEÑIDO (blur pequeño, sin halo
+// grande). preserveAspectRatio="xMaxYMid meet" evita cualquier
+// distorsión del glow (mismo fix aplicado antes al elemento anterior).
+// La respiración de luz es CSS (.energy-mark-pulse, ver main.css),
+// respeta prefers-reduced-motion.
+function dashHeroEnergyMarkSVG(){
 
-  const points =
-    '20,165 60,120 45,100 110,70 90,55 170,25 260,8';
-
-  const markers =
-    [[110, 70], [170, 25], [260, 8]]
-      .map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="2.6" fill="#10F5A0"/>')
-      .join('');
+  const bolt =
+    '76.6,21.4 44.6,59.8 73.4,59.8 70.2,85.4 102.2,47 73.4,47';
 
   return (
-    '<svg class="hero-trend-line" viewBox="0 0 280 170" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">' +
-    '<polyline points="' + points + '" fill="none" stroke="#10F5A0" stroke-width="6" ' +
-    'stroke-linecap="round" stroke-linejoin="round" opacity="0.2"/>' +
-    '<polyline points="' + points + '" fill="none" stroke="#10F5A0" stroke-width="2" ' +
-    'stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>' +
-    markers +
+    '<svg class="hero-energy-mark" viewBox="0 0 120 170" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">' +
+    '<defs>' +
+    '<linearGradient id="energyMarkGrad" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="#00D1FF"/>' +
+    '<stop offset="55%" stop-color="#2060FF"/>' +
+    '<stop offset="100%" stop-color="#8B5CF6"/>' +
+    '</linearGradient>' +
+    '<filter id="energyMarkGlow" x="-40%" y="-40%" width="180%" height="180%">' +
+    '<feGaussianBlur stdDeviation="2" result="blur"/>' +
+    '<feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>' +
+    '</filter>' +
+    '</defs>' +
+    '<g class="energy-mark-pulse">' +
+    '<polygon points="' + bolt + '" fill="url(#energyMarkGrad)" filter="url(#energyMarkGlow)" opacity="0.92"/>' +
+    '<circle cx="70.2" cy="88.5" r="3.6" fill="#10F5A0"/>' +
+    '</g>' +
     '</svg>'
   );
 }
@@ -424,11 +446,11 @@ export function renderDashboardHero(userName, cloudStatus){
   return (
     '<div class="hero hero-dynamic hero-scene--' + bucket.scene + '">' +
     dashHeroSceneSVG(bucket.scene) +
-    dashHeroTrendLineSVG() +
+    dashHeroEnergyMarkSVG() +
     '<div class="hero-scene-overlay"></div>' +
     '<div class="hero-content">' +
 
-    '<div class="hero-top-row" style="justify-content:flex-end;">' +
+    '<div class="hero-top-row" style="justify-content:flex-start;">' +
     '<div class="cloud-status-badge" aria-label="Estado de sincronización">' +
     '<span class="cloud-status-dot cloud-status-dot--' + (cloudStatus || 'unknown') + '" id="cloud-status-dot"></span>' +
     '<span class="cloud-status-icon">☁</span>' +
@@ -471,11 +493,11 @@ export function renderGenericHero(tab, cloudStatus){
   return (
     '<div class="hero hero-dynamic hero-scene--' + bucket.scene + '">' +
     dashHeroSceneSVG(bucket.scene) +
-    dashHeroTrendLineSVG() +
+    dashHeroEnergyMarkSVG() +
     '<div class="hero-scene-overlay"></div>' +
     '<div class="hero-content">' +
 
-    '<div class="hero-top-row" style="justify-content:flex-end;">' +
+    '<div class="hero-top-row" style="justify-content:flex-start;">' +
     '<div class="cloud-status-badge" aria-label="Estado de sincronización">' +
     '<span class="cloud-status-dot cloud-status-dot--' + (cloudStatus || 'unknown') + '" id="cloud-status-dot"></span>' +
     '<span class="cloud-status-icon">☁</span>' +

@@ -1,6 +1,11 @@
 const SUPABASE_URL = 'https://blsdheekuagurefhzelf.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_C5ZO4zf0WDXcXVgkP0Jx1w_y8tJmmJJ';
 
+// URL oficial de producción — usada como redirect_to explícito en el
+// signup para que el enlace de confirmación de email no dependa
+// únicamente del Site URL configurado en el dashboard de Supabase.
+const SITE_URL = 'https://mis-finanzas-2-0.vercel.app/';
+
 function headers(token = null) {
   return {
     apikey: SUPABASE_PUBLISHABLE_KEY,
@@ -18,12 +23,48 @@ function tokenMatchesUser(token, userId) {
   }
 }
 
-export async function signUpUser(email, password) {
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
-    method: 'POST', headers: headers(), body: JSON.stringify({ email, password })
+// profile = { fullName, username, phone }. Se envía como `data`, que
+// GoTrue guarda directamente en auth.users.raw_user_meta_data — decisión
+// definitiva de esta fase: NO existe public.profiles ni ninguna tabla ni
+// trigger propios. Supabase Auth sigue siendo el único responsable del
+// email y la autenticación; nunca se guarda password/confirmación de
+// password en la metadata. Limitación conocida y aceptada: username no
+// tiene una restricción UNIQUE real a nivel de base de datos todavía.
+export async function signUpUser(email, password, profile = {}) {
+  // redirect_to va como query param del endpoint REST de GoTrue (no en el
+  // body): es el destino al que Supabase redirige DESPUÉS de validar el
+  // enlace de /auth/v1/verify del correo de confirmación. Sin esto, el
+  // destino dependía únicamente del Site URL configurado en el dashboard.
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(SITE_URL)}`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({
+      email,
+      password,
+      data: {
+        full_name: profile.fullName || '',
+        username: profile.username || '',
+        phone: profile.phone || ''
+      }
+    })
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data?.msg || data?.error_description || data?.message || 'Error al registrar usuario');
+  return data;
+}
+
+// Valida un access_token consultando al propio Supabase Auth (no se
+// asume confirmado solo porque venga en la URL — sección 6). Se usa desde
+// el callback de confirmación de email para confirmar que el token que
+// llegó en el redirect es real antes de guardarlo como sesión.
+export async function getUserFromAccessToken(accessToken) {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: headers(accessToken)
+  });
+  const data = await response.json();
+  if (!response.ok || !data?.id) {
+    throw new Error(data?.msg || data?.error_description || 'No se pudo validar la sesión.');
+  }
   return data;
 }
 
