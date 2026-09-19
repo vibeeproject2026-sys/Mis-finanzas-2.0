@@ -16,6 +16,8 @@ import {
 
 import {
   renderDashboard,
+  renderDashboardHero,
+  renderGenericHero,
   renderTransactions,
   renderInvoices,
   renderCredits,
@@ -35,28 +37,48 @@ import {
   renderInvoiceItemsHTML,
   renderTxCatChips,
   formatThousandInput,
-  parseFormattedNumber
+  parseFormattedNumber,
+  categoryIcon,
+  esc,
+  icon
 } from './ui.js';
 
 import * as API from './api.js';
 
 import {
   parseInterestRate,
-  computeDeterministicInvoiceTotal
+  computeDeterministicInvoiceTotal,
+  catById
 } from './domain.js';
 
 /* ==========================================================
    ESTADO DE LA INTERFAZ
    ========================================================== */
 
+function loadStoredBalanceHidden() {
+
+  try {
+
+    return localStorage.getItem(
+      'finanzas_balance_visible'
+    ) === 'false';
+
+  } catch(e) {
+
+    return false;
+  }
+}
+
 let UI = {
   tab:'dashboard',
   txFilter:'all',
   creditFilter:'against',
+  invoiceFilter:'all',
   search:'',
   openInvoiceId:null,
   openCreditId:null,
-  fabMenuOpen:false
+  fabMenuOpen:false,
+  balanceHidden: loadStoredBalanceHidden()
 };
 
 let sheet = null;
@@ -65,10 +87,28 @@ let scanningOverlay = null;
 let momCarouselInterval = null;
 let syncPending = false;
 let cloudRefreshInFlight = false;
+let cloudPullError = false;
+let cloudSyncEverSucceeded = false;
 let lastCloudRefreshAt = 0;
 
 const CLOUD_REFRESH_COOLDOWN_MS = 30000;
 const CLOUD_REFRESH_ERROR_BANNER_MS = 6000;
+
+// Fuente de verdad única del saludo: un nombre que el usuario configura
+// explícitamente en Ajustes. Nunca se deriva de email/username/user_id.
+function getWelcomeName() {
+
+  try {
+
+    return localStorage.getItem(
+      'welcome_name'
+    ) || '';
+
+  } catch(e) {
+
+    return '';
+  }
+}
 
 const uid = () =>
   Date.now().toString(36) +
@@ -207,7 +247,7 @@ function showFloatingBanner(id, message, offsetPx, autoDismissMs) {
       id;
 
     el.className =
-      'banner banner--warn';
+      'banner banner--warn floating-banner';
 
     el.style.position =
       'fixed';
@@ -226,8 +266,12 @@ function showFloatingBanner(id, message, offsetPx, autoDismissMs) {
     );
   }
 
+  // La base coincide con la del dock (.tabbar: bottom:max(24px, safe-area) + height:72px)
+  // para que el banner quede anclado justo respecto al dock real en cualquier dispositivo,
+  // en vez de sumar el safe-area por separado (eso lo dejaba demasiado arriba en iPhones
+  // con home indicator, donde el dock usa max() y no una suma).
   el.style.bottom =
-    `calc(24px + env(safe-area-inset-bottom) + ${offsetPx}px)`;
+    `calc(max(24px, env(safe-area-inset-bottom)) + 72px + ${offsetPx}px)`;
 
   el.textContent =
     message;
@@ -326,7 +370,7 @@ function saveDB() {
     showFloatingBanner(
       'save-error-banner',
       'No se pudo guardar el cambio en este dispositivo (almacenamiento lleno o no disponible).',
-      130
+      58
     );
   }
 
@@ -337,10 +381,112 @@ function saveDB() {
    SINCRONIZACIÓN
    ========================================================== */
 
+// Estado REAL del indicador de nube del header: se calcula a partir de
+// las mismas señales que ya usa la app (nunca se inventa un estado).
+//   'offline'  -> sin sesión válida o sin red (navigator.onLine === false)
+//   'syncing'  -> refreshCloudData() tiene una petición en curso
+//   'error'    -> el último push (safeSync) o pull (refreshCloudData) falló
+//   'ok'       -> hubo al menos un push/pull exitoso y no hay error activo
+//   'unknown'  -> autenticado y en línea, pero aún no se confirma ningún
+//                 sync exitoso en esta sesión (se muestra igual que 'offline')
+function getCloudSyncStatus() {
+
+  let token = null;
+  let userId = null;
+
+  try {
+
+    token =
+      localStorage.getItem(
+        'supabase_token'
+      );
+
+    userId =
+      localStorage.getItem(
+        'supabase_user_id'
+      );
+
+  } catch(e) {}
+
+  if (
+    !token ||
+    !userId
+  ){
+    return 'offline';
+  }
+
+  if (
+    typeof navigator !== 'undefined' &&
+    navigator.onLine === false
+  ){
+    return 'offline';
+  }
+
+  if (
+    cloudRefreshInFlight
+  ){
+    return 'syncing';
+  }
+
+  if (
+    syncPending ||
+    cloudPullError
+  ){
+    return 'error';
+  }
+
+  return (
+    cloudSyncEverSucceeded
+      ? 'ok'
+      : 'unknown'
+  );
+}
+
+function refreshCloudStatusIndicator() {
+
+  const el =
+    document.getElementById(
+      'cloud-status-dot'
+    );
+
+  if (
+    !el
+  ){
+    return;
+  }
+
+  const status =
+    getCloudSyncStatus();
+
+  el.className =
+    'cloud-status-dot cloud-status-dot--' +
+    status;
+
+  el.setAttribute(
+    'aria-label',
+    {
+      offline:'Sin conexión con la nube',
+      syncing:'Sincronizando con la nube',
+      error:'Error de sincronización',
+      ok:'Sincronizado con la nube',
+      unknown:'Estado de sincronización aún no disponible'
+    }[status] ||
+    ''
+  );
+}
+
 function updateSyncBanner(pending) {
 
   syncPending =
     pending;
+
+  if (
+    !pending
+  ){
+
+    cloudSyncEverSucceeded =
+      true;
+  }
 
   if (
     pending
@@ -349,7 +495,7 @@ function updateSyncBanner(pending) {
     showFloatingBanner(
       'sync-status-banner',
       'Cambios guardados localmente. Pendiente de sincronizar con la nube.',
-      84
+      104
     );
 
   } else {
@@ -358,6 +504,8 @@ function updateSyncBanner(pending) {
       'sync-status-banner'
     );
   }
+
+  refreshCloudStatusIndicator();
 }
 
 /* ==========================================================
@@ -423,6 +571,8 @@ function refreshCloudData() {
   lastCloudRefreshAt =
     Date.now();
 
+  refreshCloudStatusIndicator();
+
   API.fetchUserData(
     token,
     userId
@@ -440,15 +590,28 @@ function refreshCloudData() {
           result && result.error
         );
 
+        cloudPullError =
+          true;
+
+        refreshCloudStatusIndicator();
+
         showFloatingBanner(
           'cloud-refresh-error-banner',
           'No se pudieron actualizar los datos desde la nube. Se muestran los datos guardados en este dispositivo.',
-          176,
+          12,
           CLOUD_REFRESH_ERROR_BANNER_MS
         );
 
         return;
       }
+
+      cloudPullError =
+        false;
+
+      cloudSyncEverSucceeded =
+        true;
+
+      refreshCloudStatusIndicator();
 
       hideFloatingBanner(
         'cloud-refresh-error-banner'
@@ -537,10 +700,13 @@ function refreshCloudData() {
         err
       );
 
+      cloudPullError =
+        true;
+
       showFloatingBanner(
         'cloud-refresh-error-banner',
         'No se pudieron actualizar los datos desde la nube. Se muestran los datos guardados en este dispositivo.',
-        176,
+        12,
         CLOUD_REFRESH_ERROR_BANNER_MS
       );
     }
@@ -550,6 +716,8 @@ function refreshCloudData() {
 
       cloudRefreshInFlight =
         false;
+
+      refreshCloudStatusIndicator();
     }
   );
 }
@@ -669,7 +837,9 @@ export function render(){
           <div style="display:flex;align-items:center;justify-content:center;padding:40px 16px;min-height:75vh;">
             <div class="card" style="width:100%;max-width:380px;padding:32px 24px;text-align:center;">
 
-              <div style="font-size:36px;margin-bottom:12px;">☁️</div>
+              <div style="width:56px;height:56px;margin:0 auto 12px;border-radius:18px;background:rgba(0,209,255,0.12);border:1px solid rgba(0,209,255,0.3);display:flex;align-items:center;justify-content:center;color:var(--neon-cyan);font-size:26px;">
+                ${icon('cloud')}
+              </div>
 
               <h2 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;">
                 Terminal Cloud
@@ -1120,14 +1290,23 @@ function renderAppContent(){
     try {
 
       viewEl.innerHTML =
-        '<div class="hero"><div class="hero-content">' +
-        '<div class="hero-badge"><span class="hero-dot"></span><span>Terminal Cloud Active</span></div>' +
-        '<div class="hero-main"><div><h1>Mis Finanzas</h1><p>Control y analítica en tiempo real</p></div><div class="hero-avatar">⚡</div></div>' +
-        '</div></div>' +
+        (
+          UI.tab === 'dashboard'
+            ? renderDashboardHero(
+                getWelcomeName(),
+                getCloudSyncStatus()
+              )
+            : renderGenericHero(
+                UI.tab,
+                getCloudSyncStatus()
+              )
+        ) +
 
         (
           UI.tab === 'dashboard'
-            ? renderDashboard()
+            ? renderDashboard(
+                UI.balanceHidden
+              )
 
             : UI.tab === 'transactions'
               ? renderTransactions(
@@ -1137,7 +1316,8 @@ function renderAppContent(){
 
               : UI.tab === 'invoices'
                 ? renderInvoices(
-                    UI.openInvoiceId
+                    UI.openInvoiceId,
+                    UI.invoiceFilter
                   )
 
                 : UI.tab === 'credits'
@@ -1150,7 +1330,9 @@ function renderAppContent(){
                     ? renderCategories()
 
                     : (
-                        renderSettings() +
+                        renderSettings(
+                          getWelcomeName()
+                        ) +
                         '<div style="padding:16px 0;"><button class="save-btn" data-action="logout" style="width:100%;padding:14px;border-radius:12px;background:var(--expense);color:#fff;font-weight:800;border:none;cursor:pointer;">Cerrar Sesión</button></div>'
                       )
         );
@@ -1190,6 +1372,8 @@ function renderAppContent(){
                 }
               }
             );
+
+            attachWelcomeNameListener();
           },
           10
         );
@@ -1217,7 +1401,7 @@ function renderAppContent(){
       [
         'dashboard',
         'wallet',
-        'Resumen'
+        'Inicio'
       ],
       [
         'transactions',
@@ -1235,9 +1419,9 @@ function renderAppContent(){
         'Créditos'
       ],
       [
-        'categories',
-        'tag',
-        'Categorías'
+        'invoices',
+        'receipt',
+        'Facturas'
       ]
     ]
     .map(
@@ -1316,17 +1500,21 @@ function getIconSvg(name){
 
   const svgs = {
 
+    // Iconos trasladados de figma_mis_finanzas/src/components/NavDock.tsx
     wallet:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10"/><path d="M16 14h.01"/></svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2" fill="currentColor" opacity="0.9"/><rect x="13" y="3" width="8" height="8" rx="2" fill="currentColor" opacity="0.5"/><rect x="3" y="13" width="8" height="8" rx="2" fill="currentColor" opacity="0.5"/><rect x="13" y="13" width="8" height="8" rx="2" fill="currentColor" opacity="0.3"/></svg>',
 
     list:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path d="M7 10l5-5 5 5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 14l-5 5-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 
     credit:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zm0 6h18"/></svg>',
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/><path d="M6 15h4" stroke-linecap="round"/></svg>',
 
     tag:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>'
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 3" stroke-linecap="round"/></svg>',
+
+    receipt:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke-linejoin="round"/><path d="M14 2v6h6M8 13h8M8 17h5" stroke-linecap="round"/></svg>'
   };
 
   return (
@@ -1546,6 +1734,34 @@ function attachSearchListener(){
   }
 }
 
+function attachWelcomeNameListener(){
+
+  const input =
+    document.getElementById(
+      'welcome-name-input'
+    );
+
+  if (
+    input
+  ){
+
+    input.addEventListener(
+      'input',
+      e => {
+
+        try {
+
+          localStorage.setItem(
+            'welcome_name',
+            e.target.value.trim().slice(0, 40)
+          );
+
+        } catch(err) {}
+      }
+    );
+  }
+}
+
 /* ==========================================================
    FAB
    ========================================================== */
@@ -1660,6 +1876,10 @@ document.addEventListener(
               'supabase_refresh_token'
             );
 
+            localStorage.removeItem(
+              'supabase_user_name'
+            );
+
             window.hasLoadedCloudData =
               false;
 
@@ -1716,13 +1936,42 @@ document.addEventListener(
 
     if (
       action ===
+      'toggle-balance-visibility'
+    ){
+
+      UI.balanceHidden =
+        !UI.balanceHidden;
+
+      try {
+
+        localStorage.setItem(
+          'finanzas_balance_visible',
+          UI.balanceHidden
+            ? 'false'
+            : 'true'
+        );
+
+      } catch(e) {}
+
+      renderAppContent();
+
+      return;
+    }
+
+    if (
+      action ===
       'set-filter'
     ){
 
       UI.txFilter =
         t.dataset.filter;
 
-      refreshTxList();
+      // Se re-renderiza toda la pestaña (no solo #tx-list) para que el
+      // chip activo (Todos/Ingresos/Egresos) quede sincronizado visualmente
+      // con UI.txFilter, que es el mismo estado real que ya controla el
+      // filtrado. Antes solo se refrescaba la lista y el chip seleccionado
+      // nunca cambiaba de estilo.
+      renderAppContent();
 
       return;
     }
@@ -1737,6 +1986,19 @@ document.addEventListener(
 
       UI.openCreditId =
         null;
+
+      renderAppContent();
+
+      return;
+    }
+
+    if (
+      action ===
+      'set-invoice-filter'
+    ){
+
+      UI.invoiceFilter =
+        t.dataset.filter;
 
       renderAppContent();
 
@@ -1889,14 +2151,14 @@ document.addEventListener(
 
           } else if (
             action ===
-            'fab-invoices'
+            'fab-categories'
           ){
 
             closeFabMenu(
               () => {
 
                 UI.tab =
-                  'invoices';
+                  'categories';
 
                 renderAppContent();
               }
@@ -2132,6 +2394,65 @@ document.addEventListener(
             ),
             sheet.categoryId
           );
+      }
+
+      return;
+    }
+
+    if (
+      action ===
+      'pick-quick-cat'
+    ){
+
+      if (!sheet) return;
+
+      sheet.categoryId =
+        t.dataset.id;
+
+      const quickChipContainer =
+        document.getElementById(
+          'quickChipList'
+        );
+
+      if (
+        quickChipContainer
+      ){
+
+        quickChipContainer.innerHTML =
+          renderTxCatChips(
+            DB.categories.filter(
+              c =>
+                c.type === 'expense'
+            ),
+            sheet.categoryId,
+            'pick-quick-cat'
+          );
+      }
+
+      const quickHeaderBox =
+        document.getElementById(
+          'quick-header-box'
+        );
+
+      if (
+        quickHeaderBox
+      ){
+
+        const newCat =
+          catById(
+            sheet.categoryId
+          );
+
+        quickHeaderBox.innerHTML =
+          '<div class="avatar" style="background:' +
+          (newCat ? newCat.color + '22' : 'rgba(255,255,255,0.06)') +
+          ';color:' +
+          (newCat ? newCat.color : 'var(--ink-muted)') +
+          '">' +
+          categoryIcon(newCat ? newCat.icon : null) +
+          '</div><div class="qname">' +
+          esc(newCat ? newCat.name : 'Elige una categoría') +
+          '</div>';
       }
 
       return;
@@ -4692,6 +5013,19 @@ window.addEventListener(
 
     refreshCloudData();
   }
+);
+
+// El indicador de nube del header también debe reflejar cambios reales
+// de conectividad reportados por el propio navegador (API estándar, no
+// es una segunda lógica de sincronización).
+window.addEventListener(
+  'online',
+  refreshCloudStatusIndicator
+);
+
+window.addEventListener(
+  'offline',
+  refreshCloudStatusIndicator
 );
 
 /* ==========================================================

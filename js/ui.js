@@ -3,7 +3,6 @@ import {
   CURRENCIES,
   SWATCHES,
   ICON_KEYS,
-  ICON_EMOJI,
   todayStr
 } from './state.js';
 
@@ -72,10 +71,65 @@ export function icon(name){
       '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
 
     receipt:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 14h-4M16 10H8M8 14h2"/></svg>'
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 14h-4M16 10H8M8 14h2"/></svg>',
+
+    eye:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+
+    'eye-off':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 4.22-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a20.3 20.3 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>',
+
+    // ---- Iconografía de categorías (Sección 10/12, FASE 1B.5) ----
+    // Mismas claves que ICON_KEYS/ICON_EMOJI (state.js): no se toca el
+    // modelo de datos, solo se traduce cada clave a un trazo vectorial.
+    food:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 2v7c0 1.1.9 2 2 2h1a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>',
+
+    transport:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>',
+
+    home:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+
+    zap:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>',
+
+    heart:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>',
+
+    fun:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>',
+
+    shopping:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
+
+    briefcase:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
+
+    dollarSign:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+
+    more:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>',
+
+    chart:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>',
+
+    clock:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+
+    cloud:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.3-2A5 5 0 0 0 6.5 19h11Z"/></svg>'
   };
 
   return `<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">${svgs[name] || ''}</span>`;
+}
+
+// Traduce una clave de icono de categoría (ICON_KEYS/state.js, sin tocar
+// el modelo de datos) a su icono vectorial. Fallback seguro a 'more' si la
+// categoría no tiene un icono reconocido (nunca queda sin icono visible).
+export function categoryIcon(key){
+  return icon(ICON_KEYS.includes(key) ? key : 'more');
 }
 
 export const esc =
@@ -165,10 +219,242 @@ export function monthLabelStr(date){
 }
 
 /* ==========================================================
+   HEADER DINÁMICO DEL DASHBOARD (saludo/frase/fecha según la hora)
+   ========================================================== */
+
+const DASH_HERO_BY_BUCKET = {
+  morning: {
+    scene:'morning',
+    greeting:'Buenos días',
+    quote:'Cada decisión de hoy construye la tranquilidad de mañana.'
+  },
+  afternoon: {
+    scene:'afternoon',
+    greeting:'Buenas tardes',
+    quote:'Vas avanzando. Mantén el control de lo que construyes.'
+  },
+  night: {
+    scene:'night',
+    greeting:'Buenas noches',
+    quote:'Lo que cuidas hoy se convierte en libertad mañana.'
+  }
+};
+
+function dashHeroBucket(hour){
+
+  if (hour >= 6 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 18) return 'afternoon';
+  return 'night';
+}
+
+// Ilustraciones SVG trasladadas de figma_mis_finanzas/src/screens/Dashboard.tsx
+// (SceneIllustration). Puramente decorativas, sin datos reales.
+function dashHeroSceneSVG(scene){
+
+  if (scene === 'morning') {
+    return (
+      '<svg class="hero-scene-svg" viewBox="0 0 430 180" preserveAspectRatio="xMidYMax slice">' +
+      '<defs><radialGradient id="sun-dawn" cx="50%" cy="85%" r="40%">' +
+      '<stop offset="0%" stop-color="#ffd166" stop-opacity="0.9"/>' +
+      '<stop offset="40%" stop-color="#ff8c42" stop-opacity="0.5"/>' +
+      '<stop offset="100%" stop-color="transparent"/>' +
+      '</radialGradient></defs>' +
+      '<ellipse cx="215" cy="155" rx="80" ry="80" fill="url(#sun-dawn)"/>' +
+      '<path d="M0 180 L60 80 L120 140 L180 60 L240 120 L300 40 L370 100 L430 70 L430 180 Z" fill="rgba(20,10,45,0.85)"/>' +
+      '<path d="M0 180 L80 110 L150 155 L220 90 L290 140 L360 100 L430 120 L430 180 Z" fill="rgba(13,8,30,0.9)"/>' +
+      '<line x1="0" y1="152" x2="430" y2="152" stroke="rgba(255,170,64,0.15)" stroke-width="1"/>' +
+      '<line x1="0" y1="156" x2="430" y2="156" stroke="rgba(255,140,66,0.1)" stroke-width="2"/>' +
+      '</svg>'
+    );
+  }
+
+  if (scene === 'afternoon') {
+    const windowLights = [30, 50, 115, 135, 175, 220, 275, 295, 345, 395]
+      .map((x, i) => '<rect x="' + (x + 4) + '" y="' + (60 + (i % 3) * 14) + '" width="5" height="4" fill="rgba(0,209,255,0.5)" rx="1"/>')
+      .join('');
+
+    return (
+      '<svg class="hero-scene-svg" viewBox="0 0 430 200" preserveAspectRatio="xMidYMax slice">' +
+      '<g fill="rgba(10,18,40,0.9)">' +
+      '<rect x="20" y="80" width="40" height="120"/><rect x="25" y="60" width="12" height="20"/>' +
+      '<rect x="70" y="100" width="30" height="100"/>' +
+      '<rect x="110" y="50" width="50" height="150"/><rect x="125" y="30" width="8" height="20"/>' +
+      '<rect x="170" y="70" width="35" height="130"/>' +
+      '<rect x="215" y="90" width="45" height="110"/>' +
+      '<rect x="270" y="40" width="60" height="160"/><rect x="290" y="20" width="10" height="22"/>' +
+      '<rect x="340" y="75" width="40" height="125"/>' +
+      '<rect x="390" y="60" width="50" height="140"/>' +
+      '</g>' +
+      windowLights +
+      '<rect x="0" y="175" width="430" height="25" fill="rgba(20,50,100,0.3)"/>' +
+      '</svg>'
+    );
+  }
+
+  const stars = [
+    [30, 20], [80, 35], [140, 15], [200, 25], [260, 10], [320, 30], [380, 18],
+    [50, 55], [160, 40], [310, 50], [400, 45], [100, 70], [250, 65]
+  ]
+    .map(([x, y], i) => '<circle cx="' + x + '" cy="' + y + '" r="' + (i % 3 === 0 ? 1.8 : 1.2) + '" fill="rgba(255,255,255,0.9)"/>')
+    .join('');
+
+  const neonWindows = [[100, 75, '#00d1ff'], [165, 95, '#8b5cf6'], [270, 65, '#00d1ff'], [340, 90, '#8b5cf6']]
+    .map(([x, y, c]) => '<rect x="' + x + '" y="' + y + '" width="6" height="4" fill="' + c + '" opacity="0.9" rx="1"/>')
+    .join('');
+
+  // Luna más protagonista (Sección 1/2, FASE 1B.5): halo suave + disco claro
+  // + un círculo oscuro superpuesto para dar el recorte de media luna, en
+  // vez del disco casi negro que apenas se distinguía del cielo.
+  const moon =
+    '<circle cx="322" cy="44" r="30" fill="rgba(190,215,255,0.14)"/>' +
+    '<circle cx="322" cy="44" r="19" fill="rgba(215,228,255,0.3)"/>' +
+    '<circle cx="321" cy="43" r="15" fill="#EEF1FA"/>' +
+    '<circle cx="327" cy="39" r="13" fill="#0a0f1e"/>';
+
+  return (
+    '<svg class="hero-scene-svg" viewBox="0 0 430 200" preserveAspectRatio="xMidYMax slice">' +
+    stars +
+    moon +
+    '<g fill="rgba(10,15,30,0.92)">' +
+    '<rect x="0" y="100" width="45" height="100"/><rect x="5" y="80" width="14" height="22"/>' +
+    '<rect x="55" y="110" width="30" height="90"/>' +
+    '<rect x="95" y="60" width="55" height="140"/><rect x="112" y="40" width="9" height="22"/>' +
+    '<rect x="160" y="85" width="38" height="115"/>' +
+    '<rect x="208" y="100" width="42" height="100"/>' +
+    '<rect x="260" y="50" width="65" height="150"/><rect x="278" y="30" width="12" height="22"/>' +
+    '<rect x="335" y="80" width="44" height="120"/>' +
+    '<rect x="388" y="70" width="50" height="130"/>' +
+    '</g>' +
+    neonWindows +
+    '<rect x="0" y="180" width="430" height="20" fill="rgba(10,15,30,0.4)"/>' +
+    '</svg>'
+  );
+}
+
+// Línea de fluctuación financiera ascendente (Sección 7, FASE 1B.3):
+// puramente decorativa, sin datos reales, integrada al fondo del header.
+// Sube desde la parte inferior hacia el extremo superior derecho, con un
+// glow verde muy sutil (filter blur), sin recibir clicks.
+function dashHeroTrendLineSVG(){
+
+  return (
+    '<svg class="hero-trend-line" viewBox="0 0 260 200" preserveAspectRatio="none" aria-hidden="true">' +
+    '<defs><filter id="trendGlow" x="-60%" y="-60%" width="220%" height="220%">' +
+    '<feGaussianBlur stdDeviation="2.2" result="blur"/>' +
+    '<feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>' +
+    '</filter></defs>' +
+    '<polyline points="30,200 70,150 55,132 100,100 85,84 140,55 122,44 190,18 172,10 250,-6" ' +
+    'fill="none" stroke="#10d98a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
+    'opacity="0.55" filter="url(#trendGlow)"/>' +
+    '</svg>'
+  );
+}
+
+const DASH_HERO_SCENE_BG = {
+  morning: 'linear-gradient(to bottom, #1a0a2e 0%, #3d1a6e 25%, #ff6b35 55%, #ffaa40 75%, #ffd166 100%)',
+  afternoon: 'linear-gradient(to bottom, #0a1628 0%, #1a3a6e 30%, #2060b0 60%, #1a2a50 100%)',
+  night: 'linear-gradient(to bottom, #020408 0%, #0d0820 30%, #130a30 60%, #06090f 100%)'
+};
+
+export function renderDashboardHero(userName, cloudStatus){
+
+  const now = new Date();
+
+  const bucket =
+    DASH_HERO_BY_BUCKET[
+      dashHeroBucket(now.getHours())
+    ];
+
+  const greeting =
+    bucket.greeting +
+    (
+      userName
+        ? ', ' + esc(userName)
+        : ''
+    );
+
+  const dateLabel =
+    new Intl.DateTimeFormat(
+      'es-CO',
+      { weekday:'long', day:'numeric', month:'long' }
+    ).format(now);
+
+  const dateCapitalized =
+    dateLabel.charAt(0).toUpperCase() +
+    dateLabel.slice(1);
+
+  return (
+    '<div class="hero hero-dynamic hero-scene--' + bucket.scene + '">' +
+    dashHeroSceneSVG(bucket.scene) +
+    dashHeroTrendLineSVG() +
+    '<div class="hero-scene-overlay"></div>' +
+    '<div class="hero-content">' +
+
+    '<div class="hero-top-row" style="justify-content:flex-end;">' +
+    '<div class="cloud-status-badge" aria-label="Estado de sincronización">' +
+    '<span class="cloud-status-dot cloud-status-dot--' + (cloudStatus || 'unknown') + '" id="cloud-status-dot"></span>' +
+    '<span class="cloud-status-icon">☁</span>' +
+    '</div>' +
+    '</div>' +
+
+    '<h1 class="hero-greeting">' + greeting + '</h1>' +
+    '<p class="hero-quote">' + esc(bucket.quote) + '</p>' +
+    '<div class="hero-date">' + esc(dateCapitalized) + '</div>' +
+
+    '</div></div>'
+  );
+}
+
+// Título/subtítulo por pestaña para el header-escena de las pantallas que
+// no son Dashboard (Sección 8/9, FASE 1B.4): mismo lenguaje visual (luna,
+// estrellas, skyline, gradiente por momento del día) que el Dashboard, sin
+// inventar datos — solo texto de encabezado ya existente por pantalla.
+const TAB_HERO_META = {
+  transactions: { title: 'Movimientos', subtitle: 'Tu historia financiera, en un solo lugar.' },
+  categories: { title: 'Categorías', subtitle: 'Organiza cada gasto a tu manera.' },
+  credits: { title: 'Créditos', subtitle: 'Deudas y cobros bajo control.' },
+  invoices: { title: 'Facturas', subtitle: 'Registra y controla tus comprobantes.' },
+  settings: { title: 'Ajustes', subtitle: 'Personaliza tu experiencia.' }
+};
+
+export function renderGenericHero(tab, cloudStatus){
+
+  const now = new Date();
+
+  const bucket =
+    DASH_HERO_BY_BUCKET[
+      dashHeroBucket(now.getHours())
+    ];
+
+  const meta =
+    TAB_HERO_META[tab] ||
+    { title: 'Mis Finanzas', subtitle: 'Control y analítica en tiempo real' };
+
+  return (
+    '<div class="hero hero-dynamic hero-scene--' + bucket.scene + '">' +
+    dashHeroSceneSVG(bucket.scene) +
+    '<div class="hero-scene-overlay"></div>' +
+    '<div class="hero-content">' +
+
+    '<div class="hero-top-row" style="justify-content:flex-end;">' +
+    '<div class="cloud-status-badge" aria-label="Estado de sincronización">' +
+    '<span class="cloud-status-dot cloud-status-dot--' + (cloudStatus || 'unknown') + '" id="cloud-status-dot"></span>' +
+    '<span class="cloud-status-icon">☁</span>' +
+    '</div>' +
+    '</div>' +
+
+    '<h1 class="hero-greeting">' + esc(meta.title) + '</h1>' +
+    '<p class="hero-quote">' + esc(meta.subtitle) + '</p>' +
+
+    '</div></div>'
+  );
+}
+
+/* ==========================================================
    DASHBOARD
    ========================================================== */
 
-export function renderDashboard(){
+export function renderDashboard(balanceHidden){
 
   const totals =
     computeTotals();
@@ -199,14 +485,33 @@ export function renderDashboard(){
     '<div class="balance-card">';
 
   html +=
-    '<div class="balance-label">Balance disponible</div>';
+    '<div class="balance-top-row">' +
+    '<div class="balance-label">Balance disponible</div>' +
+    '<button class="balance-eye-btn" data-action="toggle-balance-visibility" aria-label="' +
+    (
+      balanceHidden
+        ? 'Mostrar saldo'
+        : 'Ocultar saldo'
+    ) +
+    '">' +
+    icon(
+      balanceHidden
+        ? 'eye-off'
+        : 'eye'
+    ) +
+    '</button>' +
+    '</div>';
 
   html +=
     '<div class="balance-amount" style="color:' +
     balColor +
     '">' +
-    fmtMoney(
-      totals.balance
+    (
+      balanceHidden
+        ? '••••••••'
+        : fmtMoney(
+            totals.balance
+          )
     ) +
     '</div>';
 
@@ -311,7 +616,7 @@ export function renderDashboard(){
     '</div>';
 
   html +=
-    '<div class="runway-card"><div class="runway-icon">⏳</div><div class="runway-main">';
+    '<div class="runway-card"><div class="runway-icon">' + icon('clock') + '</div><div class="runway-main">';
 
   html +=
     '<div class="runway-lbl">Ritmo de gasto · período ' +
@@ -421,12 +726,13 @@ export function renderDashboard(){
           c =>
             '<button class="quick-btn" data-action="quick-cat" data-id="' +
             c.id +
-            '"><span class="em">' +
-            (
-              ICON_EMOJI[
-                c.icon
-              ] ||
-              '⭐'
+            '"><span class="em" style="background:' +
+            c.color +
+            '22;color:' +
+            c.color +
+            '">' +
+            categoryIcon(
+              c.icon
             ) +
             '</span><span class="nm">' +
             esc(
@@ -528,7 +834,7 @@ export function renderDashboard(){
         '#EF4444',
         '#8B85A3',
         '#334155',
-        '#8B1E3F'
+        '#9B1239'
       ]);
 
     const colorMap =
@@ -704,7 +1010,7 @@ export function renderDashboard(){
 
       html +=
         '<div class="pie-legend-row">' +
-        '<span class="pie-dot" style="background:#8B1E3F"></span>' +
+        '<span class="pie-dot" style="background:#9B1239"></span>' +
         '<span class="pie-name">Pago a créditos</span>' +
         '<span class="pie-pct">' +
         (
@@ -762,7 +1068,7 @@ export function renderDashboard(){
      ======================================================== */
 
   html +=
-    '<div class="mom-card"><div class="mom-header"><span class="mom-title">📊 Comparativa Mes a Mes</span><div class="mom-dots">';
+    '<div class="mom-card"><div class="mom-header"><span class="mom-title">' + icon('chart') + ' Comparativa Mes a Mes</span><div class="mom-dots">';
 
   for (
     let i = 0;
@@ -921,7 +1227,7 @@ export function renderDashboard(){
   ){
 
     html +=
-      '<div class="mom-insight"><span>💡</span><div><b>Atención en ' +
+      '<div class="mom-insight">' + icon('alert') + '<div><b>Atención en ' +
       esc(
         mom.highestGrowthCat.name
       ) +
@@ -934,7 +1240,7 @@ export function renderDashboard(){
   } else {
 
     html +=
-      '<div class="mom-insight"><span>✨</span><div><b>¡Buen control!</b> Patrones de consumo estables.</div></div>';
+      '<div class="mom-insight"><span style="color:var(--income)">' + icon('check') + '</span><div><b>¡Buen control!</b> Patrones de consumo estables.</div></div>';
   }
 
   html +=
@@ -1005,12 +1311,81 @@ export function renderDashboard(){
       '</div>';
   }
 
+  /* ========================================================
+     MOVIMIENTOS RECIENTES
+     ======================================================== */
+
+  const recentTx =
+    DB.transactions
+      .slice()
+      .sort(
+        (a, b) =>
+          (b.date + b.id).localeCompare(a.date + a.id)
+      )
+      .slice(0, 4);
+
+  html +=
+    '<div style="margin-top:16px;padding:0 2px;display:flex;align-items:center;justify-content:space-between;">' +
+    '<div class="section-title" style="margin-bottom:0;">Movimientos recientes</div>' +
+    '<button data-action="set-tab" data-tab="transactions" style="color:var(--neon-cyan);font-size:12px;font-weight:600;">Ver todos →</button>' +
+    '</div>';
+
+  html +=
+    '<div class="list-container" style="margin-top:12px;">' +
+    (
+      recentTx.length
+        ? recentTx.map(renderTxRow).join('')
+        : '<div class="empty-state">Aún no hay movimientos.</div>'
+    ) +
+    '</div>';
+
   return html;
 }
 
 /* ==========================================================
    GRÁFICA CIRCULAR
    ========================================================== */
+
+// Sección 8, FASE 1B.5: cada categoría conserva SU PROPIO color (el mismo
+// que usa la leyenda vía colorMap en renderDashboard), y el "blend" ocurre
+// solo en el tramo final de cada segmento, mezclándolo levemente hacia el
+// color del segmento siguiente. Antes (FASE 1B.4) el color se calculaba por
+// posición en el anillo, sin relación con colorMap — por eso la leyenda y
+// el anillo podían mostrar colores distintos para la misma categoría.
+function hexToRgb(hex){
+
+  const clean =
+    String(hex || '').replace('#', '');
+
+  const full =
+    clean.length === 3
+      ? clean.split('').map(c => c + c).join('')
+      : clean;
+
+  const num =
+    parseInt(full, 16);
+
+  if (
+    isNaN(num) ||
+    full.length !== 6
+  ){
+    return [136, 153, 180];
+  }
+
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+function mixColors(hexA, hexB, t){
+
+  const a = hexToRgb(hexA);
+  const b = hexToRgb(hexB);
+
+  const r = Math.round(a[0] + (b[0] - a[0]) * t);
+  const g = Math.round(a[1] + (b[1] - a[1]) * t);
+  const bl = Math.round(a[2] + (b[2] - a[2]) * t);
+
+  return 'rgb(' + r + ',' + g + ',' + bl + ')';
+}
 
 export function expensePieSVG(
   catTotals,
@@ -1065,112 +1440,6 @@ export function expensePieSVG(
   const gap =
     2.8;
 
-  const palette = [
-    '#38BDF8',
-    '#A78BFA',
-    '#F59E0B',
-    '#34D399',
-    '#FB7185',
-    '#F97316',
-    '#22D3EE',
-    '#C084FC',
-    '#84CC16',
-    '#E879F9',
-    '#2DD4BF',
-    '#FACC15'
-  ];
-
-  const used =
-    new Set([
-      '#EF4444',
-      '#8B85A3',
-      '#334155',
-      '#8B1E3F'
-    ]);
-
-  const colorMap =
-    new Map();
-
-  let paletteIndex =
-    0;
-
-  catTotals.forEach(
-    rw => {
-
-      const original =
-        String(
-          rw.cat?.color ||
-          ''
-        ).trim();
-
-      const normalized =
-        original.toUpperCase();
-
-      if (
-        original &&
-        !used.has(
-          normalized
-        )
-      ){
-
-        colorMap.set(
-          rw.id,
-          original
-        );
-
-        used.add(
-          normalized
-        );
-
-        return;
-      }
-
-      let selected =
-        null;
-
-      for (
-        let i = 0;
-        i < palette.length;
-        i++
-      ){
-
-        const candidate =
-          palette[
-            paletteIndex++ %
-            palette.length
-          ];
-
-        if (
-          !used.has(
-            candidate.toUpperCase()
-          )
-        ){
-
-          selected =
-            candidate;
-
-          break;
-        }
-      }
-
-      selected =
-        selected ||
-        palette[
-          paletteIndex++ %
-          palette.length
-        ];
-
-      colorMap.set(
-        rw.id,
-        selected
-      );
-
-      used.add(
-        selected.toUpperCase()
-      );
-    }
-  );
-
   const slices = [];
 
   let offset = 0;
@@ -1178,8 +1447,8 @@ export function expensePieSVG(
   const addSlice =
     (
       value,
-      color,
-      label
+      label,
+      color
     ) => {
 
       const numericValue =
@@ -1222,10 +1491,10 @@ export function expensePieSVG(
       ){
 
         slices.push({
-          color,
           dash,
           offset,
-          label
+          label,
+          color: color || '#8899B4'
         });
       }
 
@@ -1238,13 +1507,9 @@ export function expensePieSVG(
 
       addSlice(
         rw.total,
-        colorMap.get(
-          rw.id
-        ) ||
-        rw.cat?.color ||
-        '#38BDF8',
         rw.cat?.name ||
-        'Categoría'
+        'Categoría',
+        rw.cat?.color
       );
     }
   );
@@ -1255,24 +1520,50 @@ export function expensePieSVG(
 
     addSlice(
       credits,
-      '#8B1E3F',
-      'Pago a créditos'
+      'Pago a créditos',
+      '#9B1239'
     );
   }
 
   let svg =
     '<svg viewBox="0 0 120 120" aria-label="Gastos respecto al ingreso">';
 
+  svg += '<defs>';
+
+  slices.forEach(
+    (s, i) => {
+
+      // El blend solo ocurre en el tramo final de cada segmento, mezclado
+      // levemente hacia el color del SIGUIENTE segmento. El último no se
+      // mezcla (su borde final linda con el tramo "Disponible", no con
+      // otra categoría), así cada categoría se mantiene identificable.
+      const next =
+        slices[i + 1];
+
+      const tailColor =
+        next
+          ? mixColors(s.color, next.color, 0.45)
+          : s.color;
+
+      svg +=
+        '<linearGradient id="pieGrad' + i + '" x1="0%" y1="0%" x2="100%" y2="0%">' +
+        '<stop offset="0%" stop-color="' + s.color + '"/>' +
+        '<stop offset="72%" stop-color="' + s.color + '"/>' +
+        '<stop offset="100%" stop-color="' + tailColor + '"/>' +
+        '</linearGradient>';
+    }
+  );
+
+  svg += '</defs>';
+
   svg +=
     '<circle cx="60" cy="60" r="44" fill="none" stroke="#0F172A" stroke-width="16"/>';
 
   slices.forEach(
-    s => {
+    (s, i) => {
 
       svg +=
-        '<circle cx="60" cy="60" r="44" fill="none" stroke="' +
-        s.color +
-        '" stroke-width="16" stroke-dasharray="' +
+        '<circle cx="60" cy="60" r="44" fill="none" stroke="url(#pieGrad' + i + ')" stroke-width="16" stroke-dasharray="' +
         s.dash.toFixed(2) +
         ' ' +
         (
@@ -1302,8 +1593,9 @@ export function renderTxRow(t){
   const isCreditPayment = t.source === 'credit-payment';
   const cat = isCreditPayment ? null : catById(t.categoryId);
 
-  const emoji = isCreditPayment ? '💳' : (cat ? (ICON_EMOJI[cat.icon] || '⭐') : '⭐');
-  const bg = isCreditPayment ? '#8B1E3F22' : ((cat ? cat.color : '#8B85A3') + '22');
+  const iconColor = isCreditPayment ? '#9B1239' : (cat ? cat.color : '#8B85A3');
+  const iconHtml = isCreditPayment ? icon('credit') : categoryIcon(cat ? cat.icon : null);
+  const bg = isCreditPayment ? '#9B123922' : ((cat ? cat.color : '#8B85A3') + '22');
   const titleText = isCreditPayment ? 'Pago a créditos' : (cat ? cat.name : 'Sin categoría');
 
   return (
@@ -1313,8 +1605,10 @@ export function renderTxRow(t){
 
     '<div class="avatar" style="background:' +
     bg +
+    ';color:' +
+    iconColor +
     '">' +
-    emoji +
+    iconHtml +
     '</div>' +
 
     '<div class="tx-main"><div class="tx-title">' +
@@ -1414,7 +1708,22 @@ export function renderTransactions(
       txFilter
     );
 
+  const month =
+    computeMonthStats();
+
   let html = '';
+
+  html +=
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">' +
+    '<div class="glass-stat" style="background:var(--income-bg);border-color:rgba(16,185,129,0.2);">' +
+    '<div class="glass-stat-lbl" style="color:var(--income)">Ingresos</div>' +
+    '<div class="glass-stat-val" style="color:var(--income)">' + fmtMoney(month.income) + '</div>' +
+    '</div>' +
+    '<div class="glass-stat" style="background:var(--expense-bg);border-color:rgba(225,29,72,0.2);">' +
+    '<div class="glass-stat-lbl" style="color:var(--expense)">Gastos</div>' +
+    '<div class="glass-stat-val" style="color:var(--expense)">' + fmtMoney(month.expense) + '</div>' +
+    '</div>' +
+    '</div>';
 
   html +=
     '<div class="search-box">' +
@@ -1455,7 +1764,7 @@ export function renderTransactions(
     '</div>';
 
   html +=
-    '<div id="tx-list">' +
+    '<div id="tx-list" class="list-container">' +
     (
       list.length
         ? list
@@ -1475,7 +1784,8 @@ export function renderTransactions(
    ========================================================== */
 
 export function renderInvoices(
-  openInvoiceId
+  openInvoiceId,
+  invoiceFilter = 'all'
 ){
 
   let html = '';
@@ -1483,7 +1793,7 @@ export function renderInvoices(
   html +=
     '<div class="section-title">Facturas Escaneadas</div>';
 
-  const list =
+  const all =
     (
       DB.invoices || []
     )
@@ -1499,13 +1809,73 @@ export function renderInvoices(
           )
       );
 
+  const pendingTotal =
+    all
+      .filter(inv => !inv.registered)
+      .reduce((s, inv) => s + (Number(inv.total) || 0), 0);
+
+  const registeredTotal =
+    all
+      .filter(inv => inv.registered)
+      .reduce((s, inv) => s + (Number(inv.total) || 0), 0);
+
+  if (
+    all.length
+  ){
+
+    html +=
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">' +
+      '<div class="glass-stat" style="background:var(--expense-bg);border-color:rgba(225,29,72,0.2);">' +
+      '<div class="glass-stat-lbl" style="color:var(--expense)">Pendiente</div>' +
+      '<div class="glass-stat-val" style="color:var(--expense)">' + fmtMoney(pendingTotal) + '</div>' +
+      '</div>' +
+      '<div class="glass-stat" style="background:var(--income-bg);border-color:rgba(16,185,129,0.2);">' +
+      '<div class="glass-stat-lbl" style="color:var(--income)">Registrado</div>' +
+      '<div class="glass-stat-val" style="color:var(--income)">' + fmtMoney(registeredTotal) + '</div>' +
+      '</div>' +
+      '</div>';
+
+    html +=
+      '<div class="filter-row" style="margin-bottom:14px;">' +
+      [
+        ['all', 'Todas'],
+        ['pending', 'Pendientes'],
+        ['registered', 'Registradas']
+      ].map(
+        ([val, label]) =>
+          '<button class="chip ' +
+          (invoiceFilter === val ? 'selected' : '') +
+          '" data-action="set-invoice-filter" data-filter="' + val + '">' +
+          label +
+          '</button>'
+      ).join('') +
+      '</div>';
+  }
+
+  const list =
+    all.filter(
+      inv =>
+        invoiceFilter === 'all' ||
+        (invoiceFilter === 'pending' ? !inv.registered : !!inv.registered)
+    );
+
+  if (
+    !all.length
+  ){
+
+    return (
+      html +
+      '<div class="empty-state">Aún no has escaneado ninguna factura.<br>Usa el botón central (+) para escanear una.</div>'
+    );
+  }
+
   if (
     !list.length
   ){
 
     return (
       html +
-      '<div class="empty-state">Aún no has escaneado ninguna factura.<br>Usa el botón central (+) para escanear una.</div>'
+      '<div class="empty-state">No hay facturas en este filtro.</div>'
     );
   }
 
@@ -1813,25 +2183,53 @@ export function renderCredits(
         '<div class="credit-card" style="overflow:hidden;">';
 
       html +=
-        '<div class="credit-head"><div style="min-width:0"><div class="credit-title">' +
+        '<div class="credit-head">' +
+
+        '<div style="display:flex;align-items:center;gap:10px;min-width:0;">' +
+        '<div class="credit-icon" style="background:' +
+        (
+          isAgainst
+            ? 'var(--expense-bg)'
+            : 'var(--income-bg)'
+        ) +
+        ';color:' +
+        progressColor +
+        '">' +
+        icon('credit') +
+        '</div>' +
+        '<div style="min-width:0"><div class="credit-title">' +
         esc(
           c.title
         ) +
-        '</div><div class="credit-sub">' +
+        '</div><div class="credit-sub">Capital ' +
+        fmtMoney(
+          plan.principal
+        ) +
+        '</div></div>' +
+        '</div>' +
+
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">' +
+        '<span class="credit-type-badge ' +
+        (
+          isAgainst
+            ? 'against'
+            : 'favor'
+        ) +
+        '">' +
         (
           isAgainst
             ? 'Deuda'
             : 'Cobro'
         ) +
-        ' · Capital ' +
-        fmtMoney(
-          plan.principal
-        ) +
-        '</div></div><button data-action="edit-credit" data-id="' +
+        '</span>' +
+        '<button data-action="edit-credit" data-id="' +
         c.id +
         '">' +
         icon('pencil') +
-        '</button></div>';
+        '</button>' +
+        '</div>' +
+
+        '</div>';
 
       /*
        * Resumen visual de tres cifras.
@@ -2116,10 +2514,27 @@ export function renderCategories(){
     c => {
 
       const emoji =
-        ICON_EMOJI[
+        categoryIcon(
           c.icon
-        ] ||
-        '⭐';
+        );
+
+      const hasBudget =
+        c.type === 'expense' &&
+        !!c.budget;
+
+      const spent =
+        totalsById[c.id] ||
+        0;
+
+      const pct =
+        hasBudget
+          ? Math.min(
+              100,
+              Math.round(
+                (spent / c.budget) * 100
+              )
+            )
+          : 0;
 
       return (
         '<button class="cat-item" data-action="edit-cat" data-id="' +
@@ -2128,7 +2543,9 @@ export function renderCategories(){
 
         '<div class="avatar" style="background:' +
         c.color +
-        '22">' +
+        '22;color:' +
+        c.color +
+        '">' +
         emoji +
         '</div>' +
 
@@ -2149,13 +2566,19 @@ export function renderCategories(){
         '</div>' +
 
         (
-          c.type === 'expense' &&
-          c.budget
-            ? '<div class="cat-budget">Presupuesto: ' +
+          hasBudget
+            ? '<div class="bar-track" style="margin:8px 0 4px;"><div class="bar-fill" style="width:' +
+              pct +
+              '%;background:' +
+              c.color +
+              '"></div></div>' +
+              '<div class="cat-budget-row"><span>' +
+              pct +
+              '% usado</span><span>de ' +
               fmtMoney(
                 c.budget
               ) +
-              '</div>'
+              '</span></div>'
             : ''
         ) +
         '</div>' +
@@ -2184,15 +2607,23 @@ export function renderCategories(){
 
     '<div class="section-title">Ingresos</div>' +
 
-    income
-      .map(row)
-      .join('') +
+    '<div class="list-container">' +
+    (
+      income.length
+        ? income.map(row).join('')
+        : '<div class="empty-state">Sin categorías de ingreso.</div>'
+    ) +
+    '</div>' +
 
     '<div class="section-title" style="margin-top:20px">Gastos</div>' +
 
-    expense
-      .map(row)
-      .join('')
+    '<div class="list-container">' +
+    (
+      expense.length
+        ? expense.map(row).join('')
+        : '<div class="empty-state">Sin categorías de gasto.</div>'
+    ) +
+    '</div>'
   );
 }
 
@@ -2200,10 +2631,24 @@ export function renderCategories(){
    AJUSTES
    ========================================================== */
 
-export function renderSettings(){
+export function renderSettings(welcomeName){
 
   let html =
-    '<div class="section-title">Moneda</div><div class="settings-list">';
+    '<div class="section-title">Nombre de bienvenida</div>';
+
+  html +=
+    '<div class="data-box">' +
+    '<div class="field-label" style="margin-bottom:2px;">El nombre que quieres ver en tu saludo</div>' +
+    '<input id="welcome-name-input" type="text" placeholder="Ej. Ana" maxlength="40" value="' +
+    esc(
+      welcomeName ||
+      ''
+    ) +
+    '" style="margin-top:10px;width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border-glass);background:rgba(255,255,255,0.04);color:var(--ink);font-size:15px;outline:none;">' +
+    '</div>';
+
+  html +=
+    '<div class="section-title" style="margin-top:20px">Moneda</div><div class="settings-list">';
 
   Object.entries(
     CURRENCIES
@@ -2237,23 +2682,6 @@ export function renderSettings(){
 
   html +=
     '</div>';
-
-  html +=
-    '<div class="section-title" style="margin-top:20px">Configuración de API IA (Producción)</div>';
-
-  html +=
-    '<div class="data-box"><div class="field-label">Clave de API de Gemini</div>';
-
-  html +=
-    '<input id="gemini-key-input" type="text" placeholder="Pega aquí tu API key" value="' +
-    esc(
-      DB.settings.geminiApiKey ||
-      ''
-    ) +
-    '">';
-
-  html +=
-    '<div style="font-size:11px;color:var(--ink-muted);margin-top:8px;">Clave segura para procesamiento en nube.</div></div>';
 
   html +=
     '<div class="section-title" style="margin-top:20px">Tus datos</div>';
@@ -2300,6 +2728,52 @@ export function renderSettings(){
    MENÚ FAB
    ========================================================== */
 
+const FAB_MENU_ACTIONS = [
+  {
+    action: 'fab-new-tx',
+    ic: 'plus',
+    label: 'Nuevo movimiento',
+    desc: 'Registrar ingreso o gasto',
+    color: 'var(--neon-cyan)',
+    bg: 'rgba(0,209,255,0.15)'
+  },
+  {
+    action: 'fab-new-credit',
+    ic: 'credit',
+    label: 'Nuevo crédito',
+    desc: 'Agregar deuda o cobro',
+    color: 'var(--neon-violet)',
+    bg: 'rgba(139,92,246,0.15)'
+  },
+  {
+    action: 'fab-scan-invoice',
+    ic: 'camera',
+    label: 'Escanear factura',
+    desc: 'Analizar con IA',
+    color: 'var(--neon-green)',
+    bg: 'rgba(16,185,129,0.15)'
+  },
+  {
+    action: 'fab-categories',
+    ic: 'tag',
+    label: 'Categorías',
+    desc: 'Ver y organizar',
+    color: 'var(--neon-blue)',
+    bg: 'rgba(32,96,255,0.15)'
+  },
+  {
+    action: 'fab-settings',
+    ic: 'gear',
+    label: 'Ajustes',
+    desc: 'Moneda y cuenta',
+    color: 'var(--ink-muted)',
+    bg: 'rgba(255,255,255,0.06)'
+  }
+];
+
+// Layout trasladado de figma_mis_finanzas/src/components/PlusMenu.tsx
+// (bottom sheet + grid de tarjetas). Las 5 acciones reales de Mis Finanzas
+// se conservan intactas; solo cambia la presentación.
 export function renderFabMenu(){
 
   return (
@@ -2307,40 +2781,21 @@ export function renderFabMenu(){
 
     '<div class="fab-menu-sheet">' +
 
-    '<button class="fab-menu-item" data-action="fab-new-tx">' +
-    '<div class="icon-box">' +
-    icon('plus') +
-    '</div>' +
-    '<span>Registrar movimiento</span>' +
-    '</button>' +
+    '<div class="fab-menu-handle"></div>' +
+    '<p class="fab-menu-title">Agregar</p>' +
 
-    '<button class="fab-menu-item" data-action="fab-new-credit">' +
-    '<div class="icon-box">' +
-    icon('credit') +
+    '<div class="fab-menu-grid">' +
+    FAB_MENU_ACTIONS.map(
+      a =>
+        '<button class="fab-menu-item" data-action="' + a.action + '">' +
+        '<div class="icon-box" style="background:' + a.bg + ';color:' + a.color + '">' +
+        icon(a.ic) +
+        '</div>' +
+        '<span class="fab-menu-item-label">' + a.label + '</span>' +
+        '<span class="fab-menu-item-desc">' + a.desc + '</span>' +
+        '</button>'
+    ).join('') +
     '</div>' +
-    '<span>Agregar nuevo crédito</span>' +
-    '</button>' +
-
-    '<button class="fab-menu-item" data-action="fab-scan-invoice">' +
-    '<div class="icon-box">' +
-    icon('camera') +
-    '</div>' +
-    '<span>Escanear factura con IA</span>' +
-    '</button>' +
-
-    '<button class="fab-menu-item" data-action="fab-invoices">' +
-    '<div class="icon-box">' +
-    icon('receipt') +
-    '</div>' +
-    '<span>Ver facturas escaneadas</span>' +
-    '</button>' +
-
-    '<button class="fab-menu-item" data-action="fab-settings">' +
-    '<div class="icon-box">' +
-    icon('gear') +
-    '</div>' +
-    '<span>Ajustes y Moneda</span>' +
-    '</button>' +
 
     '</div></div>'
   );
@@ -2360,14 +2815,15 @@ export function renderQuickSheet(
     );
 
   const emoji =
-    cat
-      ? (
-          ICON_EMOJI[
-            cat.icon
-          ] ||
-          '⭐'
-        )
-      : '⭐';
+    categoryIcon(
+      cat ? cat.icon : null
+    );
+
+  const expenseCats =
+    DB.categories.filter(
+      c =>
+        c.type === 'expense'
+    );
 
   const valid =
     Number(
@@ -2381,13 +2837,17 @@ export function renderQuickSheet(
     icon('close') +
     '</button></div>' +
 
-    '<div class="quick-header"><div class="avatar">' +
+    '<div class="quick-header" id="quick-header-box"><div class="avatar" style="background:' +
+    (cat ? cat.color + '22' : 'rgba(255,255,255,0.06)') +
+    ';color:' +
+    (cat ? cat.color : 'var(--ink-muted)') +
+    '">' +
     emoji +
     '</div><div class="qname">' +
     esc(
       cat
         ? cat.name
-        : ''
+        : 'Elige una categoría'
     ) +
     '</div></div>' +
 
@@ -2398,6 +2858,14 @@ export function renderQuickSheet(
       )
     ) +
     '"></div>' +
+
+    '<div class="field"><div class="field-label">Categoría</div><div class="chip-wrap" id="quickChipList">' +
+    renderTxCatChips(
+      expenseCats,
+      sheet.categoryId,
+      'pick-quick-cat'
+    ) +
+    '</div></div>' +
 
     (
       sheet.showNote
@@ -2437,7 +2905,8 @@ export function renderQuickSheet(
 
 export function renderTxCatChips(
   cats,
-  selectedId
+  selectedId,
+  actionName = 'pick-tx-cat'
 ){
 
   if (
@@ -2467,31 +2936,57 @@ export function renderTxCatChips(
           '" style="' +
           (
             sel
-              ? 'border-color:var(--violet);background:rgba(6,182,212,0.2);'
+              ? 'border-color:var(--neon-cyan);background:rgba(0,209,255,0.12);'
               : ''
           ) +
-          '" data-action="pick-tx-cat" data-id="' +
+          '" data-action="' +
+          actionName +
+          '" data-id="' +
           c.id +
           '">' +
 
           '<span class="chip-icon" style="background:' +
-          c.color +
-          '25">' +
-
           (
-            ICON_EMOJI[
-              c.icon
-            ] ||
-            '⭐'
+            sel
+              ? 'rgba(0,209,255,0.2)'
+              : c.color + '25'
+          ) +
+          ';color:' +
+          (
+            sel
+              ? 'var(--neon-cyan)'
+              : c.color
+          ) +
+          (
+            sel
+              ? ';box-shadow:0 0 0 1px var(--neon-cyan) inset, 0 0 6px rgba(0,209,255,0.35);'
+              : ''
+          ) +
+          '">' +
+
+          categoryIcon(
+            c.icon
           ) +
 
-          '</span><span class="chip-label">' +
+          '</span><span class="chip-label" style="' +
+          (
+            sel
+              ? 'color:var(--neon-cyan);font-weight:700;'
+              : ''
+          ) +
+          '">' +
 
           esc(
             c.name
           ) +
 
-          '</span></button>'
+          '</span>' +
+          (
+            sel
+              ? '<span class="pick-chip-check">' + icon('check') + '</span>'
+              : ''
+          ) +
+          '</button>'
         );
       }
     )
@@ -2637,7 +3132,7 @@ export function renderCatSheet(
           '" data-action="pick-icon" data-icon="' +
           k +
           '">' +
-          ICON_EMOJI[k] +
+          categoryIcon(k) +
           '</button>'
       )
       .join('');

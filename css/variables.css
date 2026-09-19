@@ -1,23 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 :root{
-  --bg:#020408; 
-  --card: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(11, 19, 38, 0.82) 100%);
-  --card-alt:rgba(15, 23, 42, 0.75);
-  --ink:#FFFFFF; --ink-muted:#94A3B8; 
-  --line:rgba(56, 189, 248, 0.25);
-  --violet:#06B6D4; --violet-dark:#0284C7; --pink:#38BDF8;
-  --income:#34D399; --income-bg:rgba(52, 211, 153, 0.15);
-  --expense:#F43F5E; --expense-bg:rgba(244, 63, 94, 0.15);
+  /* =====================================================================
+     TOKENS — trasladados de figma_mis_finanzas/src/index.css (fuente de
+     verdad visual). Se conservan los NOMBRES de variable ya usados en
+     main.css para no tener que reescribir cada regla; solo se corrigen
+     los VALORES para que coincidan exactamente con Figma.
+     ===================================================================== */
+  --bg:#06090f;
+  /* LIQUID GLASS (FASE 1B.4): superficie realmente translúcida — antes
+     rgba(...,0.82) era casi opaca. Con backdrop-filter blur+saturate en la
+     regla base de las tarjetas, esto deja intuir el fondo detrás. */
+  --card: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(13, 20, 36, 0.5) 100%);
+  --card-alt:rgba(13, 20, 36, 0.45);
+  --glass-blur: blur(28px) saturate(160%);
+  --ink:#F0F4FC; --ink-muted:#8899B4;
+  --line:rgba(0, 209, 255, 0.2);
+  --violet:#00D1FF; --violet-dark:#0284C7; --pink:#00D1FF;
+  --income:#10B981; --income-bg:rgba(16, 185, 129, 0.15);
+  --expense:#E11D48; --expense-bg:rgba(225, 29, 72, 0.12);
   --amber:#F59E0B; --amber-bg:rgba(245, 158, 11, 0.15);
   --shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
-  --border-glass: 1px solid rgba(255, 255, 255, 0.14);
-  --glow-cyan: 0 0 25px rgba(6, 182, 212, 0.4);
+  --border-glass: 1px solid rgba(255, 255, 255, 0.08);
+  /* Glow de precisión: capa ajustada al tamaño real del elemento (chip, dot,
+     icono) en vez de un halo grande y difuso. Ver sección 15 de FASE 1B.3. */
+  --glow-cyan: 0 0 8px rgba(0, 209, 255, 0.3), 0 0 1px rgba(255, 255, 255, 0.2);
+
+  /* =====================================================================
+     SISTEMA VISUAL GLOBAL — Neon futurista + Glassmorphism (Mis Finanzas)
+     Se usa en TODAS las pantallas (Dashboard, Movimientos, Créditos,
+     Categorías, Facturas, menú +, sheets/modales, dock).
+     ===================================================================== */
+  --dash-deep:#080C15;
+  /* Translúcidos (antes hex sólidos): el balance-card usa estos tonos en su
+     gradiente de fondo y debe seguir siendo Liquid Glass, no una caja opaca. */
+  --dash-surface:rgba(13, 20, 32, 0.55);
+  --dash-surface-elevated:rgba(14, 22, 38, 0.6);
+  --dash-border-neon:rgba(0, 209, 255, 0.2);
+
+  --neon-cyan:#00D1FF;
+  --neon-blue:#2060FF;
+  --neon-violet:#8B5CF6;
+  --neon-accent:#00D1FF;
+  --neon-green:#10B981;
+  --neon-red:#E11D48;
+  --wine:#9B1239;
+
+  /* Glow ambiental para superficies (cards, sheets): muy sutil, de fondo */
+  --glow-ambient: 0 0 22px rgba(0, 209, 255, 0.05);
+
+  /* Retroiluminación de tarjetas (FASE 1B.3): gradiente radial tenue para
+     ::before, no un box-shadow único y grande. Color semántico por tarjeta. */
+  --ambient-cyan: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(0, 209, 255, 0.055), transparent 70%);
+  --ambient-green: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(16, 185, 129, 0.06), transparent 70%);
+  --ambient-red: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(225, 29, 72, 0.05), transparent 70%);
+  --ambient-violet: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(139, 92, 246, 0.055), transparent 70%);
+
+  /* Glow selectivo: solo para acciones/estados activos/gráficos/botón + */
+  --glow-cyan-strong: 0 0 10px rgba(0, 209, 255, 0.25);
+  --glow-blue: 0 0 8px rgba(32, 96, 255, 0.35), 0 0 18px rgba(32, 96, 255, 0.12);
+  --glow-purple: 0 0 20px rgba(139, 92, 246, 0.2);
+  --glow-green: 0 0 16px rgba(16, 185, 129, 0.2);
+  --glow-red: 0 0 7px rgba(225, 29, 72, 0.3), 0 0 16px rgba(225, 29, 72, 0.12);
+
+  --dash-text:#F0F4FC;
+  --dash-text-muted:#8899B4;
+
+  --radius-sm:8px; --radius-md:16px; --radius-lg:20px; --radius-xl:24px;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 html,body{
   margin:0;padding:0;background:var(--bg);color:var(--ink);
-  font-family:'Outfit',-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
   -webkit-font-smoothing:antialiased; overflow-x:hidden; height:100%;
 }
+h1,h2,h3,.section-title,.font-display{font-family:'Outfit','Inter',sans-serif;}
+.font-mono{font-family:'JetBrains Mono',monospace;}
 #root{
   max-width:480px;margin:0 auto;height:100dvh;height:100vh;
   position:relative;display:flex;flex-direction:column;overflow:hidden;
