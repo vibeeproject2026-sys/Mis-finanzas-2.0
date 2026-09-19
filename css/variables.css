@@ -13,14 +13,17 @@
      regla base de las tarjetas, esto deja intuir el fondo detrás. */
   --card: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(13, 20, 36, 0.5) 100%);
   --card-alt:rgba(13, 20, 36, 0.45);
-  --glass-blur: blur(28px) saturate(160%);
+  /* FASE 1B.6: menos blur, más definición — "NEON EN LOS BORDES > BLUR EN
+     LAS SUPERFICIES". Antes blur(28px) saturate(160%) lavaba el contraste. */
+  --glass-blur: blur(14px) saturate(140%);
   --ink:#F0F4FC; --ink-muted:#8899B4;
   --line:rgba(0, 209, 255, 0.2);
   --violet:#00D1FF; --violet-dark:#0284C7; --pink:#00D1FF;
   --income:#10B981; --income-bg:rgba(16, 185, 129, 0.15);
   --expense:#E11D48; --expense-bg:rgba(225, 29, 72, 0.12);
   --amber:#F59E0B; --amber-bg:rgba(245, 158, 11, 0.15);
-  --shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+  /* Sombra oscura y contenida (antes 40px de blur, demasiado grande) */
+  --shadow: 0 8px 22px 0 rgba(0, 0, 0, 0.45);
   --border-glass: 1px solid rgba(255, 255, 255, 0.08);
   /* Glow de precisión: capa ajustada al tamaño real del elemento (chip, dot,
      icono) en vez de un halo grande y difuso. Ver sección 15 de FASE 1B.3. */
@@ -42,8 +45,14 @@
   --neon-blue:#2060FF;
   --neon-violet:#8B5CF6;
   --neon-accent:#00D1FF;
-  --neon-green:#10B981;
-  --neon-red:#E11D48;
+  /* FASE 1B.6: valores más vivos/eléctricos (antes duplicaban --income/
+     --expense, tonos apagados). --income/--expense siguen igual para
+     montos de transacciones; estos tokens son para acentos/bordes/glow. */
+  --neon-green:#10F5A0;
+  --neon-red:#FF1744;
+  --neon-pink:#FF2D8D;
+  --acid-green:#B6FF00;
+  --neon-orange:#FF7A00;
   --wine:#9B1239;
 
   /* Glow ambiental para superficies (cards, sheets): muy sutil, de fondo */
@@ -52,9 +61,10 @@
   /* Retroiluminación de tarjetas (FASE 1B.3): gradiente radial tenue para
      ::before, no un box-shadow único y grande. Color semántico por tarjeta. */
   --ambient-cyan: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(0, 209, 255, 0.055), transparent 70%);
-  --ambient-green: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(16, 185, 129, 0.06), transparent 70%);
-  --ambient-red: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(225, 29, 72, 0.05), transparent 70%);
+  --ambient-green: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(16, 245, 160, 0.06), transparent 70%);
+  --ambient-red: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(255, 23, 68, 0.05), transparent 70%);
   --ambient-violet: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(139, 92, 246, 0.055), transparent 70%);
+  --ambient-pink: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(255, 45, 141, 0.055), transparent 70%);
 
   /* Glow selectivo: solo para acciones/estados activos/gráficos/botón + */
   --glow-cyan-strong: 0 0 10px rgba(0, 209, 255, 0.25);
@@ -62,6 +72,35 @@
   --glow-purple: 0 0 20px rgba(139, 92, 246, 0.2);
   --glow-green: 0 0 16px rgba(16, 185, 129, 0.2);
   --glow-red: 0 0 7px rgba(225, 29, 72, 0.3), 0 0 16px rgba(225, 29, 72, 0.12);
+
+  /* ---- NEON GLASS (FASE 1B.6): bordes retroiluminados ----
+     Aro fino + glow CEÑIDO al borde (radio pequeño/medio, nada de halos
+     grandes). Reemplaza la idea de "glow ambiental grande" por un borde
+     que se lee como un tubo de neon. Se combinan con una sombra oscura
+     de profundidad en el box-shadow de cada tarjeta (ver main.css). */
+  --border-neon-cyan: 1.5px solid rgba(0, 209, 255, 0.55);
+  --glow-border-cyan: 0 0 0 1px rgba(0, 209, 255, 0.15), 0 0 10px rgba(0, 209, 255, 0.3);
+  /* Variante sin blur para filas repetidas (listas de movimientos/
+     categorías): un hairline de color, no un glow por fila. */
+  --glow-border-cyan-soft: 0 0 0 1px rgba(0, 209, 255, 0.12);
+
+  --border-neon-green: 1.5px solid rgba(16, 245, 160, 0.5);
+  --glow-border-green: 0 0 0 1px rgba(16, 245, 160, 0.14), 0 0 10px rgba(16, 245, 160, 0.28);
+
+  --border-neon-pink: 1.5px solid rgba(255, 45, 141, 0.5);
+  --glow-border-pink: 0 0 0 1px rgba(255, 45, 141, 0.14), 0 0 10px rgba(255, 45, 141, 0.28);
+
+  --border-neon-violet: 1.5px solid rgba(139, 92, 246, 0.5);
+  --glow-border-violet: 0 0 0 1px rgba(139, 92, 246, 0.14), 0 0 10px rgba(139, 92, 246, 0.28);
+
+  --border-neon-wine: 1.5px solid rgba(155, 18, 57, 0.55);
+  --glow-border-wine: 0 0 0 1px rgba(155, 18, 57, 0.16), 0 0 10px rgba(155, 18, 57, 0.3);
+
+  --border-neon-red: 1.5px solid rgba(255, 23, 68, 0.5);
+  --glow-border-red: 0 0 0 1px rgba(255, 23, 68, 0.14), 0 0 10px rgba(255, 23, 68, 0.28);
+
+  /* Sombra de profundidad: oscura y contenida, no un halo blanco/grande */
+  --shadow-depth: 0 8px 20px rgba(0, 0, 0, 0.45);
 
   --dash-text:#F0F4FC;
   --dash-text-muted:#8899B4;

@@ -4738,6 +4738,17 @@ function fmtMoneyLocal(
    COMPRESIÓN DE IMAGEN
    ========================================================== */
 
+// FASE 1B.8: antes se leía el archivo con FileReader.readAsDataURL (que
+// codifica TODO el archivo original, a veces varios MB de una foto de
+// cámara, a base64 solo para volver a decodificarlo al asignarlo a
+// img.src) y luego se re-codificaba una SEGUNDA vez a base64 vía
+// canvas.toDataURL. Ese primer paso por base64 era una conversión
+// innecesaria: nunca se usa el string del archivo original, solo los
+// píxeles ya reducidos. Se reemplaza por URL.createObjectURL(file), que
+// referencia los bytes del archivo directamente sin codificarlos, y
+// alimenta exactamente el mismo <img> (misma decodificación de imagen,
+// mismo manejo de orientación EXIF que antes — no cambia qué llega al
+// analizador, solo cómo se lee el archivo original).
 function compressImage(
   file,
   maxWidth = 800,
@@ -4747,112 +4758,108 @@ function compressImage(
   return new Promise(
     (resolve, reject) => {
 
-      const reader =
-        new FileReader();
+      const objectUrl =
+        URL.createObjectURL(
+          file
+        );
 
-      reader.readAsDataURL(
-        file
-      );
-
-      reader.onerror =
+      const cleanup =
         () => {
+
+          URL.revokeObjectURL(
+            objectUrl
+          );
+        };
+
+      const img =
+        new Image();
+
+      img.onerror =
+        () => {
+
+          cleanup();
 
           reject(
             new Error(
-              'No se pudo leer la imagen.'
+              'No se pudo procesar la imagen.'
             )
           );
         };
 
-      reader.onload =
-        event => {
+      img.onload =
+        () => {
 
-          const img =
-            new Image();
+          cleanup();
 
-          img.onerror =
-            () => {
+          const canvas =
+            document.createElement(
+              'canvas'
+            );
 
-              reject(
-                new Error(
-                  'No se pudo procesar la imagen.'
-                )
-              );
-            };
+          let width =
+            img.width;
 
-          img.src =
-            event.target.result;
+          let height =
+            img.height;
 
-          img.onload =
-            () => {
+          if (
+            width >
+            maxWidth
+          ){
 
-              const canvas =
-                document.createElement(
-                  'canvas'
-                );
-
-              let width =
-                img.width;
-
-              let height =
-                img.height;
-
-              if (
-                width >
-                maxWidth
-              ){
-
-                height =
-                  Math.round(
-                    (
-                      height *
-                      maxWidth
-                    ) /
-                    width
-                  );
-
-                width =
-                  maxWidth;
-              }
-
-              canvas.width =
-                width;
-
-              canvas.height =
-                height;
-
-              const ctx =
-                canvas.getContext(
-                  '2d'
-                );
-
-              ctx.drawImage(
-                img,
-                0,
-                0,
-                width,
-                height
+            height =
+              Math.round(
+                (
+                  height *
+                  maxWidth
+                ) /
+                width
               );
 
-              const dataUrl =
-                canvas.toDataURL(
-                  'image/jpeg',
-                  quality
-                );
+            width =
+              maxWidth;
+          }
 
-              const match =
-                dataUrl.match(
-                  /^data:([^;]+);base64,(.*)$/
-                );
+          canvas.width =
+            width;
 
-              resolve({
-                mimeType:
-                  match[1],
-                base64:
-                  match[2]
-              });
-            };
+          canvas.height =
+            height;
+
+          const ctx =
+            canvas.getContext(
+              '2d'
+            );
+
+          ctx.drawImage(
+            img,
+            0,
+            0,
+            width,
+            height
+          );
+
+          const dataUrl =
+            canvas.toDataURL(
+              'image/jpeg',
+              quality
+            );
+
+          const match =
+            dataUrl.match(
+              /^data:([^;]+);base64,(.*)$/
+            );
+
+          resolve({
+            mimeType:
+              match[1],
+            base64:
+              match[2]
+          });
         };
+
+      img.src =
+        objectUrl;
     }
   );
 }
@@ -4887,12 +4894,24 @@ document.addEventListener(
       const file =
         e.target.files[0];
 
+      // Sección 6, FASE 1B.8: mensaje honesto en dos fases reales (no un
+      // porcentaje inventado) — refleja exactamente lo que ocurre: primero
+      // se prepara la imagen en el teléfono, después se espera la
+      // respuesta del análisis (la fase que realmente toma más tiempo).
       scanningOverlay = {
         message:
-          'Optimizando y analizando factura con IA...'
+          'Optimizando imagen...'
       };
 
       renderOverlays();
+
+      // Medición ligera (Sección 5, FASE 1B.8): sin UI ni lógica nueva,
+      // solo marcas de tiempo en consola para poder confirmar en un
+      // dispositivo real cuánto corresponde a preparar la imagen en el
+      // teléfono vs. a la respuesta del proxy/modelo (red + IA, fuera del
+      // control de esta app). Déjalo activo; no afecta el flujo.
+      const scanTimingStart =
+        performance.now();
 
       compressImage(
         file,
@@ -4905,6 +4924,25 @@ document.addEventListener(
           mimeType
         }) => {
 
+          const scanTimingImageReady =
+            performance.now();
+
+          console.log(
+            '[scan-invoice] preparación de imagen: ' +
+            (
+              scanTimingImageReady -
+              scanTimingStart
+            ).toFixed(0) +
+            'ms'
+          );
+
+          scanningOverlay = {
+            message:
+              'Analizando factura con IA...'
+          };
+
+          renderOverlays();
+
           try {
 
             const result =
@@ -4914,6 +4952,23 @@ document.addEventListener(
                     mimeType
                   )
                 : {};
+
+            const scanTimingResponse =
+              performance.now();
+
+            console.log(
+              '[scan-invoice] proxy + modelo (red, fuera del control local): ' +
+              (
+                scanTimingResponse -
+                scanTimingImageReady
+              ).toFixed(0) +
+              'ms — total: ' +
+              (
+                scanTimingResponse -
+                scanTimingStart
+              ).toFixed(0) +
+              'ms'
+            );
 
             const scannedItems =
               Array.isArray(result.items)

@@ -15,14 +15,19 @@
   border-radius:0 0 28px 28px;
   color:#fff;
   border-bottom: var(--border-glass);
-  box-shadow: 0 10px 30px rgba(6, 182, 212, 0.15), inset 0 1px 0 0 rgba(255,255,255,0.2);
+  box-shadow: none;
   overflow:hidden;
   z-index:2;
 }
 .hero-content{position:relative;z-index:2;}
 .hero-main{display:flex;align-items:center;justify-content:space-between;gap:12px;}
-.hero h1{font-size:26px;font-weight:800;letter-spacing:-0.5px;line-height:1.15;color:#FFFFFF;}
-.hero p{font-size:12px;color:var(--ink-muted);margin-top:4px;font-weight:500;}
+/* FASE 1B.8: se eliminaron las reglas heredadas ".hero h1" / ".hero p"
+   (header genérico muy antiguo, ya sin markup que las use). Por
+   especificidad — "​.hero h1"/".hero p" (clase+tipo) pesan más que
+   ".hero-greeting"/".hero-quote" (una sola clase) — ganaban en cascada y
+   silenciosamente forzaban color:var(--ink-muted) en el subtítulo aunque
+   .hero-quote definiera un color distinto más abajo. Esa colisión era la
+   causa real del "gris apagado" reportado, no el valor de .hero-quote. */
 
 .cloud-status-badge{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid var(--border-glass);flex-shrink:0;gap:0;position:relative;}
 .cloud-status-icon{font-size:15px;line-height:1;color:var(--ink-muted);}
@@ -36,21 +41,50 @@
 .banner--warn{background:var(--expense-bg);color:var(--expense);border:1px solid rgba(244,63,94,0.3);}
 .floating-banner{margin:0;background:rgba(11,19,38,0.95);border:1px solid rgba(244,63,94,0.45);box-shadow:0 8px 24px rgba(0,0,0,0.45);font-weight:600;}
 
-.section-title{font-size:18px;font-weight:700;margin-bottom:16px;color:#FFFFFF;letter-spacing:-0.5px;}
+/* Sección 2/3, FASE 1B.7: regla ÚNICA y reutilizable para TODOS los
+   títulos de sección del Dashboard (y del resto de la app, que ya
+   compartía esta clase) — mismo font-family/size/weight/line-height/
+   letter-spacing/alineación e icono con el mismo tratamiento. .mom-title
+   ("Comparativa Mes a Mes") se une a la MISMA regla en vez de tener sus
+   propios valores (15px/800 vs 18px/700): esa diferencia era justamente
+   la inconsistencia reportada. El padding-left:24px alinea los títulos
+   sueltos en #view con los que viven dentro de una tarjeta (.card/
+   .balance-card ya aportan esos 24px con su propio padding, por eso se
+   cancela ahí). */
+.section-title, .mom-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-family:'Outfit','Inter',sans-serif;
+  font-size:18px;
+  font-weight:700;
+  line-height:1.25;
+  letter-spacing:-0.5px;
+  color:#FFFFFF;
+}
+.section-title{ margin-bottom:16px; padding-left:24px; }
+.card > .section-title, .balance-card > .section-title{ padding-left:0; }
+.section-title .icon, .mom-title .icon{
+  width:17px;
+  height:17px;
+  flex-shrink:0;
+  color: var(--neon-cyan);
+}
 .empty-hint{font-size:12.5px;color:var(--ink-muted);padding:.4rem 0;}
 
-/* ---- LIQUID GLASS: superficie base de todas las tarjetas principales ----
-   Capa 1 (fondo translúcido, var(--card)) + Capa 2 (blur/saturate) + Capa 4
-   (borde fino) + sombra de profundidad. Capas 3/5/6 (reflejo, luz ambiental,
-   acento semántico) se agregan como pseudo-elementos en la sección de
-   "SISTEMA VISUAL GLOBAL" más abajo, para no duplicar declaraciones. */
+/* ---- NEON GLASS: superficie base de todas las tarjetas principales ----
+   FASE 1B.6: "neon en los bordes > blur en las superficies". Fondo oscuro
+   translúcido + borde visible con glow CEÑIDO (var(--glow-border-cyan) por
+   defecto; cada tarjeta afina su color de neon más abajo, en la sección
+   "SISTEMA VISUAL GLOBAL") + sombra oscura de profundidad. Sin inset
+   blanco: esa era la fuente de la "luz blanca difusa" sobre las tarjetas. */
 .balance-card, .card, .mom-card, .credit-card, .search-box, .settings-list, .data-box{
   background:var(--card);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border-radius:20px;
-  border:1px solid var(--dash-border-neon);
-  box-shadow: var(--shadow), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  border: var(--border-neon-cyan);
+  box-shadow: var(--shadow-depth), var(--glow-border-cyan);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
   position:relative;
   isolation:isolate;
@@ -64,7 +98,7 @@
 .balance-metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;padding-top:16px;border-top:1px solid rgba(0, 217, 255, 0.2);}
 .b-metric{display:flex;flex-direction:column;gap:4px;background:rgba(2, 6, 23, 0.6);padding:14px;border-radius:20px;border:1px solid rgba(0, 217, 255, 0.2);}
 .b-metric .lbl{font-size:10px;color:var(--ink-muted);font-weight:700;text-transform:uppercase;}
-.b-metric .val{font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;}
+.b-metric .val{font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;text-shadow:0 0 2.5px currentColor;}
 .b-metric .val.inc{color:var(--income);}
 .b-metric .val.exp{color:var(--expense);}
 .b-metric .val.sav{color:var(--violet);}
@@ -73,12 +107,12 @@
 .quick-btn{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
   width:30%;padding:16px 8px;border-radius:24px;
-  background:var(--card);backdrop-filter:blur(20px);
-  box-shadow: var(--shadow), inset 0 1px 0 0 rgba(255,255,255,0.12);
-  border:1px solid var(--dash-border-neon);
-  transition: transform 0.15s ease;
+  background:var(--card);backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-depth), var(--glow-border-cyan-soft);
+  border: 1px solid rgba(0, 209, 255, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
-.quick-btn:active {transform:scale(0.92); box-shadow: var(--shadow), var(--glow-cyan-strong);}
+.quick-btn:active {transform:scale(0.92); box-shadow: var(--shadow-depth), var(--glow-border-cyan);}
 .quick-btn .em{width:40px;height:40px;border-radius:14px;display:flex;align-items:center;justify-content:center;}
 .quick-btn .em .icon{width:20px;height:20px;}
 .quick-btn .nm{font-size:11px;font-weight:600;text-align:center;line-height:1.2;color:#FFFFFF;word-break:break-word;}
@@ -120,8 +154,6 @@
 
 .mom-card{padding:20px;margin-top:16px;overflow:hidden;}
 .mom-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
-.mom-title{font-size:15px;font-weight:800;color:#FFFFFF;display:inline-flex;align-items:center;gap:7px;}
-.mom-title .icon{width:16px;height:16px;color:var(--neon-cyan);}
 .mom-dots{display:flex;gap:6px;}
 .mom-dot{width:6px;height:6px;border-radius:50%;background:rgba(0, 217, 255, 0.2);transition:background .3s;}
 .mom-dot.active{background:var(--violet);box-shadow:var(--glow-cyan);}
@@ -138,14 +170,14 @@
 .mom-box .delta.neutral{color:var(--ink-muted);}
 .mom-single{background:rgba(15, 23, 42, 0.8);padding:16px;border-radius:20px;border:1px solid rgba(0, 217, 255, 0.25);text-align:center;}
 .mom-single .lbl{font-size:10px;color:var(--ink-muted);font-weight:700;text-transform:uppercase;letter-spacing:1px;}
-.mom-single .val{font-family:'Outfit',sans-serif;font-size:24px;font-weight:900;margin-top:4px;letter-spacing:-0.5px;}
+.mom-single .val{font-family:'Outfit',sans-serif;font-size:24px;font-weight:900;margin-top:4px;letter-spacing:-0.5px;text-shadow:0 0 3px currentColor;}
 .mom-single .sub{font-size:11px;color:var(--ink-muted);margin-top:4px;}
 .mom-insight{background:rgba(245, 158, 11, 0.12);border-radius:16px;padding:12px;font-size:12px;color:#FCD34D;line-height:1.4;display:flex;gap:10px;align-items:flex-start;margin-top:14px;border:1px solid rgba(245, 158, 11, 0.3);}
 .mom-insight .icon{width:16px;height:16px;flex-shrink:0;margin-top:1px;}
 
 .glass-stat{border-radius:16px;padding:14px;border:1px solid var(--dash-border-neon);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);position:relative;overflow:hidden;}
 .glass-stat-lbl{font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;}
-.glass-stat-val{font-family:'Outfit',sans-serif;font-size:18px;font-weight:800;}
+.glass-stat-val{font-family:'Outfit',sans-serif;font-size:18px;font-weight:800;text-shadow:0 0 3px currentColor;}
 
 .search-box{display:flex;align-items:center;gap:10px;padding:14px 18px;margin-bottom:14px;}
 .search-box input{flex:1;border:none;background:transparent;outline:none;font-size:14px;color:var(--ink);}
@@ -165,9 +197,11 @@
   background:var(--card);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 4px 14px rgba(0,0,0,0.22), inset 0 1px 0 0 rgba(255,255,255,0.08);
+  /* Fila de lista: borde visible pero sin el glow difuso reservado para
+     las tarjetas protagonistas (evita "pared de neon" en listas largas). */
+  box-shadow: 0 4px 14px rgba(0,0,0,0.28), var(--glow-border-cyan-soft);
   text-align:left;
-  border:1px solid var(--dash-border-neon);
+  border: 1px solid rgba(0, 209, 255, 0.35);
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 .tx-item:active, .cat-item:active{transform:scale(0.98);background:rgba(255,255,255,0.05);}
@@ -198,9 +232,9 @@
 .credit-type-badge.against{background:var(--expense-bg);color:var(--expense);border:1px solid rgba(225,29,72,0.25);}
 .credit-type-badge.favor{background:var(--income-bg);color:var(--income);border:1px solid rgba(16,185,129,0.25);}
 .credit-values{display:flex;justify-content:space-between;align-items:baseline;margin:12px 0 6px;font-size:12px;color:var(--ink-muted);}
-.credit-pending{font-family:'Outfit',sans-serif;font-weight:900;font-size:18px;text-shadow:0 1px 2px rgba(0,0,0,0.35);}
-.credit-pending.against{color:var(--neon-red);}
-.credit-pending.favor{color:var(--neon-green);}
+.credit-pending{font-family:'Outfit',sans-serif;font-weight:900;font-size:18px;text-shadow:0 1px 2px rgba(0,0,0,0.35), 0 0 3px currentColor;}
+.credit-pending.against{color:var(--wine);}
+.credit-pending.favor{color:var(--neon-violet);}
 .payment-item{display:flex;justify-content:space-between;align-items:center;background:rgba(15, 23, 42, 0.8);padding:10px 14px;border-radius:14px;font-size:12.5px;margin-top:8px;border:1px solid var(--dash-border-neon);}
 .add-pay-btn{width:100%;padding:12px;border-radius:16px;background:rgba(0, 217, 255, 0.1);color:var(--neon-cyan);font-weight:800;font-size:13px;margin-top:12px;text-align:center;border:1px solid var(--dash-border-neon);}
 
@@ -355,11 +389,16 @@
 .fab-menu-title{ font-size:11px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-muted); margin-bottom:16px; padding-left:4px; }
 .fab-menu-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 
+/* Sección 12A/12C, FASE 1B.7: opciones del menú desplegado con el mismo
+   lenguaje neon premium del resto de la app — selector propio y aislado,
+   NUNCA compartido con .fab-center (el botón + no vive dentro de
+   .fab-menu-sheet, así que no hay forma de que esta regla lo alcance). */
 .fab-menu-item {
   display: flex; flex-direction: column; align-items: flex-start; gap: 10px; width: 100%;
   padding: 16px; border-radius: 16px;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-glass);
+  border: 1px solid rgba(0, 209, 255, 0.22);
+  box-shadow: var(--glow-border-cyan-soft);
   color: #FFFFFF; cursor: pointer; text-align: left;
   transition: all 0.15s ease;
   transform: scale(1);
@@ -367,6 +406,7 @@
 
 .fab-menu-item:active, .fab-menu-item.selected-pulse {
   transform: scale(0.97);
+  border-color: rgba(0, 209, 255, 0.4);
 }
 
 .fab-menu-item * { pointer-events: none; }
@@ -427,7 +467,13 @@
   width:calc((100% - 20px) / 3);
   padding:14px 6px;border-radius:16px;font-size:11px;font-weight:600;cursor:pointer;text-align:center;
   position:relative;
-  border:1px solid var(--border-glass);background:rgba(255,255,255,0.04);color:var(--ink-muted);transition:all 0.15s;
+  /* Sección 12A/16, FASE 1B.7: borde neon estructural sutil incluso sin
+     seleccionar (antes era un borde neutro plano); al seleccionar (estilo
+     en línea desde renderTxCatChips) se vuelve más intenso — no de "nada"
+     a "intenso". Glow sin blur (variante "soft"), grid repetido = NIVEL 1. */
+  border: 1px solid rgba(0, 209, 255, 0.22);
+  box-shadow: var(--glow-border-cyan-soft);
+  background:rgba(255,255,255,0.04);color:var(--ink-muted);transition:all 0.15s;
 }
 .pick-chip:active{transform:scale(0.96);}
 .pick-chip .chip-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;transition:background-color 0.15s, box-shadow 0.15s;}
@@ -467,7 +513,9 @@
 .amount-input:focus{border-color:var(--violet);box-shadow:var(--glow-cyan);}
 .link-btn{font-size:13px;color:var(--pink);font-weight:700;padding:8px 0;}
 
-.confirm-box{width:100%;max-width:320px;background:#0B1326;border-radius:24px;padding:24px;border:1px solid var(--dash-border-neon);box-shadow:0 12px 32px rgba(0,0,0,0.4), 0 0 20px rgba(0,217,255,0.1);overflow-x:hidden;touch-action:pan-y;overscroll-behavior:contain;}
+/* Modal de confirmación: casi siempre una acción destructiva (borrar
+   movimiento/categoría/crédito), borde neon rojo en vez de cyan genérico */
+.confirm-box{width:100%;max-width:320px;background:#0B1326;border-radius:24px;padding:24px;border: var(--border-neon-red);box-shadow: var(--shadow-depth), var(--glow-border-red);overflow-x:hidden;touch-action:pan-y;overscroll-behavior:contain;}
 .confirm-box p{font-size:14px;line-height:1.5;color:#FFFFFF;}
 .confirm-actions{display:flex;gap:10px;margin-top:20px;}
 .confirm-actions button{flex:1;border-radius:16px;padding:14px;font-size:14px;font-weight:800;}
@@ -493,16 +541,20 @@
 @keyframes spin{to{transform:rotate(360deg);}}
 
 /* ==========================================================
-   SISTEMA VISUAL GLOBAL — Neon futurista + Glassmorphism
+   SISTEMA VISUAL GLOBAL — NEON GLASS (FASE 1B.6)
    Se aplica a TODA la aplicación (Dashboard, Movimientos, Créditos,
-   Categorías, Facturas, menú +, sheets/modales, dock). El glow es
-   ambiental y selectivo (acciones, estados activos, gráficos, botón +),
-   no un borde brillante en cada elemento. Los tokens compartidos viven
-   en variables.css; aquí solo se afinan las piezas que necesitan algo
-   más que el borde/glow ambiental ya aplicado en las reglas base de
-   arriba (.balance-card,.card,.mom-card,.credit-card,.search-box,
-   .settings-list,.data-box / .tx-item,.cat-item / .chip / .sheet /
-   .confirm-box / .fab-menu-* ya comparten el mismo lenguaje).
+   Categorías, Facturas, menú +, sheets/modales, dock).
+
+   Regla: NEON EN LOS BORDES > BLUR EN LAS SUPERFICIES. Cada tarjeta
+   importante lleva un borde retroiluminado (var(--border-neon-*) +
+   var(--glow-border-*), un aro fino con glow ceñido, no un halo grande) y
+   una sombra oscura de profundidad (var(--shadow-depth)). El color del
+   borde depende del contexto semántico de la tarjeta. NO hay ninguna capa
+   de luz blanca difusa: se eliminó por completo el ::after de "reflejo"
+   que antes cubría la esquina superior de cada tarjeta (esa era la fuente
+   de la iluminación blanca genérica reportada). La luz ambiental interna
+   que queda (::before, ver más abajo) usa siempre un color del sistema
+   (cyan/verde/rosa/violeta/wine), nunca blanco.
    ========================================================== */
 
 @media (prefers-reduced-motion: no-preference) {
@@ -524,13 +576,12 @@
   box-shadow: none;
   isolation: isolate;
 }
-/* ---- Tarjetas del Dashboard/Créditos/Ritmo de gasto: retroiluminación
-   estructurada en capas (superficie, borde, luz ambiental, acento) en vez
-   de un único box-shadow grande. Capas 1-2 vienen de la regla compartida
-   de arriba; aquí solo se agrega la Capa 3 (::before, gradiente radial
-   tenue) y, cuando corresponde, la Capa 4 (acento semántico). ---- */
+
+/* ---- Balance: cyan / electric blue (tarjeta insignia) ---- */
 .balance-card{
   background: linear-gradient(150deg, rgba(0, 217, 255, 0.03) 0%, var(--dash-surface) 45%, var(--dash-surface-elevated) 100%);
+  border: var(--border-neon-cyan);
+  box-shadow: var(--shadow-depth), var(--glow-border-cyan);
   isolation: isolate;
 }
 .balance-card::before{
@@ -539,21 +590,28 @@
   top:-70px; left:50%;
   transform: translateX(-50%);
   width:260px; height:160px;
-  background: radial-gradient(ellipse, rgba(0,217,255,0.06) 0%, transparent 75%);
+  background: var(--ambient-cyan);
   pointer-events:none;
   z-index:0;
 }
 .balance-card > *{ position:relative; z-index:1; }
 .balance-amount{
-  /* Sección 6, FASE 1B.5: el número debe ser nítido — la iluminación vive
-     en la tarjeta (::before de .balance-card), no en el texto. Solo una
-     sombra corta para profundidad, sin glow de color sobre el número. */
-  text-shadow: 0 1px 3px rgba(0,0,0,0.35);
+  /* Sección 4, FASE 1B.7 (NIVEL 2 — neon de información): el número sigue
+     siendo nítido, la iluminación principal vive en el borde de la
+     tarjeta — pero ahora lleva un glow MUY ligero de su propio color
+     (radio pequeño, sin alpha extra) para sentirse "texto luminoso" y no
+     un bloque plano. ~80-90% nitidez / ~10-20% glow, nunca un halo. */
+  text-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 0 3px currentColor;
 }
 
+/* ---- Tarjetas de contenido (Ritmo de gasto, Distribución, Presupuestos,
+   Facturas...): cyan por defecto; Comparativa (.mom-card) en violeta;
+   Créditos según against/favor (wine/violeta). ---- */
 .card, .mom-card, .credit-card{
   overflow:hidden;
   isolation:isolate;
+  border: var(--border-neon-cyan);
+  box-shadow: var(--shadow-depth), var(--glow-border-cyan);
 }
 .card::before, .mom-card::before, .credit-card::before{
   content:'';
@@ -565,24 +623,35 @@
   z-index:0;
 }
 .card > *, .mom-card > *, .credit-card > *{ position:relative; z-index:1; }
+
+.mom-card{
+  border: var(--border-neon-violet);
+  box-shadow: var(--shadow-depth), var(--glow-border-violet);
+}
 .mom-card::before{ background: var(--ambient-violet); }
+
+.credit-card:has(.credit-pending.against){
+  border: var(--border-neon-wine);
+  box-shadow: var(--shadow-depth), var(--glow-border-wine);
+}
 .credit-card:has(.credit-pending.against)::before{ background: var(--ambient-red); }
+.credit-card:has(.credit-pending.favor){
+  border: var(--border-neon-violet);
+  box-shadow: var(--shadow-depth), var(--glow-border-violet);
+}
 .credit-card:has(.credit-pending.favor)::before{ background: var(--ambient-green); }
 
-/* ---- Glass-stat (Ingresos/Gastos/Pendiente/Registrado): un sheen superior
-   muy tenue para reforzar la sensación de vidrio, el color ya lo aporta el
-   fondo semántico (income-bg/expense-bg) definido en línea por ui.js. ---- */
-.glass-stat::before{
-  content:'';
-  position:absolute; inset:0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 55%);
-  pointer-events:none;
+/* ---- Glass-stat (Ingresos/Gastos/Pendiente/Registrado): borde neon fino,
+   el color de fondo semántico ya lo aporta ui.js en línea (income-bg/
+   expense-bg). Sin sheen blanco. ---- */
+.glass-stat{
+  border: var(--border-neon-cyan);
+  box-shadow: var(--glow-border-cyan);
 }
-.glass-stat > *{ position:relative; z-index:1; }
 
-/* ---- Métricas de balance (Ingresos/Gastos/Ahorro/Tasa): retroiluminación
-   con el color semántico de cada una, no un tono único repetido. ---- */
-.b-metric{ transition: border-color 0.2s ease; position:relative; overflow:hidden; }
+/* ---- Métricas de balance (Ingresos/Gastos/Ahorro/Tasa): borde + luz
+   ambiental con el color semántico de cada una. ---- */
+.b-metric{ transition: border-color 0.2s ease, box-shadow 0.2s ease; position:relative; overflow:hidden; }
 .b-metric::before{
   content:'';
   position:absolute; inset:0 0 auto 0; height:70%;
@@ -590,35 +659,19 @@
   pointer-events:none;
 }
 .b-metric > *{ position:relative; z-index:1; }
+.b-metric:has(.val.inc){ border-color: rgba(16, 245, 160, 0.45); box-shadow: var(--glow-border-green); }
 .b-metric:has(.val.inc)::before{ background: var(--ambient-green); }
-.b-metric:has(.val.exp)::before{ background: var(--ambient-red); }
+.b-metric:has(.val.exp){ border-color: rgba(255, 45, 141, 0.45); box-shadow: var(--glow-border-pink); }
+.b-metric:has(.val.exp)::before{ background: var(--ambient-pink); }
+.b-metric:has(.val.sav){ border-color: rgba(0, 209, 255, 0.45); box-shadow: var(--glow-border-cyan); }
 .b-metric:has(.val.sav)::before{ background: var(--ambient-cyan); }
 .b-metric .val.inc{ color: var(--neon-green); }
-.b-metric .val.exp{ color: var(--neon-red); }
+.b-metric .val.exp{ color: var(--neon-pink); }
 .b-metric .val.sav{ color: var(--neon-cyan); }
 
-/* ---- LIQUID GLASS — Capa 3: reflejo interno ----
-   Un sheen diagonal muy tenue en la esquina superior, igual en todas las
-   superficies de vidrio principales, para que se perciban como vidrio
-   curvo iluminado y no como cajas planas. Va POR ENCIMA del contenido
-   (z-index alto) pero con opacidad tan baja que no afecta la legibilidad;
-   pointer-events:none para no interferir con ningún click. */
-.balance-card::after, .card::after, .mom-card::after, .credit-card::after,
-.glass-stat::after, .b-metric::after, .settings-list::after, .data-box::after{
-  content:'';
-  position:absolute;
-  inset:0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.025) 28%, transparent 52%);
-  pointer-events:none;
-  z-index:5;
-  border-radius:inherit;
-}
-.settings-list, .data-box{ overflow:hidden; }
-.settings-list > *, .data-box > *{ position:relative; z-index:1; }
-
-/* ---- Gráfico circular: única pieza con glow más presente (elemento protagonista) ---- */
+/* ---- Gráfico circular: glow ceñido a cada segmento, ver expensePieSVG ---- */
 .pie-chart svg{
-  filter: drop-shadow(0 0 5px rgba(0, 217, 255, 0.18));
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.35));
 }
 
 /* ---- Dock: acabado glass; el neon queda reservado al tab activo y al botón + ---- */
@@ -701,27 +754,50 @@
   margin-bottom:10px;
 }
 
-/* Saludo con personalidad editorial (Sección 3/4, FASE 1B.5): Outfit ya
-   llega heredado de la regla global h1{font-family}, aquí solo se afina el
-   peso (semi-bold, no extra-bold) y el tracking para que se diferencie del
-   resto de la interfaz sin sentirse pesado ni infantil. */
+/* Saludo con mucha más presencia (Sección 9/10, FASE 1B.6): Outfit ya
+   llega heredado de la regla global h1{font-family}. Texto en foreground
+   claro con solo un text-shadow OSCURO corto para separarlo del fondo
+   (nunca un halo blanco). El nombre lleva su propio acento neon. */
 .hero-greeting{
-  font-size:24px;
-  font-weight:600;
+  font-size:26px;
+  font-weight:700;
   letter-spacing:-0.5px;
   color: var(--dash-text);
-  text-shadow: 0 2px 10px rgba(0,0,0,0.65), 0 1px 3px rgba(0,0,0,0.6);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.65);
   line-height:1.15;
 }
+.hero-name-accent{
+  color: var(--neon-cyan);
+  text-shadow: 0 0 10px rgba(0, 209, 255, 0.5), 0 1px 3px rgba(0,0,0,0.5);
+}
 
+/* Subtítulos/mensajes secundarios del hero (FASE 1B.8): aplica a TODA
+   pantalla que use el hero compartido (Dashboard, Movimientos, Créditos,
+   Facturas, etc. — una sola regla estructural, sin parches por pantalla).
+   Azul/cyan claro y suave: más presencia y contraste que el gris apagado
+   anterior, pero por debajo del título principal (.hero-greeting, blanco)
+   en la jerarquía. Sin glow — el text-shadow es oscuro, solo para separar
+   del fondo de la escena, nunca un halo. */
 .hero-quote{
-  font-size:12.5px;
-  font-weight:400;
-  color: rgba(244, 247, 255, 0.62);
-  text-shadow: 0 1px 6px rgba(0,0,0,0.5);
-  margin-top:5px;
+  display:flex;
+  align-items:flex-start;
+  gap:7px;
+  font-size:13px;
+  font-weight:500;
+  color: rgba(186, 224, 250, 0.94);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.55);
+  margin-top:7px;
   line-height:1.4;
-  max-width:78%;
+  max-width:82%;
+}
+.hero-quote-accent{
+  flex-shrink:0;
+  width:3px;
+  height:14px;
+  margin-top:2px;
+  border-radius:2px;
+  background: var(--neon-cyan);
+  box-shadow: 0 0 6px rgba(0, 209, 255, 0.6);
 }
 
 /* Fecha del header: pequeño punto de identidad visual — cyan neon, sutil */
@@ -730,7 +806,7 @@
   font-weight:700;
   color: var(--neon-cyan);
   text-shadow: 0 0 6px rgba(0, 209, 255, 0.4);
-  margin-top:8px;
+  margin-top:11px;
   text-transform:capitalize;
   letter-spacing:0.3px;
 }
@@ -758,17 +834,22 @@
 .balance-eye-btn:active{ transform: scale(0.9); background: rgba(0, 217, 255, 0.22); }
 .balance-eye-btn .icon{ width:18px; height:18px; }
 
-/* ---- Línea de fluctuación ascendente (Sección 7): elemento decorativo,
-   sin clicks, integrado al fondo del header por el costado derecho. Va
-   entre la escena SVG y el overlay oscuro, para que este último la atenúe
-   de forma natural hacia abajo (donde está el texto) sin taparla arriba. ---- */
+/* ---- Línea de fluctuación ascendente — NIVEL 3 neon protagonista
+   (Sección 5/6/7, FASE 1B.7). Ahora compartida por TODO el hero (ver
+   dashHeroTrendLineSVG en ui.js, llamada desde renderDashboardHero Y
+   renderGenericHero). Sin clicks, integrada por el costado derecho, entre
+   la escena SVG y el overlay oscuro para que este último la atenúe hacia
+   abajo (donde está el texto) sin taparla arriba. El glow ya no depende de
+   blur (evita la "estela" por distorsión de preserveAspectRatio), así que
+   aquí solo se controla la opacidad general del conjunto. ---- */
 .hero-trend-line{
   position:absolute;
   top:0; right:0;
   width:62%; height:100%;
   pointer-events:none;
   z-index:0;
-  opacity:0.6;
+  overflow:hidden;
+  opacity:0.92;
 }
 
 /* ---- Motion sutil: entrada de contenido (Sección 6) ----
@@ -813,4 +894,13 @@
     to { opacity: 1; transform: translateY(0) scale(1); }
   }
   .confirm-box{ animation: confirmPopIn 0.22s ease both; }
+
+  /* Línea de crecimiento del header (Sección 15): respiración lenta y muy
+     sutil, no un parpadeo — idle glow bajo y estable, no algo que "pulse
+     constantemente" de forma llamativa. */
+  @keyframes trendLineBreathe {
+    0%, 100% { opacity: 0.92; }
+    50% { opacity: 0.72; }
+  }
+  .hero-trend-line{ animation: trendLineBreathe 4.5s ease-in-out infinite; }
 }

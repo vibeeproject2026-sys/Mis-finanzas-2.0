@@ -119,7 +119,14 @@ export function icon(name){
       '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
 
     cloud:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.3-2A5 5 0 0 0 6.5 19h11Z"/></svg>'
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.3-2A5 5 0 0 0 6.5 19h11Z"/></svg>',
+
+    // ---- Iconos de títulos de sección (Sección 3, FASE 1B.7) ----
+    pie:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>',
+
+    target:
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>'
   };
 
   return `<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">${svgs[name] || ''}</span>`;
@@ -130,6 +137,19 @@ export function icon(name){
 // categoría no tiene un icono reconocido (nunca queda sin icono visible).
 export function categoryIcon(key){
   return icon(ICON_KEYS.includes(key) ? key : 'more');
+}
+
+// Título de sección unificado (Sección 2/3, FASE 1B.7): un único punto que
+// arma icono + texto para que TODOS los títulos de sección compartan
+// exactamente el mismo tamaño/peso/tracking/alineación (regla en CSS,
+// .section-title) y el mismo tratamiento de icono, en vez de repetir
+// markup ligeramente distinto en cada pantalla.
+function sectionTitle(iconKey, text, extraStyle){
+  return (
+    '<div class="section-title"' +
+    (extraStyle ? ' style="' + extraStyle + '"' : '') +
+    '>' + icon(iconKey) + '<span>' + esc(text) + '</span></div>'
+  );
 }
 
 export const esc =
@@ -331,21 +351,37 @@ function dashHeroSceneSVG(scene){
   );
 }
 
-// Línea de fluctuación financiera ascendente (Sección 7, FASE 1B.3):
-// puramente decorativa, sin datos reales, integrada al fondo del header.
-// Sube desde la parte inferior hacia el extremo superior derecho, con un
-// glow verde muy sutil (filter blur), sin recibir clicks.
+// Línea de fluctuación financiera ascendente — NIVEL 3 (neon protagonista),
+// Sección 5/6/7, FASE 1B.7. Compartida por TODO el hero (Dashboard y el
+// resto de pantallas la llaman desde la misma función, sin duplicar SVG).
+//
+// La "estela" reportada venía de combinar preserveAspectRatio="none" (que
+// ESTIRA el viewBox de forma no uniforme para llenar un contenedor con
+// otra proporción) con un filtro feGaussianBlur: al estirarse de forma
+// desigual, el blur —ya redondo en el espacio del viewBox— se deformaba en
+// una mancha/columna hacia el lado más estirado. Se corrige con dos
+// cambios: (1) preserveAspectRatio="xMaxYMid meet" escala SIEMPRE de forma
+// uniforme (nunca distorsiona), anclado al borde derecho; (2) el glow ya
+// no usa blur — es un segundo trazo ancho y translúcido DEBAJO del trazo
+// fino y brillante, así el resplandor queda geométricamente pegado al
+// trazo mismo y no puede "derramarse" como una mancha independiente.
 function dashHeroTrendLineSVG(){
 
+  const points =
+    '20,165 60,120 45,100 110,70 90,55 170,25 260,8';
+
+  const markers =
+    [[110, 70], [170, 25], [260, 8]]
+      .map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="2.6" fill="#10F5A0"/>')
+      .join('');
+
   return (
-    '<svg class="hero-trend-line" viewBox="0 0 260 200" preserveAspectRatio="none" aria-hidden="true">' +
-    '<defs><filter id="trendGlow" x="-60%" y="-60%" width="220%" height="220%">' +
-    '<feGaussianBlur stdDeviation="2.2" result="blur"/>' +
-    '<feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>' +
-    '</filter></defs>' +
-    '<polyline points="30,200 70,150 55,132 100,100 85,84 140,55 122,44 190,18 172,10 250,-6" ' +
-    'fill="none" stroke="#10d98a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
-    'opacity="0.55" filter="url(#trendGlow)"/>' +
+    '<svg class="hero-trend-line" viewBox="0 0 280 170" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">' +
+    '<polyline points="' + points + '" fill="none" stroke="#10F5A0" stroke-width="6" ' +
+    'stroke-linecap="round" stroke-linejoin="round" opacity="0.2"/>' +
+    '<polyline points="' + points + '" fill="none" stroke="#10F5A0" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>' +
+    markers +
     '</svg>'
   );
 }
@@ -365,11 +401,13 @@ export function renderDashboardHero(userName, cloudStatus){
       dashHeroBucket(now.getHours())
     ];
 
+  // Sección 10, FASE 1B.6: el nombre lleva un pequeño acento neon propio,
+  // integrado en la misma jerarquía del saludo (no un texto aparte).
   const greeting =
     bucket.greeting +
     (
       userName
-        ? ', ' + esc(userName)
+        ? ', <span class="hero-name-accent">' + esc(userName) + '</span>'
         : ''
     );
 
@@ -398,7 +436,7 @@ export function renderDashboardHero(userName, cloudStatus){
     '</div>' +
 
     '<h1 class="hero-greeting">' + greeting + '</h1>' +
-    '<p class="hero-quote">' + esc(bucket.quote) + '</p>' +
+    '<p class="hero-quote"><span class="hero-quote-accent"></span>' + esc(bucket.quote) + '</p>' +
     '<div class="hero-date">' + esc(dateCapitalized) + '</div>' +
 
     '</div></div>'
@@ -433,6 +471,7 @@ export function renderGenericHero(tab, cloudStatus){
   return (
     '<div class="hero hero-dynamic hero-scene--' + bucket.scene + '">' +
     dashHeroSceneSVG(bucket.scene) +
+    dashHeroTrendLineSVG() +
     '<div class="hero-scene-overlay"></div>' +
     '<div class="hero-content">' +
 
@@ -444,7 +483,7 @@ export function renderGenericHero(tab, cloudStatus){
     '</div>' +
 
     '<h1 class="hero-greeting">' + esc(meta.title) + '</h1>' +
-    '<p class="hero-quote">' + esc(meta.subtitle) + '</p>' +
+    '<p class="hero-quote"><span class="hero-quote-accent"></span>' + esc(meta.subtitle) + '</p>' +
 
     '</div></div>'
   );
@@ -573,7 +612,7 @@ export function renderDashboard(balanceHidden){
     '<div class="card">';
 
   html +=
-    '<div class="section-title">Ritmo de Gasto Diario</div>';
+    sectionTitle('clock', 'Ritmo de Gasto Diario');
 
   html +=
     '<div class="burn-card">';
@@ -717,7 +756,7 @@ export function renderDashboard(balanceHidden){
   ){
 
     html +=
-      '<div class="section-title" style="margin-top:20px">Registrar gasto rápido</div>';
+      sectionTitle('plus', 'Registrar gasto rápido', 'margin-top:20px');
 
     html +=
       '<div class="quick-grid">' +
@@ -752,7 +791,7 @@ export function renderDashboard(balanceHidden){
     computeCreditsPaidThisMonth();
 
   html +=
-    '<div class="card"><div class="section-title">Gastos por categoría (este mes)</div>';
+    '<div class="card">' + sectionTitle('pie', 'Gastos por categoría (este mes)');
 
   const totalOutflow =
     Math.max(
@@ -814,18 +853,21 @@ export function renderDashboard(balanceHidden){
           )
         : 0;
 
+    // Paleta neon (Sección 3/8, FASE 1B.6): usada tanto para el anillo del
+    // donut como para los puntos de la leyenda (mismo colorMap), colores
+    // vivos/eléctricos en vez de tonos pastel. Se agregan 3 tonos extra al
+    // final para categorías adicionales sin repetir antes de agotar todo.
     const palette = [
-      '#38BDF8',
-      '#A78BFA',
-      '#F59E0B',
-      '#34D399',
-      '#FB7185',
-      '#F97316',
+      '#00D1FF',
+      '#8B5CF6',
+      '#FF7A00',
+      '#10F5A0',
+      '#FF2D8D',
+      '#2060FF',
+      '#B6FF00',
+      '#FF1744',
       '#22D3EE',
       '#C084FC',
-      '#84CC16',
-      '#E879F9',
-      '#2DD4BF',
       '#FACC15'
     ];
 
@@ -1068,7 +1110,7 @@ export function renderDashboard(balanceHidden){
      ======================================================== */
 
   html +=
-    '<div class="mom-card"><div class="mom-header"><span class="mom-title">' + icon('chart') + ' Comparativa Mes a Mes</span><div class="mom-dots">';
+    '<div class="mom-card"><div class="mom-header"><span class="mom-title">' + icon('chart') + '<span>Comparativa Mes a Mes</span></span><div class="mom-dots">';
 
   for (
     let i = 0;
@@ -1251,7 +1293,7 @@ export function renderDashboard(balanceHidden){
   ){
 
     html +=
-      '<div class="card" style="margin-top:16px"><div class="section-title">Presupuestos</div>';
+      '<div class="card" style="margin-top:16px">' + sectionTitle('target', 'Presupuestos');
 
     budgets.forEach(
       b => {
@@ -1325,8 +1367,8 @@ export function renderDashboard(balanceHidden){
       .slice(0, 4);
 
   html +=
-    '<div style="margin-top:16px;padding:0 2px;display:flex;align-items:center;justify-content:space-between;">' +
-    '<div class="section-title" style="margin-bottom:0;">Movimientos recientes</div>' +
+    '<div style="margin-top:16px;padding:0 24px 0 0;display:flex;align-items:center;justify-content:space-between;">' +
+    sectionTitle('receipt', 'Movimientos recientes', 'margin-bottom:0;') +
     '<button data-action="set-tab" data-tab="transactions" style="color:var(--neon-cyan);font-size:12px;font-weight:600;">Ver todos →</button>' +
     '</div>';
 
@@ -1346,46 +1388,11 @@ export function renderDashboard(balanceHidden){
    GRÁFICA CIRCULAR
    ========================================================== */
 
-// Sección 8, FASE 1B.5: cada categoría conserva SU PROPIO color (el mismo
-// que usa la leyenda vía colorMap en renderDashboard), y el "blend" ocurre
-// solo en el tramo final de cada segmento, mezclándolo levemente hacia el
-// color del segmento siguiente. Antes (FASE 1B.4) el color se calculaba por
-// posición en el anillo, sin relación con colorMap — por eso la leyenda y
-// el anillo podían mostrar colores distintos para la misma categoría.
-function hexToRgb(hex){
-
-  const clean =
-    String(hex || '').replace('#', '');
-
-  const full =
-    clean.length === 3
-      ? clean.split('').map(c => c + c).join('')
-      : clean;
-
-  const num =
-    parseInt(full, 16);
-
-  if (
-    isNaN(num) ||
-    full.length !== 6
-  ){
-    return [136, 153, 180];
-  }
-
-  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
-}
-
-function mixColors(hexA, hexB, t){
-
-  const a = hexToRgb(hexA);
-  const b = hexToRgb(hexB);
-
-  const r = Math.round(a[0] + (b[0] - a[0]) * t);
-  const g = Math.round(a[1] + (b[1] - a[1]) * t);
-  const bl = Math.round(a[2] + (b[2] - a[2]) * t);
-
-  return 'rgb(' + r + ',' + g + ',' + bl + ')';
-}
+// Sección 8, FASE 1B.6: SIN blend entre categorías. Cada segmento usa un
+// único color sólido (el mismo que colorMap le asigna en renderDashboard,
+// por lo tanto el mismo que ve la leyenda), con gap visible entre
+// segmentos y un glow muy sutil y compartido (no un gradiente que mezcle
+// un color con el del vecino — eso confundía la lectura, ver FASE 1B.5).
 
 export function expensePieSVG(
   catTotals,
@@ -1528,42 +1535,23 @@ export function expensePieSVG(
   let svg =
     '<svg viewBox="0 0 120 120" aria-label="Gastos respecto al ingreso">';
 
-  svg += '<defs>';
-
-  slices.forEach(
-    (s, i) => {
-
-      // El blend solo ocurre en el tramo final de cada segmento, mezclado
-      // levemente hacia el color del SIGUIENTE segmento. El último no se
-      // mezcla (su borde final linda con el tramo "Disponible", no con
-      // otra categoría), así cada categoría se mantiene identificable.
-      const next =
-        slices[i + 1];
-
-      const tailColor =
-        next
-          ? mixColors(s.color, next.color, 0.45)
-          : s.color;
-
-      svg +=
-        '<linearGradient id="pieGrad' + i + '" x1="0%" y1="0%" x2="100%" y2="0%">' +
-        '<stop offset="0%" stop-color="' + s.color + '"/>' +
-        '<stop offset="72%" stop-color="' + s.color + '"/>' +
-        '<stop offset="100%" stop-color="' + tailColor + '"/>' +
-        '</linearGradient>';
-    }
-  );
-
-  svg += '</defs>';
+  // Glow único y compartido (no por segmento): desenfoque pequeño del
+  // propio trazo de cada círculo, así cada color se ve limpio y sólido,
+  // con solo un resplandor muy sutil alrededor.
+  svg +=
+    '<defs><filter id="pieSegGlow" x="-30%" y="-30%" width="160%" height="160%">' +
+    '<feGaussianBlur stdDeviation="1.1" result="blur"/>' +
+    '<feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>' +
+    '</filter></defs>';
 
   svg +=
     '<circle cx="60" cy="60" r="44" fill="none" stroke="#0F172A" stroke-width="16"/>';
 
   slices.forEach(
-    (s, i) => {
+    s => {
 
       svg +=
-        '<circle cx="60" cy="60" r="44" fill="none" stroke="url(#pieGrad' + i + ')" stroke-width="16" stroke-dasharray="' +
+        '<circle cx="60" cy="60" r="44" fill="none" stroke="' + s.color + '" stroke-width="16" filter="url(#pieSegGlow)" stroke-dasharray="' +
         s.dash.toFixed(2) +
         ' ' +
         (
