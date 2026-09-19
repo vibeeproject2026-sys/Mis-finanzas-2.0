@@ -55,15 +55,19 @@ export async function syncWithSupabase(token, userId, payload) {
 }
 
 export async function fetchUserData(token, userId) {
-  if (!token || !userId || !tokenMatchesUser(token, userId)) return null;
+  if (!token || !userId || !tokenMatchesUser(token, userId)) {
+    return { ok: false, error: new Error('Sesión inválida o no coincide con el usuario.') };
+  }
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${encodeURIComponent(userId)}`, { headers: headers(token) });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      return { ok: false, error: new Error(`Supabase respondió ${response.status} al leer los datos.`) };
+    }
     const data = await response.json();
-    return data?.[0]?.payload || null;
+    return { ok: true, data: data?.[0]?.payload || null };
   } catch (error) {
     console.error('Error al descargar datos:', error);
-    return null;
+    return { ok: false, error };
   }
 }
 

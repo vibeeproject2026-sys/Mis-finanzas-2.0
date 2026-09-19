@@ -64,6 +64,10 @@ let confirmState = null;
 let scanningOverlay = null;
 let momCarouselInterval = null;
 let syncPending = false;
+let cloudRefreshInFlight = false;
+let lastCloudRefreshAt = 0;
+
+const CLOUD_REFRESH_COOLDOWN_MS = 30000;
 
 const uid = () =>
   Date.now().toString(36) +
@@ -298,6 +302,198 @@ function updateSyncBanner(pending) {
   }
 }
 
+/* ==========================================================
+   REFRESH DE DATOS REMOTOS (login inicial + reanudar la app)
+   ========================================================== */
+
+function refreshCloudData() {
+
+  let token = null;
+  let userId = null;
+
+  try {
+
+    token =
+      localStorage.getItem(
+        'supabase_token'
+      );
+
+    userId =
+      localStorage.getItem(
+        'supabase_user_id'
+      );
+
+  } catch(e) {}
+
+  if (
+    !token ||
+    !userId
+  ){
+    return;
+  }
+
+  if (
+    !API.fetchUserData
+  ){
+    return;
+  }
+
+  if (
+    cloudRefreshInFlight
+  ){
+    return;
+  }
+
+  if (
+    sheet
+  ){
+    // Hay una edición abierta: no interrumpirla trayendo datos remotos ahora.
+    // Se reintentará en el próximo visibilitychange/pageshow/focus.
+    return;
+  }
+
+  if (
+    Date.now() - lastCloudRefreshAt <
+    CLOUD_REFRESH_COOLDOWN_MS
+  ){
+    return;
+  }
+
+  cloudRefreshInFlight =
+    true;
+
+  lastCloudRefreshAt =
+    Date.now();
+
+  API.fetchUserData(
+    token,
+    userId
+  )
+  .then(
+    result => {
+
+      if (
+        !result ||
+        result.ok !== true
+      ){
+
+        console.error(
+          'Error al actualizar datos desde la nube:',
+          result && result.error
+        );
+
+        showFloatingBanner(
+          'cloud-refresh-error-banner',
+          'No se pudieron actualizar los datos desde la nube. Se muestran los datos guardados en este dispositivo.',
+          176
+        );
+
+        return;
+      }
+
+      hideFloatingBanner(
+        'cloud-refresh-error-banner'
+      );
+
+      const cloudDB =
+        result.data;
+
+      if (
+        !cloudDB ||
+        typeof cloudDB !== 'object'
+      ){
+        // No existe (todavía) una fila remota: no se borra el DB local.
+        return;
+      }
+
+      if (
+        sheet
+      ){
+        // Se abrió una edición mientras llegaba la respuesta: no pisarla.
+        return;
+      }
+
+      if (
+        Array.isArray(
+          cloudDB.transactions
+        )
+      ){
+
+        DB.transactions =
+          cloudDB.transactions;
+      }
+
+      if (
+        Array.isArray(
+          cloudDB.categories
+        )
+      ){
+
+        DB.categories =
+          cloudDB.categories;
+      }
+
+      if (
+        Array.isArray(
+          cloudDB.credits
+        )
+      ){
+
+        DB.credits =
+          cloudDB.credits;
+      }
+
+      if (
+        Array.isArray(
+          cloudDB.invoices
+        )
+      ){
+
+        DB.invoices =
+          cloudDB.invoices;
+      }
+
+      if (
+        cloudDB.settings &&
+        typeof cloudDB.settings === 'object'
+      ){
+
+        DB.settings = {
+          ...DB.settings,
+          ...cloudDB.settings
+        };
+      }
+
+      reconcileCreditTransactions();
+      saveDB();
+
+      renderAppContent();
+    }
+  )
+  .catch(
+    err => {
+
+      console.error(
+        'Error al actualizar datos desde la nube:',
+        err
+      );
+
+      showFloatingBanner(
+        'cloud-refresh-error-banner',
+        'No se pudieron actualizar los datos desde la nube. Se muestran los datos guardados en este dispositivo.',
+        176
+      );
+    }
+  )
+  .finally(
+    () => {
+
+      cloudRefreshInFlight =
+        false;
+    }
+  );
+}
+
 const safeSync = () => {
 
   try {
@@ -496,89 +692,7 @@ export function render(){
       window.hasLoadedCloudData =
         true;
 
-      if (
-        API.fetchUserData
-      ){
-
-        API.fetchUserData(
-          token,
-          userId
-        )
-        .then(
-          cloudDB => {
-
-            if (
-              !cloudDB ||
-              typeof cloudDB !== 'object'
-            ){
-              return;
-            }
-
-            if (
-              Array.isArray(
-                cloudDB.transactions
-              )
-            ){
-
-              DB.transactions =
-                cloudDB.transactions;
-            }
-
-            if (
-              Array.isArray(
-                cloudDB.categories
-              )
-            ){
-
-              DB.categories =
-                cloudDB.categories;
-            }
-
-            if (
-              Array.isArray(
-                cloudDB.credits
-              )
-            ){
-
-              DB.credits =
-                cloudDB.credits;
-            }
-
-            if (
-              Array.isArray(
-                cloudDB.invoices
-              )
-            ){
-
-              DB.invoices =
-                cloudDB.invoices;
-            }
-
-            if (
-              cloudDB.settings &&
-              typeof cloudDB.settings === 'object'
-            ){
-
-              DB.settings = {
-                ...DB.settings,
-                ...cloudDB.settings
-              };
-            }
-
-            reconcileCreditTransactions();
-            saveDB();
-
-            renderAppContent();
-          }
-        )
-        .catch(
-          err =>
-            console.error(
-              'Error cargando datos de la nube:',
-              err
-            )
-        );
-      }
+      refreshCloudData();
     }
 
     reconcileCreditTransactions();
@@ -4460,6 +4574,39 @@ document.addEventListener(
         }
       );
     }
+  }
+);
+
+/* ==========================================================
+   REFRESCAR AL VOLVER A LA APP (visibilitychange / pageshow / focus)
+   ========================================================== */
+
+document.addEventListener(
+  'visibilitychange',
+  () => {
+
+    if (
+      document.visibilityState === 'visible'
+    ){
+
+      refreshCloudData();
+    }
+  }
+);
+
+window.addEventListener(
+  'pageshow',
+  () => {
+
+    refreshCloudData();
+  }
+);
+
+window.addEventListener(
+  'focus',
+  () => {
+
+    refreshCloudData();
   }
 );
 
