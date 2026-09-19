@@ -68,6 +68,7 @@ let cloudRefreshInFlight = false;
 let lastCloudRefreshAt = 0;
 
 const CLOUD_REFRESH_COOLDOWN_MS = 30000;
+const CLOUD_REFRESH_ERROR_BANNER_MS = 6000;
 
 const uid = () =>
   Date.now().toString(36) +
@@ -183,7 +184,10 @@ function reconcileCreditTransactions() {
    AVISOS DISCRETOS (banner flotante no bloqueante)
    ========================================================== */
 
-function showFloatingBanner(id, message, offsetPx) {
+const floatingBannerTimers =
+  new Map();
+
+function showFloatingBanner(id, message, offsetPx, autoDismissMs) {
 
   let el =
     document.getElementById(
@@ -228,10 +232,64 @@ function showFloatingBanner(id, message, offsetPx) {
   el.textContent =
     message;
 
+  const existingTimer =
+    floatingBannerTimers.get(
+      id
+    );
+
+  if (
+    existingTimer
+  ){
+
+    clearTimeout(
+      existingTimer
+    );
+
+    floatingBannerTimers.delete(
+      id
+    );
+  }
+
+  if (
+    autoDismissMs
+  ){
+
+    floatingBannerTimers.set(
+      id,
+      setTimeout(
+        () => {
+
+          hideFloatingBanner(
+            id
+          );
+        },
+        autoDismissMs
+      )
+    );
+  }
+
   return el;
 }
 
 function hideFloatingBanner(id) {
+
+  const existingTimer =
+    floatingBannerTimers.get(
+      id
+    );
+
+  if (
+    existingTimer
+  ){
+
+    clearTimeout(
+      existingTimer
+    );
+
+    floatingBannerTimers.delete(
+      id
+    );
+  }
 
   const el =
     document.getElementById(
@@ -385,7 +443,8 @@ function refreshCloudData() {
         showFloatingBanner(
           'cloud-refresh-error-banner',
           'No se pudieron actualizar los datos desde la nube. Se muestran los datos guardados en este dispositivo.',
-          176
+          176,
+          CLOUD_REFRESH_ERROR_BANNER_MS
         );
 
         return;
@@ -481,7 +540,8 @@ function refreshCloudData() {
       showFloatingBanner(
         'cloud-refresh-error-banner',
         'No se pudieron actualizar los datos desde la nube. Se muestran los datos guardados en este dispositivo.',
-        176
+        176,
+        CLOUD_REFRESH_ERROR_BANNER_MS
       );
     }
   )
@@ -808,6 +868,16 @@ function attachAuthEvents(){
             data.user.id
           );
 
+          if (
+            data.refresh_token
+          ){
+
+            localStorage.setItem(
+              'supabase_refresh_token',
+              data.refresh_token
+            );
+          }
+
           window.hasLoadedCloudData =
             false;
 
@@ -894,6 +964,16 @@ function attachAuthEvents(){
               'supabase_user_id',
               data.user.id
             );
+
+            if (
+              data.refresh_token
+            ){
+
+              localStorage.setItem(
+                'supabase_refresh_token',
+                data.refresh_token
+              );
+            }
 
             window.hasLoadedCloudData =
               false;
@@ -1574,6 +1654,10 @@ document.addEventListener(
 
             localStorage.removeItem(
               'supabase_user_id'
+            );
+
+            localStorage.removeItem(
+              'supabase_refresh_token'
             );
 
             window.hasLoadedCloudData =
