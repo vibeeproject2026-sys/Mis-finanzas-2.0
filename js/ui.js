@@ -19,7 +19,9 @@ import {
   computeCreditsSummary,
   computeCreditPlan,
   computeCreditPaymentBreakdown,
-  parseInterestRate
+  parseInterestRate,
+  computeInvoiceMathCheck,
+  computeDeterministicInvoiceTotal
 } from './domain.js';
 
 /* ==========================================================
@@ -1573,6 +1575,11 @@ export function renderInvoices(
         );
 
         html +=
+          renderInvoiceMetaSummaryHTML(
+            inv
+          );
+
+        html +=
           '</div>';
       }
 
@@ -3107,11 +3114,63 @@ export function renderInvoiceItemsHTML(
     .join('');
 }
 
+function invoiceMetaRowHTML(label, money, sign){
+  if (!money) return '';
+
+  const prefix = sign === '-' ? '−' : (sign === '+' ? '+' : '');
+
+  // Se usa el valor absoluto: el signo mostrado lo controla únicamente `prefix`, para no
+  // duplicar el "-" cuando el monto ya venga guardado en negativo (evita "--$"). No se toca
+  // el valor almacenado, solo cómo se compone el texto en pantalla.
+  // rawValue se conserva en el objeto (trazabilidad/futuras validaciones); solo se deja de mostrar en pantalla.
+  return (
+    '<div class="credit-values invoice-meta-row"><span>' + esc(label) + '</span>' +
+    '<span>' + prefix + fmtMoney(Math.abs(money.value)) + '</span></div>'
+  );
+}
+
+export function renderInvoiceMetaSummaryHTML(invoiceLike){
+  if (!invoiceLike || !invoiceLike.hasAiMetadata) return '';
+
+  let html = '<div class="invoice-meta-summary">';
+
+  html += '<div class="field-label" style="margin-top:14px;">Resumen detectado por IA</div>';
+
+  html += invoiceMetaRowHTML('Subtotal', invoiceLike.subtotal);
+
+  (invoiceLike.discounts || []).forEach(d => {
+    html += invoiceMetaRowHTML('Descuento' + (d.name ? ': ' + d.name : ''), d, '-');
+  });
+
+  html += invoiceMetaRowHTML('IVA / Impuesto', invoiceLike.tax, '+');
+
+  (invoiceLike.retentions || []).forEach(r => {
+    html += invoiceMetaRowHTML('Retención' + (r.name ? ': ' + r.name : ''), r, '-');
+  });
+
+  (invoiceLike.additionalCharges || []).forEach(c => {
+    html += invoiceMetaRowHTML('Cargo adicional' + (c.name ? ': ' + c.name : ''), c, '+');
+  });
+
+  html += invoiceMetaRowHTML('Total detectado por IA', invoiceLike.detectedTotal);
+  html += invoiceMetaRowHTML('Total neto a pagar', invoiceLike.netPayable);
+
+  const check = computeInvoiceMathCheck(invoiceLike);
+
+  if (check && !check.isConsistent) {
+    html += '<div class="banner banner--warn">Los valores detectados no cuadran matemáticamente con el total. Se conservan los valores originales detectados por la IA.</div>';
+  }
+
+  html += '</div>';
+
+  return html;
+}
+
 export function renderInvoiceSheet(
   sheet
 ){
 
-  const total =
+  const itemsTotal =
     sheet.items.reduce(
       (
         s,
@@ -3125,6 +3184,16 @@ export function renderInvoiceSheet(
         ),
       0
     );
+
+  // Debe coincidir con el criterio usado al guardar (save-invoice en app.js):
+  // preferir el neto/total detectado por la IA; si no hay total visible,
+  // calcularlo determinísticamente; solo caer a la suma de ítems si tampoco
+  // hay subtotal.
+  const total =
+    sheet.netPayable?.value ??
+    sheet.detectedTotal?.value ??
+    computeDeterministicInvoiceTotal(sheet) ??
+    itemsTotal;
 
   const valid =
     sheet.items.some(
@@ -3169,6 +3238,11 @@ export function renderInvoiceSheet(
 
   html +=
     '<button class="link-btn" data-action="add-invoice-item">+ Agregar ítem</button>';
+
+  html +=
+    renderInvoiceMetaSummaryHTML(
+      sheet
+    );
 
   html +=
     '<div class="mom-single" style="margin-top:14px;"><div class="lbl">Total factura</div><div class="val" style="color:var(--pink)" id="inv-total-val">' +

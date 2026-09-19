@@ -1342,3 +1342,66 @@ export function computeCreditsSummary(){
     favorPaidPrevMonth
   };
 }
+
+/* ==========================================================
+   VALIDACIÓN MATEMÁTICA DE FACTURA ESCANEADA (IA)
+   ========================================================== */
+
+export function computeInvoiceMathCheck(invoiceLike){
+  const inv = invoiceLike || {};
+
+  const subtotalValue = inv.subtotal ? Number(inv.subtotal.value) || 0 : null;
+  const detectedTotalValue = inv.detectedTotal ? Number(inv.detectedTotal.value) || 0 : null;
+  const netPayableValue = inv.netPayable ? Number(inv.netPayable.value) || 0 : null;
+
+  // Se usa el valor absoluto de tax/discounts/retentions/additionalCharges: el signo con el
+  // que la IA/normalización haya guardado cada monto no debe importar aquí — la fórmula de
+  // abajo ya define explícitamente qué se suma y qué se resta. Esto evita que un descuento o
+  // retención guardado en negativo se reste dos veces (una por su propio signo, otra por la
+  // fórmula) y produzca una inconsistencia falsa. No se modifica ningún valor detectado: esto
+  // solo afecta el cálculo interno de esta validación.
+  const taxValue = inv.tax ? Math.abs(Number(inv.tax.value) || 0) : 0;
+  const discountsSum = (Array.isArray(inv.discounts) ? inv.discounts : [])
+    .reduce((s, d) => s + Math.abs(Number(d?.value) || 0), 0);
+  const retentionsSum = (Array.isArray(inv.retentions) ? inv.retentions : [])
+    .reduce((s, r) => s + Math.abs(Number(r?.value) || 0), 0);
+  const chargesSum = (Array.isArray(inv.additionalCharges) ? inv.additionalCharges : [])
+    .reduce((s, c) => s + Math.abs(Number(c?.value) || 0), 0);
+
+  // El total "neto a pagar" es la referencia más confiable si existe; si no, se usa el total detectado.
+  const detected = netPayableValue != null ? netPayableValue : detectedTotalValue;
+
+  // Sin subtotal y sin un total de referencia no hay base suficiente para comparar con confianza.
+  if (subtotalValue == null || detected == null) return null;
+
+  const expected = subtotalValue - discountsSum + taxValue + chargesSum - retentionsSum;
+  const diff = Math.round((expected - detected) * 100) / 100;
+  const tolerance = 1; // margen de redondeo entre lo escrito en la factura y la suma de sus partes
+
+  return {
+    expected,
+    detected,
+    diff,
+    isConsistent: Math.abs(diff) <= tolerance
+  };
+}
+
+// Total calculado determinísticamente (subtotal - descuentos + impuestos + cargos - retenciones)
+// para usar SOLO cuando la factura no tiene un total/neto a pagar visible detectado por la IA.
+// No reemplaza un total/netPayable ya detectado (eso se sigue prefiriendo antes de llamar a esto).
+export function computeDeterministicInvoiceTotal(invoiceLike){
+  const inv = invoiceLike || {};
+
+  const subtotalValue = inv.subtotal ? Number(inv.subtotal.value) : null;
+  if (subtotalValue == null || !Number.isFinite(subtotalValue)) return null;
+
+  const taxValue = inv.tax ? Math.abs(Number(inv.tax.value) || 0) : 0;
+  const discountsSum = (Array.isArray(inv.discounts) ? inv.discounts : [])
+    .reduce((s, d) => s + Math.abs(Number(d?.value) || 0), 0);
+  const retentionsSum = (Array.isArray(inv.retentions) ? inv.retentions : [])
+    .reduce((s, r) => s + Math.abs(Number(r?.value) || 0), 0);
+  const chargesSum = (Array.isArray(inv.additionalCharges) ? inv.additionalCharges : [])
+    .reduce((s, c) => s + Math.abs(Number(c?.value) || 0), 0);
+
+  return subtotalValue - discountsSum + taxValue + chargesSum - retentionsSum;
+}

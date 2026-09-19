@@ -58,6 +58,45 @@ try {
   storageOk = false;
 }
 
+function normalizeMoneyField(m) {
+  if (!m || typeof m !== 'object') return null;
+  return { rawValue: String(m.rawValue ?? ''), value: Number(m.value) || 0 };
+}
+
+function normalizeMoneyList(list) {
+  return (Array.isArray(list) ? list : []).map(m => ({
+    ...(m && m.name != null ? { name: String(m.name) } : {}),
+    rawValue: String(m?.rawValue ?? ''),
+    value: Number(m?.value) || 0,
+    ...(m && m.percentage != null ? { percentage: Number(m.percentage) || 0 } : {})
+  }));
+}
+
+function normalizeInvoiceMeta(inv) {
+  const subtotal = normalizeMoneyField(inv.subtotal);
+  const discounts = normalizeMoneyList(inv.discounts);
+  const tax = normalizeMoneyField(inv.tax);
+  const retentions = normalizeMoneyList(inv.retentions);
+  const additionalCharges = normalizeMoneyList(inv.additionalCharges);
+  const detectedTotal = normalizeMoneyField(inv.detectedTotal);
+  const netPayable = normalizeMoneyField(inv.netPayable);
+
+  return {
+    subtotal,
+    discounts,
+    tax,
+    retentions,
+    additionalCharges,
+    detectedTotal,
+    netPayable,
+    hasAiMetadata: !!(
+      inv.hasAiMetadata ||
+      subtotal || tax || detectedTotal || netPayable ||
+      discounts.length || retentions.length || additionalCharges.length
+    )
+  };
+}
+
 export function todayStr(){
   const now = new Date();
 
@@ -94,7 +133,8 @@ export function loadDB(){
         items: (inv.items || []).map(it => ({
           ...it,
           price: Number(it.price) || 0
-        }))
+        })),
+        ...normalizeInvoiceMeta(inv)
       }));
 
       return {
@@ -149,7 +189,8 @@ export function saveDB(){
         items: (inv.items || []).map(it => ({
           ...it,
           price: Number(it.price) || 0
-        }))
+        })),
+        ...normalizeInvoiceMeta(inv)
       })),
 
       settings: DB.settings

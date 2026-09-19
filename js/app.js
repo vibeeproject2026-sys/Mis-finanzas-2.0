@@ -41,7 +41,8 @@ import {
 import * as API from './api.js';
 
 import {
-  parseInterestRate
+  parseInterestRate,
+  computeDeterministicInvoiceTotal
 } from './domain.js';
 
 /* ==========================================================
@@ -68,6 +69,35 @@ const uid = () =>
   Math.random()
     .toString(36)
     .slice(2,8);
+
+/* ==========================================================
+   METADATOS DE FACTURA ESCANEADA (IA)
+   ========================================================== */
+
+function normalizeInvoiceMeta(source) {
+  const s = source || {};
+  const discounts = Array.isArray(s.discounts) ? s.discounts : [];
+  const retentions = Array.isArray(s.retentions) ? s.retentions : [];
+  const additionalCharges = Array.isArray(s.additionalCharges) ? s.additionalCharges : [];
+  const subtotal = s.subtotal || null;
+  const tax = s.tax || null;
+  const detectedTotal = s.detectedTotal || null;
+  const netPayable = s.netPayable || null;
+
+  return {
+    subtotal,
+    discounts,
+    tax,
+    retentions,
+    additionalCharges,
+    detectedTotal,
+    netPayable,
+    hasAiMetadata: !!(
+      subtotal || tax || detectedTotal || netPayable ||
+      discounts.length || retentions.length || additionalCharges.length
+    )
+  };
+}
 
 /* ==========================================================
    RECONCILIACIÓN ROBUSTA DE PAGOS DE CRÉDITOS A TRANSACTIONS
@@ -1775,8 +1805,10 @@ document.addEventListener(
       if (!sheet) return;
 
       const amt =
-        Number(
-          sheet.amount
+        Math.round(
+          Number(
+            sheet.amount
+          )
         );
 
       const catId =
@@ -1837,6 +1869,24 @@ document.addEventListener(
             : DB.transactions.concat(
                 [tx]
               );
+
+        if (
+          sheet.sourceInvoiceId &&
+          DB.invoices
+        ){
+
+          DB.invoices =
+            DB.invoices.map(
+              inv =>
+                inv.id === sheet.sourceInvoiceId
+                  ? {
+                      ...inv,
+                      registered: true,
+                      categoryId: catId
+                    }
+                  : inv
+            );
+        }
 
         reconcileCreditTransactions();
         saveDB();
@@ -2827,7 +2877,8 @@ document.addEventListener(
               })
             ),
           registered:
-            !!inv.registered
+            !!inv.registered,
+          ...normalizeInvoiceMeta(inv)
         };
 
         renderOverlays();
@@ -2868,7 +2919,9 @@ document.addEventListener(
             '',
           amount:
             String(
-              inv.total
+              Math.round(
+                inv.total
+              )
             ),
           date:
             inv.date ||
@@ -2983,7 +3036,7 @@ document.addEventListener(
         items.length
       ){
 
-        const total =
+        const itemsTotal =
           items.reduce(
             (
               s,
@@ -2993,6 +3046,17 @@ document.addEventListener(
               it.price,
             0
           );
+
+        // El total de la factura es el detectado por la IA (neto a pagar, o
+        // total si no hay neto) cuando exista; si la factura no muestra un
+        // total visible, se calcula determinísticamente desde subtotal/
+        // descuentos/impuestos/cargos/retenciones; solo se cae a la suma de
+        // ítems si tampoco hay subtotal (factura manual/sin IA).
+        const total =
+          sheet.netPayable?.value ??
+          sheet.detectedTotal?.value ??
+          computeDeterministicInvoiceTotal(sheet) ??
+          itemsTotal;
 
         const invoice = {
           id:
@@ -3017,7 +3081,9 @@ document.addEventListener(
           total,
 
           registered:
-            !!sheet.registered
+            !!sheet.registered,
+
+          ...normalizeInvoiceMeta(sheet)
         };
 
         if (
@@ -3054,6 +3120,9 @@ document.addEventListener(
 
         sheet =
           null;
+
+        UI.tab =
+          'invoices';
 
         renderAppContent();
       }
@@ -4108,13 +4177,32 @@ document.addEventListener(
 
           try {
 
-            const items =
+            const result =
               API.scanInvoiceViaProxy
                 ? await API.scanInvoiceViaProxy(
                     base64,
                     mimeType
                   )
+                : {};
+
+            const scannedItems =
+              Array.isArray(result.items)
+                ? result.items.map(
+                    it => ({
+                      id:uid(),
+                      name:String(it?.name || ''),
+                      price:String(it?.price ?? '')
+                    })
+                  )
                 : [];
+
+            const meta =
+              normalizeInvoiceMeta({
+                ...result,
+                detectedTotal:
+                  result.total ||
+                  null
+              });
 
             scanningOverlay =
               null;
@@ -4129,8 +4217,8 @@ document.addEventListener(
               date:
                 todayStr(),
               items:
-                items.length
-                  ? items
+                scannedItems.length
+                  ? scannedItems
                   : [
                       {
                         id:uid(),
@@ -4138,7 +4226,8 @@ document.addEventListener(
                         price:''
                       }
                     ],
-              registered:false
+              registered:false,
+              ...meta
             };
 
             renderOverlays();
