@@ -263,27 +263,31 @@
 
 /* Menú Desplegable */
 .fab-menu-backdrop {
-  position: fixed; inset: 0; 
+  position: fixed; inset: 0;
   background: rgba(2, 4, 8, 0.75);
-  backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); 
-  z-index: 9999; 
+  backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+  z-index: 9999;
   display: flex; flex-direction: column;
-  justify-content: flex-end; align-items: center;       
-  padding-bottom: 120px; 
+  justify-content: flex-end; align-items: center;
+  padding-bottom: 120px;
   opacity: 0; animation: fadeInMenu 0.3s ease forwards;
+  touch-action: none;
 }
 
 .fab-menu-sheet {
-  width: 90%; max-width: 340px; 
+  width: 90%; max-width: 340px;
   padding: 32px 24px;
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
   backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%);
-  border: 1px solid rgba(56, 189, 248, 0.4); 
-  border-radius: 32px; 
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.2); 
-  display: flex; flex-direction: column; gap: 14px; 
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 32px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  display: flex; flex-direction: column; gap: 14px;
   opacity: 0; transform: translateY(20px) scale(0.95);
   animation: popInMenu 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 
 .fab-menu-backdrop.closing { animation: fadeOutMenu 0.35s ease forwards; }
@@ -327,10 +331,10 @@
 @keyframes popInMenu { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes popOutMenu { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(20px) scale(0.95); } }
 
-.overlay{position:fixed;inset:0;z-index:300;display:flex;align-items:flex-end;justify-content:center;background:rgba(2, 4, 8, 0.85);backdrop-filter:blur(10px); animation: fadeInMenu 0.3s ease;}
+.overlay{position:fixed;inset:0;z-index:300;display:flex;align-items:flex-end;justify-content:center;background:rgba(2, 4, 8, 0.85);backdrop-filter:blur(10px); animation: fadeInMenu 0.3s ease;touch-action:none;overscroll-behavior:none;}
 .overlay-center{align-items:center;padding:1.5rem;}
 .sheet{
-  width:100%;max-width:480px;background:#0B1326;border-radius:36px 36px 0 0;padding:1.5rem;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  width:100%;max-width:480px;background:#0B1326;border-radius:36px 36px 0 0;padding:1.5rem;max-height:88vh;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior-y:contain;
   padding-bottom:max(2rem, env(safe-area-inset-bottom));
   border:1px solid rgba(56, 189, 248, 0.4);
   box-shadow: 0 -15px 40px rgba(6, 182, 212, 0.3);
@@ -387,7 +391,7 @@
 .amount-input:focus{border-color:var(--violet);box-shadow:var(--glow-cyan);}
 .link-btn{font-size:13px;color:var(--pink);font-weight:700;padding:8px 0;}
 
-.confirm-box{width:100%;max-width:320px;background:#0B1326;border-radius:24px;padding:24px;border:1px solid rgba(56, 189, 248, 0.4);box-shadow:0 0 30px rgba(6,182,212,0.3);}
+.confirm-box{width:100%;max-width:320px;background:#0B1326;border-radius:24px;padding:24px;border:1px solid rgba(56, 189, 248, 0.4);box-shadow:0 0 30px rgba(6,182,212,0.3);overflow-x:hidden;touch-action:pan-y;overscroll-behavior:contain;}
 .confirm-box p{font-size:14px;line-height:1.5;color:#FFFFFF;}
 .confirm-actions{display:flex;gap:10px;margin-top:20px;}
 .confirm-actions button{flex:1;border-radius:16px;padding:14px;font-size:14px;font-weight:800;}

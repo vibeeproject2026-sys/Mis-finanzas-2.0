@@ -462,8 +462,23 @@ export function renderDashboard(){
     totalOutflow > 0 || creditsPaid > 0
   ){
 
+    const categorizedExpense =
+      catTotals.reduce(
+        (
+          sum,
+          r
+        ) =>
+          sum +
+          (
+            Number(
+              r.total
+            ) || 0
+          ),
+        0
+      );
+
     const outflowIncludingCredits =
-      totalOutflow +
+      categorizedExpense +
       creditsPaid;
 
     const spentPct =
@@ -492,21 +507,6 @@ export function renderDashboard(){
             )
           )
         : 0;
-
-    const categorizedExpense =
-      catTotals.reduce(
-        (
-          sum,
-          r
-        ) =>
-          sum +
-          (
-            Number(
-              r.total
-            ) || 0
-          ),
-        0
-      );
 
     const palette = [
       '#38BDF8',
@@ -3099,7 +3099,9 @@ export function renderInvoiceItemsHTML(
         '" data-field="price" type="text" inputmode="numeric" placeholder="0" value="' +
         esc(
           formatThousandInput(
-            it.price
+            it.price === '' || it.price === null || it.price === undefined
+              ? it.price
+              : Math.round(Number(it.price) || 0)
           )
         ) +
         '">' +
@@ -3177,7 +3179,7 @@ export function renderInvoiceSheet(
         it
       ) =>
         s +
-        (
+        Math.round(
           Number(
             it.price
           ) || 0

@@ -9,7 +9,7 @@ window.onerror = function(msg, url, line) {
 
 import {
   DB,
-  saveDB,
+  saveDB as saveDBRaw,
   todayStr,
   DEFAULT_CATEGORIES
 } from './state.js';
@@ -63,6 +63,7 @@ let sheet = null;
 let confirmState = null;
 let scanningOverlay = null;
 let momCarouselInterval = null;
+let syncPending = false;
 
 const uid = () =>
   Date.now().toString(36) +
@@ -122,7 +123,8 @@ function reconcileCreditTransactions() {
             paymentId: p.id,
             amount: Number(p.amount) || 0,
             date: p.date || todayStr(),
-            note: p.note || ''
+            note: p.note || '',
+            txType: c.type === 'favor' ? 'income' : 'expense'
           });
         }
       });
@@ -149,7 +151,7 @@ function reconcileCreditTransactions() {
         ...existingTx,
         amount: payInfo.amount,
         date: payInfo.date,
-        type: 'expense',
+        type: payInfo.txType,
         categoryId: '',
         source: 'credit-payment',
         creditId: payInfo.creditId,
@@ -158,7 +160,7 @@ function reconcileCreditTransactions() {
     } else {
       reconciledCreditTxs.push({
         id: uid(),
-        type: 'expense',
+        type: payInfo.txType,
         amount: payInfo.amount,
         categoryId: '',
         date: payInfo.date,
@@ -174,8 +176,127 @@ function reconcileCreditTransactions() {
 }
 
 /* ==========================================================
+   AVISOS DISCRETOS (banner flotante no bloqueante)
+   ========================================================== */
+
+function showFloatingBanner(id, message, offsetPx) {
+
+  let el =
+    document.getElementById(
+      id
+    );
+
+  if (
+    !el
+  ){
+
+    el =
+      document.createElement(
+        'div'
+      );
+
+    el.id =
+      id;
+
+    el.className =
+      'banner banner--warn';
+
+    el.style.position =
+      'fixed';
+
+    el.style.left =
+      '16px';
+
+    el.style.right =
+      '16px';
+
+    el.style.zIndex =
+      '95';
+
+    document.body.appendChild(
+      el
+    );
+  }
+
+  el.style.bottom =
+    `calc(24px + env(safe-area-inset-bottom) + ${offsetPx}px)`;
+
+  el.textContent =
+    message;
+
+  return el;
+}
+
+function hideFloatingBanner(id) {
+
+  const el =
+    document.getElementById(
+      id
+    );
+
+  if (
+    el
+  ){
+
+    el.remove();
+  }
+}
+
+/* ==========================================================
+   GUARDADO LOCAL (con aviso centralizado si falla)
+   ========================================================== */
+
+function saveDB() {
+
+  const ok =
+    saveDBRaw();
+
+  if (
+    ok
+  ){
+
+    hideFloatingBanner(
+      'save-error-banner'
+    );
+
+  } else {
+
+    showFloatingBanner(
+      'save-error-banner',
+      'No se pudo guardar el cambio en este dispositivo (almacenamiento lleno o no disponible).',
+      130
+    );
+  }
+
+  return ok;
+}
+
+/* ==========================================================
    SINCRONIZACIÓN
    ========================================================== */
+
+function updateSyncBanner(pending) {
+
+  syncPending =
+    pending;
+
+  if (
+    pending
+  ){
+
+    showFloatingBanner(
+      'sync-status-banner',
+      'Cambios guardados localmente. Pendiente de sincronizar con la nube.',
+      84
+    );
+
+  } else {
+
+    hideFloatingBanner(
+      'sync-status-banner'
+    );
+  }
+}
 
 const safeSync = () => {
 
@@ -201,6 +322,27 @@ const safeSync = () => {
         token,
         userId,
         DB
+      ).then(
+        result => {
+
+          if (
+            result &&
+            result.ok === false &&
+            !result.skipped
+          ){
+
+            updateSyncBanner(true);
+
+          } else if (
+            result &&
+            result.ok === true
+          ){
+
+            updateSyncBanner(false);
+          }
+
+          return result;
+        }
       );
     }
 
@@ -1826,6 +1968,18 @@ document.addEventListener(
         amt > 0
       ){
 
+        const existingTx =
+          DB.transactions.find(
+            x =>
+              x.id ===
+              sheet.id
+          );
+
+        const sourceInvoiceId =
+          sheet.sourceInvoiceId ||
+          (existingTx && existingTx.sourceInvoiceId) ||
+          null;
+
         const tx = {
           id:
             sheet.id ||
@@ -1848,15 +2002,17 @@ document.addEventListener(
             (
               sheet.note ||
               ''
-            ).trim()
+            ).trim(),
+
+          ...(
+            sourceInvoiceId
+              ? { sourceInvoiceId }
+              : {}
+          )
         };
 
         const exists =
-          DB.transactions.some(
-            x =>
-              x.id ===
-              tx.id
-          );
+          !!existingTx;
 
         DB.transactions =
           exists
@@ -1949,6 +2105,25 @@ document.addEventListener(
                   x.id !==
                   sheet.id
               );
+
+            if (
+              txToDelete &&
+              txToDelete.sourceInvoiceId &&
+              DB.invoices
+            ){
+
+              DB.invoices =
+                DB.invoices.map(
+                  inv =>
+                    inv.id === txToDelete.sourceInvoiceId
+                      ? {
+                          ...inv,
+                          registered: false,
+                          categoryId: ''
+                        }
+                      : inv
+                );
+            }
 
             reconcileCreditTransactions();
             saveDB();
@@ -3026,8 +3201,10 @@ document.addEventListener(
                     60
                   ),
               price:
-                Number(
-                  it.price
+                Math.round(
+                  Number(
+                    it.price
+                  ) || 0
                 )
             })
           );
@@ -3074,6 +3251,7 @@ document.addEventListener(
             ),
 
           date:
+            sheet.date ||
             todayStr(),
 
           items,
@@ -4048,7 +4226,7 @@ function compressImage(
 ){
 
   return new Promise(
-    resolve => {
+    (resolve, reject) => {
 
       const reader =
         new FileReader();
@@ -4057,11 +4235,31 @@ function compressImage(
         file
       );
 
+      reader.onerror =
+        () => {
+
+          reject(
+            new Error(
+              'No se pudo leer la imagen.'
+            )
+          );
+        };
+
       reader.onload =
         event => {
 
           const img =
             new Image();
+
+          img.onerror =
+            () => {
+
+              reject(
+                new Error(
+                  'No se pudo procesar la imagen.'
+                )
+              );
+            };
 
           img.src =
             event.target.result;
@@ -4143,6 +4341,19 @@ function compressImage(
 /* ==========================================================
    ESCÁNER DE FACTURAS
    ========================================================== */
+
+function showScanError(err) {
+
+  scanningOverlay =
+    null;
+
+  renderOverlays();
+
+  alert(
+    (err && err.message) ||
+    'Error al procesar la factura.'
+  );
+}
 
 document.addEventListener(
   'change',
@@ -4234,16 +4445,18 @@ document.addEventListener(
 
           } catch(err) {
 
-            scanningOverlay =
-              null;
-
-            renderOverlays();
-
-            alert(
-              err.message ||
-              'Error al procesar la factura.'
+            showScanError(
+              err
             );
           }
+        }
+      )
+      .catch(
+        err => {
+
+          showScanError(
+            err
+          );
         }
       );
     }
