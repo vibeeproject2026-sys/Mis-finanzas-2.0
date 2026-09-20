@@ -128,14 +128,38 @@ export function refreshAuthSession() {
   return authRefreshInFlight;
 }
 
-export async function syncWithSupabase(token, userId, payload) {
+// expectedUpdatedAt = updated_at de la fila remota tal como la vio este
+// dispositivo en su última lectura exitosa (fetchUserData/syncWithSupabase
+// anteriores). Antes se hacía un upsert ciego (resolution=merge-duplicates):
+// cualquier dispositivo, sin importar qué tan desactualizado estuviera su
+// DB local, podía pisar en la nube una versión más nueva escrita por otro
+// dispositivo. Ahora, si ya conocemos un updated_at remoto, el push se
+// condiciona a que esa fila SIGA teniendo ese updated_at (concurrencia
+// optimista vía filtro PostgREST): si otro dispositivo ya sincronizó
+// primero, el filtro no matchea ninguna fila y devolvemos conflict:true
+// en vez de sobrescribir a ciegas. Si expectedUpdatedAt es null (primera
+// sincronización conocida por este dispositivo), se usa INSERT con
+// resolution=ignore-duplicates: si la fila ya existe remotamente, el
+// insert se ignora (0 filas) y también se reporta como conflicto, en vez
+// de asumir que no hay nada que proteger.
+export async function syncWithSupabase(token, userId, payload, expectedUpdatedAt = null) {
   if (!token || !userId || !payload || !tokenMatchesUser(token, userId)) return { ok: false, skipped: true };
   try {
-    const doSync = t => fetch(`${SUPABASE_URL}/rest/v1/user_data`, {
-      method: 'POST',
-      headers: { ...headers(t), Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({ id: userId, payload, updated_at: new Date().toISOString() })
-    });
+    const nowIso = new Date().toISOString();
+
+    const doSync = t => (
+      expectedUpdatedAt
+        ? fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${encodeURIComponent(userId)}&updated_at=eq.${encodeURIComponent(expectedUpdatedAt)}`, {
+            method: 'PATCH',
+            headers: { ...headers(t), Prefer: 'return=representation' },
+            body: JSON.stringify({ payload, updated_at: nowIso })
+          })
+        : fetch(`${SUPABASE_URL}/rest/v1/user_data`, {
+            method: 'POST',
+            headers: { ...headers(t), Prefer: 'resolution=ignore-duplicates,return=representation' },
+            body: JSON.stringify({ id: userId, payload, updated_at: nowIso })
+          })
+    );
 
     let response = await doSync(token);
 
@@ -148,7 +172,15 @@ export async function syncWithSupabase(token, userId, payload) {
     }
 
     if (!response.ok) throw new Error(`Supabase rechazó la sincronización (${response.status})`);
-    return { ok: true };
+
+    const rows = await response.json().catch(() => []);
+    if (Array.isArray(rows) && rows.length === 0) {
+      // 0 filas afectadas: la fila remota cambió (o ya existía) desde la
+      // última vez que este dispositivo la leyó. No se sobrescribe.
+      return { ok: false, conflict: true };
+    }
+
+    return { ok: true, updatedAt: rows?.[0]?.updated_at || nowIso };
   } catch (error) {
     console.error('Error al sincronizar:', error);
     return { ok: false, error };
@@ -176,7 +208,7 @@ export async function fetchUserData(token, userId) {
       return { ok: false, error: new Error(`Supabase respondió ${response.status} al leer los datos.`) };
     }
     const data = await response.json();
-    return { ok: true, data: data?.[0]?.payload || null };
+    return { ok: true, data: data?.[0]?.payload || null, updatedAt: data?.[0]?.updated_at || null };
   } catch (error) {
     console.error('Error al descargar datos:', error);
     return { ok: false, error };

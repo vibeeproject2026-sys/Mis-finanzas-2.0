@@ -91,6 +91,13 @@ let cloudPullError = false;
 let cloudSyncEverSucceeded = false;
 let lastCloudRefreshAt = 0;
 
+// updated_at de la fila remota tal como la conoció este dispositivo en su
+// última lectura/escritura exitosa. safeSync() lo manda como condición de
+// concurrencia optimista (ver syncWithSupabase en api.js) para que un
+// dispositivo con datos desactualizados no pueda pisar en la nube una
+// versión más nueva escrita por otro dispositivo.
+let lastKnownCloudUpdatedAt = null;
+
 // Mensaje pendiente para la pantalla de login, consumido una sola vez
 // (lo llena handleEmailConfirmationReturn() al volver del enlace de
 // confirmación de email; attachAuthEvents() lo muestra y lo limpia).
@@ -591,7 +598,30 @@ function refreshCloudData() {
     return;
   }
 
+  // El cooldown existe para no golpear la nube en cada visibilitychange/
+  // focus/pageshow del MISMO usuario. Pero si local_db_owner_id (a quién
+  // pertenecen los datos que hay ahora mismo en el DB local — ver el gate
+  // de render() más arriba en este archivo) es de OTRA cuenta, esperar el
+  // cooldown dejaría el gate "Sincronizando tu cuenta…" bloqueado hasta
+  // por 30s: el primer pull de una cuenta recién autenticada nunca debe
+  // esperar el cooldown de la cuenta anterior.
+  let isAccountSwitch = false;
+
+  try {
+
+    const localOwnerId =
+      localStorage.getItem(
+        'local_db_owner_id'
+      );
+
+    isAccountSwitch =
+      !!localOwnerId &&
+      localOwnerId !== userId;
+
+  } catch(e) {}
+
   if (
+    !isAccountSwitch &&
     Date.now() - lastCloudRefreshAt <
     CLOUD_REFRESH_COOLDOWN_MS
   ){
@@ -650,6 +680,31 @@ function refreshCloudData() {
         'cloud-refresh-error-banner'
       );
 
+      // Se registra ANTES de aplicar cloudDB (y aunque no exista fila
+      // remota todavía) porque es simplemente lo último que este
+      // dispositivo confirmó del estado remoto; safeSync() lo usa para no
+      // pisar a ciegas una versión más nueva escrita por otro dispositivo.
+      lastKnownCloudUpdatedAt =
+        result.updatedAt || null;
+
+      // local_db_owner_id identifica de quién son los datos que hay ahora
+      // mismo en el DB local/localStorage. logout NO borra ese DB (ver el
+      // handler de logout: es intencional, para no destruir historial
+      // financiero sin confirmar antes que la nube tenga la última
+      // versión). Si esta cuenta es DISTINTA a la dueña del DB local, el
+      // gate de render() (más arriba en este archivo) evita pintar por un
+      // instante los datos financieros de la cuenta anterior mientras
+      // llega esta respuesta; aquí, una vez confirmado el pull para la
+      // cuenta actual, se libera ese gate con un render() completo.
+      let wasAccountSwitchGate = false;
+      try {
+        wasAccountSwitchGate = !!(
+          localStorage.getItem('local_db_owner_id') &&
+          localStorage.getItem('local_db_owner_id') !== userId
+        );
+        localStorage.setItem('local_db_owner_id', userId);
+      } catch(e) {}
+
       const cloudDB =
         result.data;
 
@@ -658,6 +713,7 @@ function refreshCloudData() {
         typeof cloudDB !== 'object'
       ){
         // No existe (todavía) una fila remota: no se borra el DB local.
+        if (wasAccountSwitchGate) render();
         return;
       }
 
@@ -665,6 +721,7 @@ function refreshCloudData() {
         sheet
       ){
         // Se abrió una edición mientras llegaba la respuesta: no pisarla.
+        if (wasAccountSwitchGate) render();
         return;
       }
 
@@ -722,7 +779,13 @@ function refreshCloudData() {
       reconcileCreditTransactions();
       saveDB();
 
-      renderAppContent();
+      if (
+        wasAccountSwitchGate
+      ){
+        render();
+      } else {
+        renderAppContent();
+      }
     }
   )
   .catch(
@@ -778,11 +841,25 @@ const safeSync = () => {
       return API.syncWithSupabase(
         token,
         userId,
-        DB
+        DB,
+        lastKnownCloudUpdatedAt
       ).then(
         result => {
 
           if (
+            result &&
+            result.conflict === true
+          ){
+
+            // Otro dispositivo ya sincronizó una versión más nueva: NO se
+            // sobrescribe a ciegas. Se trae esa versión más reciente (se
+            // vuelve a intentar el push, ya con el updated_at correcto, en
+            // el próximo cambio local vía saveDB()+safeSync()).
+            updateSyncBanner(true);
+
+            refreshCloudData();
+
+          } else if (
             result &&
             result.ok === false &&
             !result.skipped
@@ -794,6 +871,9 @@ const safeSync = () => {
             result &&
             result.ok === true
           ){
+
+            lastKnownCloudUpdatedAt =
+              result.updatedAt || lastKnownCloudUpdatedAt;
 
             updateSyncBanner(false);
           }
@@ -1026,6 +1106,45 @@ export function render(){
         true;
 
       refreshCloudData();
+    }
+
+    // Si el DB local pertenece a OTRA cuenta (logout no lo borra — ver el
+    // handler de logout), no se pinta contenido financiero ajeno mientras
+    // el refreshCloudData() de arriba trae los datos reales de ESTA
+    // cuenta. No se toca el DB local ni se navega a otra pantalla: solo
+    // se espera, con un loader mínimo, a que llegue el pull (refreshCloudData
+    // llama a render() de nuevo al terminar — ver más arriba en este archivo).
+    let localDbOwnerId = null;
+
+    try {
+
+      localDbOwnerId =
+        localStorage.getItem(
+          'local_db_owner_id'
+        );
+
+    } catch(e) {}
+
+    if (
+      localDbOwnerId &&
+      localDbOwnerId !== userId
+    ){
+
+      if (
+        viewEl
+      ){
+
+        viewEl.innerHTML =
+          '<div class="auth-shell"><div class="card auth-card" style="text-align:center;padding:40px 24px;">Sincronizando tu cuenta…</div></div>';
+      }
+
+      if (
+        tabbarEl
+      ){
+        tabbarEl.innerHTML = '';
+      }
+
+      return;
     }
 
     reconcileCreditTransactions();

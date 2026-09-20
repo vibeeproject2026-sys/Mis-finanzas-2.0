@@ -176,7 +176,11 @@ async function analyzeWithOpenAI(apiKey, model, imageBase64, mimeType) {
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
-  res.setHeader('Access-Control-Allow-Origin', process.env.APP_ORIGIN || '*');
+  // Fallback fijo al dominio de producción (nunca '*'): este endpoint recibe
+  // el Authorization: Bearer del usuario, así que un CORS abierto a
+  // cualquier origen ampliaría innecesariamente qué sitios pueden invocarlo
+  // desde el navegador si APP_ORIGIN faltara en algún entorno.
+  res.setHeader('Access-Control-Allow-Origin', process.env.APP_ORIGIN || 'https://mis-finanzas-2-0.vercel.app');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
