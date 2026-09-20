@@ -546,7 +546,7 @@ export function renderGenericHero(tab, cloudStatus){
 
   const meta =
     TAB_HERO_META[tab] ||
-    { title: 'Mis Finanzas', subtitle: 'Control y analítica en tiempo real' };
+    { title: 'Zentra', subtitle: 'Control y analítica en tiempo real' };
 
   return (
     '<div class="hero hero-dynamic hero-scene--' + bucket.scene + '">' +

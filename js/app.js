@@ -1012,7 +1012,7 @@ function renderAuthShell(bodyHtml){
     '<div class="auth-shell-bg">' + authDecorSVG() + '</div>' +
     '<div class="auth-brand">' +
     '<div class="auth-brand-mark">' + energySignatureSVG() + '</div>' +
-    '<div class="auth-brand-name">Mis Finanzas</div>' +
+    '<div class="auth-brand-name">Zentra</div>' +
     '<div class="auth-brand-tagline">Tu dinero, más claro.<br>Tu vida, más tranquila.</div>' +
     '</div>' +
     '<div class="card auth-card">' + bodyHtml + '</div>' +
@@ -1074,7 +1074,7 @@ function renderEmailConfirmedBody(){
   return (
     '<div class="auth-icon-badge is-success">' + icon('check-circle') + '</div>' +
     '<div class="auth-card-title">¡Correo confirmado!</div>' +
-    '<div class="auth-card-subtitle">Tu cuenta está activa. Ya puedes ingresar a Mis Finanzas.</div>' +
+    '<div class="auth-card-subtitle">Tu cuenta está activa. Ya puedes ingresar a Zentra.</div>' +
     '<button class="save-btn" id="btn-enter-app" style="width:100%;">Iniciar sesión</button>'
   );
 }

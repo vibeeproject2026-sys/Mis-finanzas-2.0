@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Terminal Cloud</title>
+  <title>Zentra</title>
   <link rel="stylesheet" href="./css/variables.css?v=20260916">
   <link rel="stylesheet" href="./css/main.css?v=20260916">
   <style>
@@ -30,7 +30,7 @@
   <input type="file" id="global-camera-input" style="display:none" accept="image/*" capture="environment">
   <div id="boot-error">
     <div id="boot-error-card">
-      <div id="boot-error-title">Error al iniciar Mis Finanzas</div>
+      <div id="boot-error-title">Error al iniciar Zentra</div>
       <div id="boot-error-message">Cargando la aplicación...</div>
     </div>
   </div>
@@ -39,7 +39,7 @@
       try {
         await import('./js/app.js?v=20260918-0100');
       } catch (error) {
-        console.error('Error cargando Mis Finanzas:', error);
+        console.error('Error cargando Zentra:', error);
         document.getElementById('view').innerHTML = '';
         document.getElementById('tabbar').innerHTML = '';
         document.getElementById('overlays').innerHTML = '';

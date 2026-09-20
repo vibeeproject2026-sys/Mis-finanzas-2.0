@@ -5,7 +5,7 @@ export function renderAuthScreen(onSuccess) {
     <div style="position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1.5rem;">
       <div class="card" style="width:100%;max-width:400px;padding:32px 24px;text-align:center;">
         <div style="font-size:36px;margin-bottom:12px;">🔐</div>
-        <h2 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;">Terminal Cloud</h2>
+        <h2 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;">Zentra</h2>
         <p style="font-size:13px;color:var(--ink-muted);margin-bottom:24px;">Inicia sesión para sincronizar tus finanzas en la nube</p>
         
         <div class="field" style="text-align:left;">
