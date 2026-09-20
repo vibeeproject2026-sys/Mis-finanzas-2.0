@@ -10,8 +10,7 @@ window.onerror = function(msg, url, line) {
 import {
   DB,
   saveDB as saveDBRaw,
-  todayStr,
-  DEFAULT_CATEGORIES
+  todayStr
 } from './state.js';
 
 import {
@@ -515,10 +514,21 @@ function updateSyncBanner(pending) {
     pending
   ){
 
+    // autoDismissMs (reutilizando CLOUD_REFRESH_ERROR_BANNER_MS, ya usado
+    // para el banner de error de refresco de nube): antes se omitía este
+    // argumento, así que showFloatingBanner() nunca programaba su propio
+    // timer de auto-ocultado (esa lógica ya existe ahí, ver más arriba en
+    // este archivo) y el banner quedaba flotando sobre la interfaz de
+    // forma indefinida, tapando controles como "Ver detalle del crédito"
+    // o el botón + mientras la sincronización siguiera fallando. Si una
+    // sincronización vuelve a fallar después de que el banner se oculte,
+    // updateSyncBanner(true) se vuelve a llamar (sin cambios en esa
+    // lógica) y el banner reaparece con su propio temporizador nuevo.
     showFloatingBanner(
       'sync-status-banner',
       'Cambios guardados localmente. Pendiente de sincronizar con la nube.',
-      104
+      104,
+      CLOUD_REFRESH_ERROR_BANNER_MS
     );
 
   } else {
@@ -2284,22 +2294,16 @@ document.addEventListener(
             emailJustConfirmed =
               false;
 
-            Object.assign(
-              DB,
-              {
-                transactions:[],
-                categories:
-                  DEFAULT_CATEGORIES.slice(),
-                credits:[],
-                invoices:[],
-                settings:{
-                  currency:'COP'
-                }
-              }
-            );
-
-            saveDB();
-
+            // NO borrar DB local aquí (antes hacía Object.assign(DB,
+            // {transactions:[], categories:DEFAULT_CATEGORIES.slice(),...})
+            // + saveDB()): eso destruía de forma inmediata e irreversible
+            // todo el historial financiero del dispositivo en CADA cierre
+            // de sesión, incluso sin confirmar antes que la nube tuviera
+            // la última versión. refreshCloudData() ya reemplaza
+            // DB.transactions/categories/credits/invoices por completo con
+            // los datos reales de la cuenta que inicie sesión después
+            // (ver más abajo en este archivo), así que no hace falta vaciar
+            // nada aquí para evitar mezclar datos entre cuentas.
             UI.tab =
               'dashboard';
 
@@ -3356,6 +3360,44 @@ document.addEventListener(
         onConfirm:
           () => {
 
+            // Antes de borrar la categoría, reasignar sus movimientos a
+            // "Otros gastos"/"Otros ingresos" (si esa categoría de respaldo
+            // sigue existiendo) para que no queden con un categoryId
+            // huérfano: un movimiento huérfano seguía sumando en "Gastos
+            // del mes"/Balance (correcto), pero desaparecía por completo
+            // de "Gastos por categoría" (computeCategoryTotals descarta
+            // los que no resuelven a una categoría real), mostrando un
+            // % gastado y un Disponible incorrectos en el Dashboard.
+            const fallbackId =
+              sheet.type === 'income'
+                ? 'inc-other'
+                : 'exp-other';
+
+            const fallbackExists =
+              fallbackId !== sheet.id &&
+              DB.categories.some(
+                c => c.id === fallbackId
+              );
+
+            if (
+              fallbackExists
+            ){
+
+              DB.transactions.forEach(
+                t => {
+
+                  if (
+                    t.categoryId ===
+                    sheet.id
+                  ){
+
+                    t.categoryId =
+                      fallbackId;
+                  }
+                }
+              );
+            }
+
             DB.categories =
               DB.categories.filter(
                 x =>
@@ -4242,6 +4284,20 @@ document.addEventListener(
         onConfirm:
           () => {
 
+            // Si la factura ya fue registrada como gasto (register-invoice
+            // crea un movimiento con sourceInvoiceId), borrar la factura
+            // debe borrar también ese movimiento — si no, queda un gasto
+            // huérfano y el balance nunca refleja la eliminación (el
+            // registro de la factura desaparece pero el dinero sigue
+            // "gastado" indefinidamente). Simétrico con delete-tx, que ya
+            // revierte invoice.registered cuando se borra el movimiento.
+            DB.transactions =
+              DB.transactions.filter(
+                x =>
+                  x.sourceInvoiceId !==
+                  sheet.id
+              );
+
             DB.invoices =
               DB.invoices.filter(
                 x =>
@@ -4490,6 +4546,11 @@ function attachSheetFieldSync(){
         'f-budget'
       );
 
+    const catSaveBtn =
+      document.getElementById(
+        'cat-save-btn'
+      );
+
     if (
       nm
     ){
@@ -4500,6 +4561,20 @@ function attachSheetFieldSync(){
 
           sheet.name =
             nm.value;
+
+          // A diferencia de tx/quick/credit/payment, este campo no
+          // recalculaba el estado del botón Guardar tras el render
+          // inicial: al crear una categoría nueva (nombre vacío al
+          // abrir), el botón nacía disabled y se quedaba así para
+          // siempre sin importar lo que se escribiera — era imposible
+          // crear una categoría nueva desde la UI.
+          if (
+            catSaveBtn
+          ){
+
+            catSaveBtn.disabled =
+              !sheet.name.trim().length;
+          }
         }
       );
     }
