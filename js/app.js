@@ -10,7 +10,8 @@ window.onerror = function(msg, url, line) {
 import {
   DB,
   saveDB as saveDBRaw,
-  todayStr
+  todayStr,
+  DEFAULT_CATEGORIES
 } from './state.js';
 
 import {
@@ -694,93 +695,107 @@ function refreshCloudData() {
       // versión). Si esta cuenta es DISTINTA a la dueña del DB local, el
       // gate de render() (más arriba en este archivo) evita pintar por un
       // instante los datos financieros de la cuenta anterior mientras
-      // llega esta respuesta; aquí, una vez confirmado el pull para la
-      // cuenta actual, se libera ese gate con un render() completo.
-      let wasAccountSwitchGate = false;
+      // llega esta respuesta.
+      //
+      // CRÍTICO: local_db_owner_id NUNCA debe pasar a userId hasta que DB
+      // ya esté en un estado seguro para userId (con sus propios datos, o
+      // vacío/default si todavía no tiene fila remota). Si se liberase el
+      // owner antes, el gate de render() dejaría de bloquear mientras DB
+      // sigue conteniendo los datos financieros de la cuenta anterior —
+      // ese fue exactamente el incidente de fuga de datos entre cuentas.
+      let previousOwnerId = null;
       try {
-        wasAccountSwitchGate = !!(
-          localStorage.getItem('local_db_owner_id') &&
-          localStorage.getItem('local_db_owner_id') !== userId
-        );
-        localStorage.setItem('local_db_owner_id', userId);
+        previousOwnerId =
+          localStorage.getItem('local_db_owner_id');
       } catch(e) {}
+
+      const isAccountSwitchPull =
+        !!previousOwnerId &&
+        previousOwnerId !== userId;
 
       const cloudDB =
         result.data;
 
       if (
-        !cloudDB ||
-        typeof cloudDB !== 'object'
-      ){
-        // No existe (todavía) una fila remota: no se borra el DB local.
-        if (wasAccountSwitchGate) render();
-        return;
-      }
-
-      if (
         sheet
       ){
-        // Se abrió una edición mientras llegaba la respuesta: no pisarla.
-        if (wasAccountSwitchGate) render();
+        // Se abrió una edición mientras llegaba la respuesta: no pisarla,
+        // ni tocar el owner (el gate, si estaba activo, sigue activo).
         return;
       }
 
-      if (
-        Array.isArray(
-          cloudDB.transactions
-        )
-      ){
+      // Campo por campo: en un cambio de cuenta, un campo remoto ausente o
+      // con formato inesperado NUNCA conserva el valor de la cuenta
+      // anterior — se reemplaza por su vacío/default. Para el MISMO
+      // usuario (refresh normal, sin cambio de cuenta) se conserva el
+      // comportamiento previo: un campo ausente/mal formado simplemente no
+      // se toca.
+      const cloudTransactions =
+        Array.isArray(cloudDB && cloudDB.transactions)
+          ? cloudDB.transactions
+          : null;
 
-        DB.transactions =
-          cloudDB.transactions;
+      const cloudCategories =
+        Array.isArray(cloudDB && cloudDB.categories)
+          ? cloudDB.categories
+          : null;
+
+      const cloudCredits =
+        Array.isArray(cloudDB && cloudDB.credits)
+          ? cloudDB.credits
+          : null;
+
+      const cloudInvoices =
+        Array.isArray(cloudDB && cloudDB.invoices)
+          ? cloudDB.invoices
+          : null;
+
+      const cloudSettings =
+        (cloudDB && cloudDB.settings && typeof cloudDB.settings === 'object')
+          ? cloudDB.settings
+          : null;
+
+      if (cloudTransactions) {
+        DB.transactions = cloudTransactions;
+      } else if (isAccountSwitchPull) {
+        DB.transactions = [];
       }
 
-      if (
-        Array.isArray(
-          cloudDB.categories
-        )
-      ){
-
-        DB.categories =
-          cloudDB.categories;
+      if (cloudCategories) {
+        DB.categories = cloudCategories;
+      } else if (isAccountSwitchPull) {
+        DB.categories = DEFAULT_CATEGORIES.slice();
       }
 
-      if (
-        Array.isArray(
-          cloudDB.credits
-        )
-      ){
-
-        DB.credits =
-          cloudDB.credits;
+      if (cloudCredits) {
+        DB.credits = cloudCredits;
+      } else if (isAccountSwitchPull) {
+        DB.credits = [];
       }
 
-      if (
-        Array.isArray(
-          cloudDB.invoices
-        )
-      ){
-
-        DB.invoices =
-          cloudDB.invoices;
+      if (cloudInvoices) {
+        DB.invoices = cloudInvoices;
+      } else if (isAccountSwitchPull) {
+        DB.invoices = [];
       }
 
-      if (
-        cloudDB.settings &&
-        typeof cloudDB.settings === 'object'
-      ){
-
-        DB.settings = {
-          ...DB.settings,
-          ...cloudDB.settings
-        };
+      if (cloudSettings) {
+        DB.settings = { ...DB.settings, ...cloudSettings };
+      } else if (isAccountSwitchPull) {
+        DB.settings = { currency: 'COP' };
       }
+
+      // Solo ahora, con DB ya en un estado seguro para userId (datos
+      // propios o vacío/default), se libera el owner y por tanto el gate.
+      try {
+        localStorage.setItem('local_db_owner_id', userId);
+      } catch(e) {}
 
       reconcileCreditTransactions();
       saveDB();
 
       if (
-        wasAccountSwitchGate
+        isAccountSwitchPull
       ){
         render();
       } else {
