@@ -725,22 +725,17 @@
   min-height: 172px;
 }
 
-.hero-scene--morning{ background: linear-gradient(to bottom, #1a0a2e 0%, #3d1a6e 25%, #ff6b35 55%, #ffaa40 75%, #ffd166 100%); }
-.hero-scene--afternoon{ background: linear-gradient(to bottom, #0a1628 0%, #1a3a6e 30%, #2060b0 60%, #1a2a50 100%); }
-.hero-scene--night{ background: linear-gradient(to bottom, #020408 0%, #0d0820 30%, #130a30 60%, #06090f 100%); }
-
-/* ---- Escenas "premium fintech cinematic" EXCLUSIVAS del Dashboard
-   (selector compuesto .hero-dashboard.hero-scene--*, más específico que
-   las reglas de arriba): Movimientos/Créditos/Facturas siguen usando
-   exactamente los degradados originales, porque su hero NUNCA lleva la
-   clase .hero-dashboard. Mañana cambia el naranja de amanecer intenso por
-   un azul profundo con un acento cálido muy contenido cerca del
-   horizonte; Tarde suma una transición a violeta (más profundidad/
-   contraste que la mañana); Noche sube de un casi-negro a un navy/violeta
-   claramente visible sin dejar de leerse como nocturno. ---- */
-.hero-dashboard.hero-scene--morning{ background: linear-gradient(to bottom, #0B1440 0%, #163B6E 30%, #2F7FBE 55%, #7BC3E8 75%, #E9D2B4 90%, #24365E 100%); }
-.hero-dashboard.hero-scene--afternoon{ background: linear-gradient(to bottom, #0A1130 0%, #17356E 26%, #2D6BB4 50%, #5B3FA0 74%, #7C4FC2 88%, #23285A 100%); }
-.hero-dashboard.hero-scene--night{ background: linear-gradient(to bottom, #0A0F2C 0%, #141644 28%, #241966 52%, #3A2B7A 76%, #1B1E44 100%); }
+/* "Premium fintech cinematic", UNA sola definición para las 4 pantallas
+   con escena dinámica (Dashboard, Movimientos, Créditos, Facturas — todas
+   comparten estas mismas reglas, sin excepción por pantalla). Mañana:
+   azul profundo con un acento cálido muy contenido cerca del horizonte
+   (sin el naranja de amanecer intenso de la versión anterior). Tarde:
+   transición a violeta (más profundidad/contraste que la mañana). Noche:
+   navy/violeta claramente visible en vez de casi-negro, sin dejar de
+   leerse como nocturna. */
+.hero-scene--morning{ background: linear-gradient(to bottom, #0B1440 0%, #163B6E 30%, #2F7FBE 55%, #7BC3E8 75%, #E9D2B4 90%, #24365E 100%); }
+.hero-scene--afternoon{ background: linear-gradient(to bottom, #0A1130 0%, #17356E 26%, #2D6BB4 50%, #5B3FA0 74%, #7C4FC2 88%, #23285A 100%); }
+.hero-scene--night{ background: linear-gradient(to bottom, #0A0F2C 0%, #141644 28%, #241966 52%, #3A2B7A 76%, #1B1E44 100%); }
 
 .hero-scene-svg{
   position:absolute;
@@ -753,28 +748,20 @@
 .hero-scene-overlay{
   position:absolute;
   inset:0;
-  /* Sección 1, FASE 1B.5: mucho más clara para que la escena (luna,
-     estrellas, skyline) se vea con claridad — antes oscurecía casi todo el
-     fondo. Se funde con var(--bg) solo en el último tramo, para que el
-     límite inferior desaparezca dentro del fondo sin una línea dura. */
-  background: linear-gradient(to bottom, rgba(6,9,15,0.04) 0%, rgba(6,9,15,0.12) 30%, rgba(6,9,15,0.28) 58%, rgba(6,9,15,0.55) 82%, var(--bg) 100%);
+  /* Sección 1, FASE 1B.5 + ajuste posterior: el tramo 58-82% de una
+     versión anterior más oscura caía justo sobre la franja inferior de
+     la escena (donde preserveAspectRatio="xMidYMax slice" ancla el
+     skyline/sol/luna), que es la parte con más color — de ahí que la
+     escena se percibiera casi negra pese a los degradados. Se redujo a la
+     mitad la opacidad en cada parada (misma curva, mismo cierre en
+     var(--bg) al final para seguir fundiéndose sin costura con la
+     tarjeta/card de abajo) para dejar ver bastante más color sin perder
+     legibilidad — el saludo/título y la frase ya tienen su propio
+     text-shadow oscuro, independiente de este overlay, para separarse del
+     fondo. UNA sola regla para las 4 pantallas con escena dinámica. */
+  background: linear-gradient(to bottom, rgba(6,9,15,0.02) 0%, rgba(6,9,15,0.06) 35%, rgba(6,9,15,0.14) 62%, rgba(6,9,15,0.30) 85%, var(--bg) 100%);
   z-index:0;
   pointer-events:none;
-}
-
-/* Overlay más ligero, EXCLUSIVO del Dashboard: el tramo 58-82% del overlay
-   de arriba caía justo sobre la franja inferior de la escena (donde
-   preserveAspectRatio="xMidYMax slice" ancla el skyline/sol/luna), que es
-   la parte con más color — de ahí que la escena se percibiera casi negra
-   pese a los degradados. Se reduce a la mitad la opacidad en cada parada
-   (manteniendo la misma curva y el mismo cierre en var(--bg) al final,
-   para seguir fundiéndose sin costura con la tarjeta de Balance) y así
-   dejar ver bastante más color sin perder la legibilidad del texto — el
-   saludo/frase/fecha ya tienen su propio text-shadow oscuro, independiente
-   de este overlay, para separarse del fondo. Movimientos/Créditos/
-   Facturas conservan el overlay original (misma regla de arriba). */
-.hero-dashboard .hero-scene-overlay{
-  background: linear-gradient(to bottom, rgba(6,9,15,0.02) 0%, rgba(6,9,15,0.06) 35%, rgba(6,9,15,0.14) 62%, rgba(6,9,15,0.30) 85%, var(--bg) 100%);
 }
 
 .hero-dynamic .hero-content{ position:relative; z-index:1; }

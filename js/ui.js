@@ -290,34 +290,47 @@ function dashHeroBucket(hour){
 }
 
 // Ilustraciones SVG trasladadas de figma_mis_finanzas/src/screens/Dashboard.tsx
-// (SceneIllustration). Puramente decorativas, sin datos reales.
+// (SceneIllustration), evolucionadas a un tratamiento "premium fintech
+// cinematic": edificios translúcidos (dejan ver el cielo/degradado
+// detrás en vez de siluetas casi negras) y sin el naranja de amanecer
+// intenso — la calidez queda muy contenida. Puramente decorativas, sin
+// datos reales. Fuente visual ÚNICA y compartida por las 4 pantallas con
+// escena dinámica (Dashboard vía renderDashboardHero, y Movimientos/
+// Créditos/Facturas vía renderGenericHero) — el contraste real entre
+// mañana/tarde/noche se termina de definir con el degradado de fondo y
+// el overlay, ambos en main.css bajo las reglas .hero-scene--* /
+// .hero-scene-overlay (una sola definición, sin excepción por pantalla).
 function dashHeroSceneSVG(scene){
 
   if (scene === 'morning') {
     return (
       '<svg class="hero-scene-svg" viewBox="0 0 430 180" preserveAspectRatio="xMidYMax slice">' +
-      '<defs><radialGradient id="sun-dawn" cx="50%" cy="85%" r="40%">' +
-      '<stop offset="0%" stop-color="#ffd166" stop-opacity="0.9"/>' +
-      '<stop offset="40%" stop-color="#ff8c42" stop-opacity="0.5"/>' +
+      '<defs><radialGradient id="sun-dawn" cx="50%" cy="88%" r="45%">' +
+      '<stop offset="0%" stop-color="#FFEFD6" stop-opacity="0.5"/>' +
+      '<stop offset="45%" stop-color="#8FD6FF" stop-opacity="0.32"/>' +
       '<stop offset="100%" stop-color="transparent"/>' +
       '</radialGradient></defs>' +
-      '<ellipse cx="215" cy="155" rx="80" ry="80" fill="url(#sun-dawn)"/>' +
-      '<path d="M0 180 L60 80 L120 140 L180 60 L240 120 L300 40 L370 100 L430 70 L430 180 Z" fill="rgba(20,10,45,0.85)"/>' +
-      '<path d="M0 180 L80 110 L150 155 L220 90 L290 140 L360 100 L430 120 L430 180 Z" fill="rgba(13,8,30,0.9)"/>' +
-      '<line x1="0" y1="152" x2="430" y2="152" stroke="rgba(255,170,64,0.15)" stroke-width="1"/>' +
-      '<line x1="0" y1="156" x2="430" y2="156" stroke="rgba(255,140,66,0.1)" stroke-width="2"/>' +
+      '<ellipse cx="215" cy="158" rx="95" ry="85" fill="url(#sun-dawn)"/>' +
+      '<path d="M0 180 L60 80 L120 140 L180 60 L240 120 L300 40 L370 100 L430 70 L430 180 Z" fill="rgba(24,42,82,0.55)"/>' +
+      '<path d="M0 180 L80 110 L150 155 L220 90 L290 140 L360 100 L430 120 L430 180 Z" fill="rgba(17,30,64,0.62)"/>' +
+      '<line x1="0" y1="152" x2="430" y2="152" stroke="rgba(160,210,255,0.2)" stroke-width="1"/>' +
+      '<line x1="0" y1="156" x2="430" y2="156" stroke="rgba(190,225,255,0.14)" stroke-width="2"/>' +
       '</svg>'
     );
   }
 
   if (scene === 'afternoon') {
-    const windowLights = [30, 50, 115, 135, 175, 220, 275, 295, 345, 395]
-      .map((x, i) => '<rect x="' + (x + 4) + '" y="' + (60 + (i % 3) * 14) + '" width="5" height="4" fill="rgba(0,209,255,0.5)" rx="1"/>')
+    const windowLights = [
+      [34, '#00D1FF'], [54, '#00D1FF'], [119, '#FFC178'], [139, '#00D1FF'],
+      [179, '#8B5CF6'], [224, '#00D1FF'], [279, '#00D1FF'], [299, '#FFC178'],
+      [349, '#00D1FF'], [399, '#8B5CF6']
+    ]
+      .map(([x, c], i) => '<rect x="' + x + '" y="' + (60 + (i % 3) * 14) + '" width="5" height="4" fill="' + c + '" opacity="0.75" rx="1"/>')
       .join('');
 
     return (
       '<svg class="hero-scene-svg" viewBox="0 0 430 200" preserveAspectRatio="xMidYMax slice">' +
-      '<g fill="rgba(10,18,40,0.9)">' +
+      '<g fill="rgba(22,32,62,0.6)">' +
       '<rect x="20" y="80" width="40" height="120"/><rect x="25" y="60" width="12" height="20"/>' +
       '<rect x="70" y="100" width="30" height="100"/>' +
       '<rect x="110" y="50" width="50" height="150"/><rect x="125" y="30" width="8" height="20"/>' +
@@ -328,7 +341,7 @@ function dashHeroSceneSVG(scene){
       '<rect x="390" y="60" width="50" height="140"/>' +
       '</g>' +
       windowLights +
-      '<rect x="0" y="175" width="430" height="25" fill="rgba(20,50,100,0.3)"/>' +
+      '<rect x="0" y="175" width="430" height="25" fill="rgba(40,70,130,0.22)"/>' +
       '</svg>'
     );
   }
@@ -337,7 +350,7 @@ function dashHeroSceneSVG(scene){
     [30, 20], [80, 35], [140, 15], [200, 25], [260, 10], [320, 30], [380, 18],
     [50, 55], [160, 40], [310, 50], [400, 45], [100, 70], [250, 65]
   ]
-    .map(([x, y], i) => '<circle cx="' + x + '" cy="' + y + '" r="' + (i % 3 === 0 ? 1.8 : 1.2) + '" fill="rgba(255,255,255,0.9)"/>')
+    .map(([x, y], i) => '<circle cx="' + x + '" cy="' + y + '" r="' + (i % 3 === 0 ? 1.8 : 1.2) + '" fill="' + (i % 4 === 0 ? 'rgba(180,225,255,0.85)' : 'rgba(255,255,255,0.9)') + '"/>')
     .join('');
 
   const neonWindows = [[100, 75, '#00d1ff'], [165, 95, '#8b5cf6'], [270, 65, '#00d1ff'], [340, 90, '#8b5cf6']]
@@ -351,13 +364,13 @@ function dashHeroSceneSVG(scene){
     '<circle cx="322" cy="44" r="30" fill="rgba(190,215,255,0.14)"/>' +
     '<circle cx="322" cy="44" r="19" fill="rgba(215,228,255,0.3)"/>' +
     '<circle cx="321" cy="43" r="15" fill="#EEF1FA"/>' +
-    '<circle cx="327" cy="39" r="13" fill="#0a0f1e"/>';
+    '<circle cx="327" cy="39" r="13" fill="#171a3e"/>';
 
   return (
     '<svg class="hero-scene-svg" viewBox="0 0 430 200" preserveAspectRatio="xMidYMax slice">' +
     stars +
     moon +
-    '<g fill="rgba(10,15,30,0.92)">' +
+    '<g fill="rgba(24,26,56,0.62)">' +
     '<rect x="0" y="100" width="45" height="100"/><rect x="5" y="80" width="14" height="22"/>' +
     '<rect x="55" y="110" width="30" height="90"/>' +
     '<rect x="95" y="60" width="55" height="140"/><rect x="112" y="40" width="9" height="22"/>' +
@@ -368,7 +381,7 @@ function dashHeroSceneSVG(scene){
     '<rect x="388" y="70" width="50" height="130"/>' +
     '</g>' +
     neonWindows +
-    '<rect x="0" y="180" width="430" height="20" fill="rgba(10,15,30,0.4)"/>' +
+    '<rect x="0" y="180" width="430" height="20" fill="rgba(20,22,50,0.3)"/>' +
     '</svg>'
   );
 }
@@ -457,101 +470,6 @@ const DASH_HERO_SCENE_BG = {
   night: 'linear-gradient(to bottom, #020408 0%, #0d0820 30%, #130a30 60%, #06090f 100%)'
 };
 
-// Versión "premium fintech cinematic" de la escena del header — EXCLUSIVA
-// del Dashboard (ver renderDashboardHero más abajo; renderGenericHero de
-// Movimientos/Créditos/Facturas sigue llamando a dashHeroSceneSVG sin
-// cambios, así que esos headers quedan intactos). Misma composición que
-// la escena original (skyline + sol/luna/estrellas, mismo viewBox y
-// anclaje inferior) pero con un tratamiento de color más refinado: menos
-// negro sólido en los edificios (ahora translúcidos, dejan ver el cielo
-// detrás) y sin el naranja de amanecer intenso — la calidez queda muy
-// contenida. El contraste real entre mañana/tarde/noche se termina de
-// definir con el degradado de fondo y el overlay, ambos en main.css bajo
-// selectores .hero-dashboard.hero-scene--* (misma técnica de scoping que
-// el resto de ajustes exclusivos del Dashboard en esta app).
-function dashHeroDashboardSceneSVG(scene){
-
-  if (scene === 'morning') {
-    return (
-      '<svg class="hero-scene-svg" viewBox="0 0 430 180" preserveAspectRatio="xMidYMax slice">' +
-      '<defs><radialGradient id="sun-dawn" cx="50%" cy="88%" r="45%">' +
-      '<stop offset="0%" stop-color="#FFEFD6" stop-opacity="0.5"/>' +
-      '<stop offset="45%" stop-color="#8FD6FF" stop-opacity="0.32"/>' +
-      '<stop offset="100%" stop-color="transparent"/>' +
-      '</radialGradient></defs>' +
-      '<ellipse cx="215" cy="158" rx="95" ry="85" fill="url(#sun-dawn)"/>' +
-      '<path d="M0 180 L60 80 L120 140 L180 60 L240 120 L300 40 L370 100 L430 70 L430 180 Z" fill="rgba(24,42,82,0.55)"/>' +
-      '<path d="M0 180 L80 110 L150 155 L220 90 L290 140 L360 100 L430 120 L430 180 Z" fill="rgba(17,30,64,0.62)"/>' +
-      '<line x1="0" y1="152" x2="430" y2="152" stroke="rgba(160,210,255,0.2)" stroke-width="1"/>' +
-      '<line x1="0" y1="156" x2="430" y2="156" stroke="rgba(190,225,255,0.14)" stroke-width="2"/>' +
-      '</svg>'
-    );
-  }
-
-  if (scene === 'afternoon') {
-    const windowLights = [
-      [34, '#00D1FF'], [54, '#00D1FF'], [119, '#FFC178'], [139, '#00D1FF'],
-      [179, '#8B5CF6'], [224, '#00D1FF'], [279, '#00D1FF'], [299, '#FFC178'],
-      [349, '#00D1FF'], [399, '#8B5CF6']
-    ]
-      .map(([x, c], i) => '<rect x="' + x + '" y="' + (60 + (i % 3) * 14) + '" width="5" height="4" fill="' + c + '" opacity="0.75" rx="1"/>')
-      .join('');
-
-    return (
-      '<svg class="hero-scene-svg" viewBox="0 0 430 200" preserveAspectRatio="xMidYMax slice">' +
-      '<g fill="rgba(22,32,62,0.6)">' +
-      '<rect x="20" y="80" width="40" height="120"/><rect x="25" y="60" width="12" height="20"/>' +
-      '<rect x="70" y="100" width="30" height="100"/>' +
-      '<rect x="110" y="50" width="50" height="150"/><rect x="125" y="30" width="8" height="20"/>' +
-      '<rect x="170" y="70" width="35" height="130"/>' +
-      '<rect x="215" y="90" width="45" height="110"/>' +
-      '<rect x="270" y="40" width="60" height="160"/><rect x="290" y="20" width="10" height="22"/>' +
-      '<rect x="340" y="75" width="40" height="125"/>' +
-      '<rect x="390" y="60" width="50" height="140"/>' +
-      '</g>' +
-      windowLights +
-      '<rect x="0" y="175" width="430" height="25" fill="rgba(40,70,130,0.22)"/>' +
-      '</svg>'
-    );
-  }
-
-  const stars = [
-    [30, 20], [80, 35], [140, 15], [200, 25], [260, 10], [320, 30], [380, 18],
-    [50, 55], [160, 40], [310, 50], [400, 45], [100, 70], [250, 65]
-  ]
-    .map(([x, y], i) => '<circle cx="' + x + '" cy="' + y + '" r="' + (i % 3 === 0 ? 1.8 : 1.2) + '" fill="' + (i % 4 === 0 ? 'rgba(180,225,255,0.85)' : 'rgba(255,255,255,0.9)') + '"/>')
-    .join('');
-
-  const neonWindows = [[100, 75, '#00d1ff'], [165, 95, '#8b5cf6'], [270, 65, '#00d1ff'], [340, 90, '#8b5cf6']]
-    .map(([x, y, c]) => '<rect x="' + x + '" y="' + y + '" width="6" height="4" fill="' + c + '" opacity="0.9" rx="1"/>')
-    .join('');
-
-  const moon =
-    '<circle cx="322" cy="44" r="30" fill="rgba(190,215,255,0.14)"/>' +
-    '<circle cx="322" cy="44" r="19" fill="rgba(215,228,255,0.3)"/>' +
-    '<circle cx="321" cy="43" r="15" fill="#EEF1FA"/>' +
-    '<circle cx="327" cy="39" r="13" fill="#171a3e"/>';
-
-  return (
-    '<svg class="hero-scene-svg" viewBox="0 0 430 200" preserveAspectRatio="xMidYMax slice">' +
-    stars +
-    moon +
-    '<g fill="rgba(24,26,56,0.62)">' +
-    '<rect x="0" y="100" width="45" height="100"/><rect x="5" y="80" width="14" height="22"/>' +
-    '<rect x="55" y="110" width="30" height="90"/>' +
-    '<rect x="95" y="60" width="55" height="140"/><rect x="112" y="40" width="9" height="22"/>' +
-    '<rect x="160" y="85" width="38" height="115"/>' +
-    '<rect x="208" y="100" width="42" height="100"/>' +
-    '<rect x="260" y="50" width="65" height="150"/><rect x="278" y="30" width="12" height="22"/>' +
-    '<rect x="335" y="80" width="44" height="120"/>' +
-    '<rect x="388" y="70" width="50" height="130"/>' +
-    '</g>' +
-    neonWindows +
-    '<rect x="0" y="180" width="430" height="20" fill="rgba(20,22,50,0.3)"/>' +
-    '</svg>'
-  );
-}
-
 export function renderDashboardHero(userName, cloudStatus){
 
   const now = new Date();
@@ -583,7 +501,7 @@ export function renderDashboardHero(userName, cloudStatus){
 
   return (
     '<div class="hero hero-dynamic hero-dashboard hero-scene--' + bucket.scene + '">' +
-    dashHeroDashboardSceneSVG(bucket.scene) +
+    dashHeroSceneSVG(bucket.scene) +
     energySignatureSVG('hero-energy-signature') +
     '<div class="hero-scene-overlay"></div>' +
     '<div class="hero-content">' +
