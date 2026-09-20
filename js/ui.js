@@ -142,7 +142,13 @@ export function icon(name){
       '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
 
     lock:
-      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+
+    'check-circle':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+
+    'mail-check':
+      '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg>'
   };
 
   return `<span class="icon" style="stroke-linecap:round;stroke-linejoin:round">${svgs[name] || ''}</span>`;
@@ -367,42 +373,79 @@ function dashHeroSceneSVG(scene){
   );
 }
 
-// Línea de fluctuación financiera ascendente — NIVEL 3 (neon protagonista),
-// Sección 5/6/7, FASE 1B.7. Compartida por TODO el hero (Dashboard y el
-// resto de pantallas la llaman desde la misma función, sin duplicar SVG).
+// Firma energética ascendente verde neón — identidad visual única de Mis
+// Finanzas, reutilizada en TODOS los headers (Dashboard y el resto de
+// pantallas llaman a esta misma función a través de renderDashboardHero/
+// renderGenericHero, sin duplicar SVG) y también en Login/Registro (ver
+// authField/renderAuthShell en app.js, que importan esta misma función en
+// vez de dibujar una propia). `modifierClass` es la única diferencia
+// permitida entre usos: controla tamaño/posición vía CSS (p.ej.
+// 'hero-energy-signature' para el header, o ninguno para el badge de
+// autenticación) — la geometría, el color y las capas de glow son
+// siempre exactamente las mismas.
 //
-// La "estela" reportada venía de combinar preserveAspectRatio="none" (que
-// ESTIRA el viewBox de forma no uniforme para llenar un contenedor con
-// Energy mark de Mis Finanzas (Sección 7, FASE actual): reemplaza la línea
-// ascendente oscilante por una marca propia — un rayo geométrico (misma
-// silueta que icon('zap'), a mayor escala) relleno con degradado
-// cyan→blue→violet, con un pequeño nodo verde en la punta (continuidad
-// con la identidad anterior) y un glow CEÑIDO (blur pequeño, sin halo
-// grande). preserveAspectRatio="xMaxYMid meet" evita cualquier
-// distorsión del glow (mismo fix aplicado antes al elemento anterior).
-// La respiración de luz es CSS (.energy-mark-pulse, ver main.css),
-// respeta prefers-reduced-motion.
-function dashHeroEnergyMarkSVG(){
+// Trayectoria: una sola curva Bézier continua (sin segmentos rectos ni
+// zigzag) que empieza fina y contenida, genera una primera elevación
+// suave, desciende, genera una segunda elevación más pronunciada,
+// desciende de nuevo y remata con un ascenso final fuerte hacia la
+// esquina superior derecha — el elemento dominante — terminando en una
+// punta afinada (un trazo extra, más corto y delgado, superpuesto solo
+// sobre ese último tramo).
+//
+// Profundidad neon en 4 capas sobre el mismo path (nunca se desalinean
+// entre sí): (1) glow exterior ancho y muy tenue con un ligero matiz
+// cyan solo para profundidad óptica, (2) glow intermedio verde neón más
+// definido, (3) núcleo nítido con degradado verde profundo → neón →
+// casi blanco (el final del ascenso es el punto más luminoso), y (4)
+// tres highlights puntuales — el pico de la segunda elevación, el
+// arranque del ascenso final y la punta — nunca partículas dispersas.
+// preserveAspectRatio="xMaxYMid meet" escala siempre de forma uniforme
+// (nunca distorsiona los blurs). La respiración de luz es CSS
+// (.energy-signature-pulse, ver main.css), respeta prefers-reduced-motion.
+export function energySignatureSVG(modifierClass){
 
-  const bolt =
-    '76.6,21.4 44.6,59.8 73.4,59.8 70.2,85.4 102.2,47 73.4,47';
+  const cls =
+    'energy-signature' +
+    (modifierClass ? ' ' + modifierClass : '');
+
+  const path =
+    'M10,148 C34,146 52,128 72,116 C88,107 102,113 112,132 ' +
+    'C126,158 148,86 172,64 C190,47 198,78 208,98 ' +
+    'C222,124 240,58 258,38 C278,16 296,8 312,4';
+
+  const tipPath =
+    'M258,38 C278,16 296,8 312,4';
 
   return (
-    '<svg class="hero-energy-mark" viewBox="0 0 120 170" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">' +
+    '<svg class="' + cls + '" viewBox="0 0 320 180" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">' +
     '<defs>' +
-    '<linearGradient id="energyMarkGrad" x1="0" y1="0" x2="0" y2="1">' +
-    '<stop offset="0%" stop-color="#00D1FF"/>' +
-    '<stop offset="55%" stop-color="#2060FF"/>' +
-    '<stop offset="100%" stop-color="#8B5CF6"/>' +
+    '<linearGradient id="energySigGrad" x1="0" y1="1" x2="1" y2="0">' +
+    '<stop offset="0%" stop-color="#0A7A55"/>' +
+    '<stop offset="55%" stop-color="#10F5A0"/>' +
+    '<stop offset="100%" stop-color="#EAFFF6"/>' +
     '</linearGradient>' +
-    '<filter id="energyMarkGlow" x="-40%" y="-40%" width="180%" height="180%">' +
-    '<feGaussianBlur stdDeviation="2" result="blur"/>' +
-    '<feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>' +
+    '<filter id="energySigGlowFar" x="-70%" y="-70%" width="240%" height="240%">' +
+    '<feGaussianBlur stdDeviation="10"/>' +
+    '</filter>' +
+    '<filter id="energySigGlowNear" x="-50%" y="-50%" width="200%" height="200%">' +
+    '<feGaussianBlur stdDeviation="3.2"/>' +
+    '</filter>' +
+    '<filter id="energySigHighlight" x="-120%" y="-120%" width="340%" height="340%">' +
+    '<feGaussianBlur stdDeviation="1.6"/>' +
     '</filter>' +
     '</defs>' +
-    '<g class="energy-mark-pulse">' +
-    '<polygon points="' + bolt + '" fill="url(#energyMarkGrad)" filter="url(#energyMarkGlow)" opacity="0.92"/>' +
-    '<circle cx="70.2" cy="88.5" r="3.6" fill="#10F5A0"/>' +
+    '<g class="energy-signature-pulse">' +
+    // Capa 1 — glow exterior (matiz cyan sutil solo para profundidad).
+    '<path d="' + path + '" fill="none" stroke="#12E6C2" stroke-width="18" stroke-linecap="round" opacity="0.13" filter="url(#energySigGlowFar)"/>' +
+    // Capa 2 — glow intermedio, verde neón puro.
+    '<path d="' + path + '" fill="none" stroke="#10F5A0" stroke-width="8" stroke-linecap="round" opacity="0.34" filter="url(#energySigGlowNear)"/>' +
+    // Capa 3 — núcleo nítido con degradado, más la punta afinada encima.
+    '<path d="' + path + '" fill="none" stroke="url(#energySigGrad)" stroke-width="2.6" stroke-linecap="round" opacity="0.98"/>' +
+    '<path d="' + tipPath + '" fill="none" stroke="#EAFFF6" stroke-width="1.3" stroke-linecap="round" opacity="0.95"/>' +
+    // Capa 4 — highlights puntuales (pico, arranque del ascenso final, punta).
+    '<circle cx="172" cy="64" r="2.6" fill="#EAFFF6" opacity="0.85" filter="url(#energySigHighlight)"/>' +
+    '<circle cx="258" cy="38" r="3" fill="#EAFFF6" opacity="0.9" filter="url(#energySigHighlight)"/>' +
+    '<circle cx="312" cy="4" r="3.6" fill="#EAFFF6" opacity="0.95" filter="url(#energySigHighlight)"/>' +
     '</g>' +
     '</svg>'
   );
@@ -444,9 +487,9 @@ export function renderDashboardHero(userName, cloudStatus){
     dateLabel.slice(1);
 
   return (
-    '<div class="hero hero-dynamic hero-scene--' + bucket.scene + '">' +
+    '<div class="hero hero-dynamic hero-dashboard hero-scene--' + bucket.scene + '">' +
     dashHeroSceneSVG(bucket.scene) +
-    dashHeroEnergyMarkSVG() +
+    energySignatureSVG('hero-energy-signature') +
     '<div class="hero-scene-overlay"></div>' +
     '<div class="hero-content">' +
 
@@ -457,9 +500,11 @@ export function renderDashboardHero(userName, cloudStatus){
     '</div>' +
     '</div>' +
 
+    '<div class="hero-greet-block">' +
     '<h1 class="hero-greeting">' + greeting + '</h1>' +
     '<p class="hero-quote"><span class="hero-quote-accent"></span>' + esc(bucket.quote) + '</p>' +
     '<div class="hero-date">' + esc(dateCapitalized) + '</div>' +
+    '</div>' +
 
     '</div></div>'
   );
@@ -493,7 +538,7 @@ export function renderGenericHero(tab, cloudStatus){
   return (
     '<div class="hero hero-dynamic hero-scene--' + bucket.scene + '">' +
     dashHeroSceneSVG(bucket.scene) +
-    dashHeroEnergyMarkSVG() +
+    energySignatureSVG('hero-energy-signature') +
     '<div class="hero-scene-overlay"></div>' +
     '<div class="hero-content">' +
 

@@ -18,6 +18,7 @@ import {
   renderDashboard,
   renderDashboardHero,
   renderGenericHero,
+  energySignatureSVG,
   renderTransactions,
   renderInvoices,
   renderCredits,
@@ -105,6 +106,13 @@ let pendingAuthNotice = null;
 // se valida/guarda la sesión.
 let authScreenMode = 'login';
 let emailJustConfirmed = false;
+
+// El botón mostrar/ocultar contraseña se delega UNA sola vez en document
+// (en vez de volver a hacer querySelectorAll+addEventListener en cada
+// llamada a attachAuthEvents()) para que nunca queden listeners duplicados
+// acumulados entre renders — la causa de que el toggle pareciera "no
+// funcionar" (cada click alternaba el campo dos veces y se anulaba).
+let authTogglePassBound = false;
 
 const CLOUD_REFRESH_COOLDOWN_MS = 30000;
 const CLOUD_REFRESH_ERROR_BANNER_MS = 6000;
@@ -827,12 +835,17 @@ function authDecorSVG(){
 }
 
 function authField(id, type, label, placeholder, iconName){
+  const isPassword = type === 'password';
   return (
     '<div class="auth-field">' +
     '<div class="auth-field-label">' + label + '</div>' +
-    '<div class="auth-input-wrap">' +
+    '<div class="auth-input-wrap' + (isPassword ? ' has-toggle' : '') + '">' +
     icon(iconName) +
     '<input id="' + id + '" type="' + type + '" placeholder="' + placeholder + '" autocomplete="off">' +
+    (isPassword
+      ? '<button type="button" class="auth-toggle-pass" data-target="' + id + '" aria-label="Mostrar contraseña">' + icon('eye') + '</button>'
+      : ''
+    ) +
     '</div>' +
     '</div>'
   );
@@ -843,9 +856,9 @@ function renderAuthShell(bodyHtml){
     '<div class="auth-shell">' +
     '<div class="auth-shell-bg">' + authDecorSVG() + '</div>' +
     '<div class="auth-brand">' +
-    '<div class="auth-brand-mark">' + icon('zap') + '</div>' +
+    '<div class="auth-brand-mark">' + energySignatureSVG() + '</div>' +
     '<div class="auth-brand-name">Mis Finanzas</div>' +
-    '<div class="auth-brand-tagline">Tu dinero, más claro. Tu vida, más tranquila.</div>' +
+    '<div class="auth-brand-tagline">Tu dinero, más claro.<br>Tu vida, más tranquila.</div>' +
     '</div>' +
     '<div class="card auth-card">' + bodyHtml + '</div>' +
     '</div>'
@@ -860,15 +873,19 @@ function renderLoginBody(){
     authField('auth-password', 'password', 'Contraseña', '••••••••', 'lock') +
     '<div id="auth-notice" class="auth-notice-box"></div>' +
     '<div id="auth-error" class="auth-error-box"></div>' +
-    '<button class="save-btn" id="btn-login" style="width:100%;margin-bottom:10px;">Iniciar Sesión</button>' +
-    '<button class="auth-link-btn" id="btn-go-signup">¿No tienes cuenta? Crear una nueva</button>'
+    '<button class="save-btn" id="btn-login" style="width:100%;margin-bottom:14px;">Ingresar</button>' +
+    '<div class="auth-divider"></div>' +
+    '<div class="auth-bottom-row">' +
+    '<span>¿No tienes una cuenta?</span>' +
+    '<button class="auth-link-btn" id="btn-go-signup">Crear mi cuenta</button>' +
+    '</div>'
   );
 }
 
 function renderSignupBody(){
   return (
-    '<div class="auth-card-title">Crear cuenta</div>' +
-    '<div class="auth-card-subtitle">Únete a Mis Finanzas</div>' +
+    '<div class="auth-card-title">Crea tu cuenta</div>' +
+    '<div class="auth-card-subtitle">Empieza a tener una visión más clara de tu dinero.</div>' +
     authField('signup-name', 'text', 'Nombre', 'Tu nombre completo', 'user') +
     authField('signup-username', 'text', 'Usuario', 'usuario123', 'at-sign') +
     authField('signup-email', 'email', 'Correo electrónico', 'usuario@correo.com', 'mail') +
@@ -876,14 +893,18 @@ function renderSignupBody(){
     authField('signup-password', 'password', 'Contraseña', '••••••••', 'lock') +
     authField('signup-password2', 'password', 'Confirmar contraseña', '••••••••', 'lock') +
     '<div id="auth-error" class="auth-error-box"></div>' +
-    '<button class="save-btn" id="btn-do-signup" style="width:100%;margin-bottom:10px;margin-top:2px;">Crear mi cuenta</button>' +
-    '<button class="auth-link-btn" id="btn-go-login">Ya tengo cuenta, iniciar sesión</button>'
+    '<button class="save-btn" id="btn-do-signup" style="width:100%;margin-bottom:14px;margin-top:2px;">Crear mi cuenta</button>' +
+    '<div class="auth-divider"></div>' +
+    '<div class="auth-bottom-row">' +
+    '<span>¿Ya tienes una cuenta?</span>' +
+    '<button class="auth-link-btn" id="btn-go-login">Iniciar sesión</button>' +
+    '</div>'
   );
 }
 
 function renderPendingConfirmationBody(){
   return (
-    '<div class="auth-icon-badge is-pending">' + icon('mail') + '</div>' +
+    '<div class="auth-icon-badge is-pending">' + icon('mail-check') + '</div>' +
     '<div class="auth-card-title">¡Ya casi estás dentro!</div>' +
     '<div class="auth-card-subtitle">' +
     'Enviamos un enlace de confirmación a tu correo electrónico.<br>' +
@@ -896,7 +917,7 @@ function renderPendingConfirmationBody(){
 
 function renderEmailConfirmedBody(){
   return (
-    '<div class="auth-icon-badge is-success">' + icon('check') + '</div>' +
+    '<div class="auth-icon-badge is-success">' + icon('check-circle') + '</div>' +
     '<div class="auth-card-title">¡Correo confirmado!</div>' +
     '<div class="auth-card-subtitle">Tu cuenta está activa. Ya puedes ingresar a Mis Finanzas.</div>' +
     '<button class="save-btn" id="btn-enter-app" style="width:100%;">Iniciar sesión</button>'
@@ -1197,6 +1218,80 @@ function attachAuthEvents(){
         render();
       }
     );
+
+  // Mostrar/ocultar contraseña: puramente visual, no toca validación ni
+  // auth. Delegado UNA sola vez en document (guardado con
+  // authTogglePassBound) en vez de volver a enlazar botones concretos en
+  // cada render, así nunca se acumulan listeners duplicados.
+  if (
+    !authTogglePassBound
+  ){
+
+    authTogglePassBound =
+      true;
+
+    document.addEventListener(
+      'click',
+      (e) => {
+
+        const btn =
+          e.target.closest(
+            '.auth-toggle-pass'
+          );
+
+        if (
+          !btn
+        ) return;
+
+        const targetId =
+          btn.dataset.target;
+
+        const input =
+          document.getElementById(
+            targetId
+          );
+
+        if (
+          !input
+        ) return;
+
+        const showing =
+          input.type === 'text';
+
+        // El navegador mueve el foco al botón en 'mousedown' (antes de
+        // que este 'click' se dispare), así que devolvérselo al input es
+        // el comportamiento correcto siempre, no solo cuando
+        // document.activeElement todavía apunta al input en este punto
+        // (para entonces ya nunca lo hace). selectionStart/End se leen
+        // ANTES de cambiar el tipo porque se preservan aunque el input
+        // no tenga el foco en este instante.
+        const selStart =
+          input.selectionStart;
+
+        const selEnd =
+          input.selectionEnd;
+
+        input.type =
+          showing ? 'password' : 'text';
+
+        btn.innerHTML =
+          icon(
+            showing ? 'eye' : 'eye-off'
+          );
+
+        input.focus();
+
+        try {
+
+          input.setSelectionRange(
+            selStart,
+            selEnd
+          );
+
+        } catch (_) {}
+      }
+    );
+  }
 
   const errorDiv =
     document.getElementById(
