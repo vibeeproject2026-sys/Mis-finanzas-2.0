@@ -107,11 +107,13 @@
 
   --radius-sm:8px; --radius-md:16px; --radius-lg:20px; --radius-xl:24px;
 }
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+button,a,input,select,textarea,.fab-center,.fab-menu-item,[data-action]{touch-action:manipulation;}
 html,body{
   margin:0;padding:0;background:var(--bg);color:var(--ink);
   font-family:'Inter',-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
   -webkit-font-smoothing:antialiased; overflow-x:hidden; height:100%;
+  touch-action:pan-y;
 }
 h1,h2,h3,.section-title,.font-display{font-family:'Outfit','Inter',sans-serif;}
 .font-mono{font-family:'JetBrains Mono',monospace;}
@@ -120,8 +122,20 @@ h1,h2,h3,.section-title,.font-display{font-family:'Outfit','Inter',sans-serif;}
   position:relative;display:flex;flex-direction:column;overflow:hidden;
 }
 #view{
-  flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+  flex:1;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;
   padding:1.5rem 1rem 120px; position:relative;z-index:2; overscroll-behavior-y:contain;
+}
+
+/* Responsive desktop/tablet: el diseño móvil (<768px) queda intacto.
+   A partir de aquí solo ampliamos el ancho de #root para aprovechar
+   pantallas grandes; el contenido interno (tarjetas, hero, dock) no
+   cambia de diseño, solo dispone de más aire y, donde ya existe una
+   grid (.list-container, .balance-metrics), más columnas. */
+@media (min-width:768px){
+  #root{ max-width:640px; }
+}
+@media (min-width:1024px){
+  #root{ max-width:1100px; }
 }
 h1,h2,h3,p{margin:0;}
 button{font-family:inherit;border:none;background:none;cursor:pointer;color:inherit;user-select:none;-webkit-user-select:none;}

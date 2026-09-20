@@ -21,9 +21,11 @@
   </style>
 </head>
 <body>
-  <div id="view"></div>
-  <nav id="tabbar" class="tabbar"></nav>
-  <div id="overlays"></div>
+  <div id="root">
+    <div id="view"></div>
+    <nav id="tabbar" class="tabbar"></nav>
+    <div id="overlays"></div>
+  </div>
   <input type="file" id="import-file" style="display:none" accept=".json">
   <input type="file" id="global-camera-input" style="display:none" accept="image/*" capture="environment">
   <div id="boot-error">

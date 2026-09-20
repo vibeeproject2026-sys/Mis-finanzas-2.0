@@ -434,7 +434,7 @@
 .overlay{position:fixed;inset:0;z-index:300;display:flex;align-items:flex-end;justify-content:center;background:rgba(2, 4, 8, 0.85);backdrop-filter:blur(10px); animation: fadeInMenu 0.3s ease;touch-action:none;overscroll-behavior:none;}
 .overlay-center{align-items:center;padding:1.5rem;}
 .sheet{
-  width:100%;max-width:480px;background:#0B1326;border-radius:36px 36px 0 0;padding:1.5rem;max-height:88vh;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior-y:contain;
+  width:100%;max-width:480px;background:#0B1326;border-radius:36px 36px 0 0;padding:1.5rem;max-height:88vh;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;overscroll-behavior-y:contain;
   padding-bottom:max(2rem, env(safe-area-inset-bottom));
   border:1px solid var(--dash-border-neon);
   box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.4), 0 0 24px rgba(0, 217, 255, 0.08);
@@ -1128,4 +1128,22 @@
 }
 .auth-icon-badge.is-success{
   background: rgba(16,245,160,0.12); border:1px solid rgba(16,245,160,0.4); color:var(--neon-green);
+}
+
+/* ==========================================================
+   RESPONSIVE DESKTOP/TABLET (>=1024px)
+   Mobile (<768px) queda pixel-identical: estas reglas solo
+   reorganizan listas/grids ya existentes para usar el ancho
+   extra de #root en pantallas grandes. No se toca diseño de
+   tarjetas individuales, dock, botón + ni escenas.
+   ========================================================== */
+@media (min-width:1024px){
+  .list-container{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(340px, 1fr));
+    gap:10px;
+  }
+  .balance-metrics{
+    grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+  }
 }

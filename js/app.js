@@ -92,6 +92,56 @@ let cloudPullError = false;
 let cloudSyncEverSucceeded = false;
 let lastCloudRefreshAt = 0;
 
+// Evita que un render disparado por una actualización asíncrona de nube
+// (refreshCloudData tras focus/visibilitychange/pageshow/sync) reconstruya
+// #view.innerHTML mientras el usuario está desplazándose: en Chromium/
+// Windows, recomponer de golpe todas las tarjetas con backdrop-filter
+// durante un scroll activo puede dejar una zona sin pintar momentáneamente.
+// Los renders iniciados directamente por una acción de la usuaria (guardar,
+// navegar de tab, etc.) NO pasan por aquí y siguen siendo inmediatos.
+let isViewScrolling = false;
+let viewScrollIdleTimer = null;
+let pendingCloudRender = false;
+const VIEW_SCROLL_IDLE_MS = 150;
+
+function requestCloudRender(){
+  if (isViewScrolling) {
+    pendingCloudRender = true;
+    return;
+  }
+  renderAppContent();
+}
+
+function attachViewScrollIdleTracking(){
+  const viewEl = document.getElementById('view');
+  if (!viewEl) return;
+
+  viewEl.addEventListener(
+    'scroll',
+    () => {
+      isViewScrolling = true;
+
+      if (viewScrollIdleTimer) {
+        clearTimeout(viewScrollIdleTimer);
+      }
+
+      viewScrollIdleTimer = setTimeout(
+        () => {
+          isViewScrolling = false;
+          viewScrollIdleTimer = null;
+
+          if (pendingCloudRender) {
+            pendingCloudRender = false;
+            renderAppContent();
+          }
+        },
+        VIEW_SCROLL_IDLE_MS
+      );
+    },
+    { passive: true }
+  );
+}
+
 // updated_at de la fila remota tal como la conoció este dispositivo en su
 // última lectura/escritura exitosa. safeSync() lo manda como condición de
 // concurrencia optimista (ver syncWithSupabase en api.js) para que un
@@ -799,7 +849,7 @@ function refreshCloudData() {
       ){
         render();
       } else {
-        renderAppContent();
+        requestCloudRender();
       }
     }
   )
@@ -5715,6 +5765,8 @@ window.addEventListener(
       e
     );
   }
+
+  attachViewScrollIdleTracking();
 
   render();
 })();
