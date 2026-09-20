@@ -44,6 +44,9 @@ export function attachAuthListeners(onSuccess) {
     try {
       const data = await signInUser(email, password);
       localStorage.setItem('supabase_token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('supabase_refresh_token', data.refresh_token);
+      }
       localStorage.setItem('supabase_user_id', data.user.id);
       onSuccess();
     } catch (err) {
@@ -59,6 +62,9 @@ export function attachAuthListeners(onSuccess) {
       const data = await signUpUser(email, password);
       if (data.access_token) {
         localStorage.setItem('supabase_token', data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem('supabase_refresh_token', data.refresh_token);
+        }
         localStorage.setItem('supabase_user_id', data.user.id);
         onSuccess();
       } else {
