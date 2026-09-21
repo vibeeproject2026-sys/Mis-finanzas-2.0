@@ -14,11 +14,20 @@ const MONTH_NAMES = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 
+// Hallazgo 1 (QA conversacional): antes NO se quitaban ¿ ¿ ¡ ! — un "?" de
+// cierre pegado a la última fecha de un rango ("...hasta el 20 de agosto?")
+// rompía el `^...$` estricto de parseFlexibleDate() y el sistema caía
+// silenciosamente a interpretar solo "agosto" (mes completo) en vez del
+// rango pedido. Se quitan aquí, en la ÚNICA función de normalización, para
+// que toda la resolución de fecha/intención (que siempre parte de este
+// texto ya normalizado) quede protegida de una vez, no solo esta frase.
 export function normalizeText(s) {
   return String(s || '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
+    .replace(/[¿?¡!]/g, '')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -130,7 +139,7 @@ export function resolvePeriod(normText, todayStr, dataYears) {
   // 1) Rango explícito "desde/entre A (y/hasta) B" — se revisa primero para
   //    no dejar que un match parcial (p.ej. un nombre de mes suelto) se
   //    coma parte del rango.
-  let m = normText.match(/entre\s+el\s+(\d{1,2})\s+y\s+el\s+(\d{1,2})\s+de\s+([a-z]+)(?:\s+de\s+(\d{4}))?/);
+  let m = normText.match(/(?:entre\s+el|del)\s+(\d{1,2})\s+(?:y\s+el|al)\s+(\d{1,2})\s+de\s+([a-z]+)(?:\s+de\s+(\d{4}))?/);
   if (m) {
     const mo = MONTHS[m[3]];
     if (mo) {
@@ -155,7 +164,10 @@ export function resolvePeriod(normText, todayStr, dataYears) {
     }
   }
 
-  m = normText.match(/(?:desde|entre)\s+(.+?)\s+(?:hasta|y)\s+(.+?)(?:\.|$)/);
+  // Segunda capa de defensa (además de normalizeText quitando ¿?¡!): el
+  // ancla de cierre tolera puntuación residual antes del fin de la frase,
+  // para que un "." o "?" que igual llegara aquí no rompa la segunda fecha.
+  m = normText.match(/(?:desde|entre)\s+(.+?)\s+(?:hasta|y)\s+(.+?)[.?!\s]*$/);
   if (m) {
     const a = parseFlexibleDate(m[1], today.y);
     const b = a ? parseFlexibleDate(m[2], getYMD(a).y, getYMD(a).m) : null;
@@ -303,4 +315,34 @@ export function comparablePreviousPeriod(period, todayStr) {
   const prevEnd = addDays(start, -1);
   const prevStart = addDays(prevEnd, -(len - 1));
   return { start: prevStart, end: prevEnd, label: `del ${prevStart} al ${prevEnd}` };
+}
+
+/* ==========================================================
+   COMPARACIÓN ENTRE DOS PERÍODOS EXPLÍCITOS (Hallazgo 7)
+   "Compara agosto con julio" / "Compara este mes con el anterior" — se
+   REUTILIZA resolvePeriod() para cada mitad (nunca se inventa un parser de
+   fechas nuevo) y comparablePreviousPeriod() ya existente para resolver
+   "el anterior/el pasado" en el segundo período. Separado a propósito de la
+   comparación entre categorías (compare_categories vive en zenIntent.js).
+   ========================================================== */
+export function resolveComparisonPeriods(normText, todayStr, dataYears) {
+  const m = normText.match(/compar[a-z]*\s+(.+?)\s+(?:con|y)\s+(.+)$/) || normText.match(/^(.+?)\s+(?:vs\.?|versus)\s+(.+)$/);
+  if (!m) return { ok: false };
+
+  const rawA = m[1].trim();
+  const rawB = m[2].trim();
+  if (!rawA || !rawB) return { ok: false };
+
+  const periodA = resolvePeriod(rawA, todayStr, dataYears);
+  if (!periodA.ok) return { ok: false };
+
+  let periodB;
+  if (/^(el|lo)\s+(anterior|pasado)$/.test(rawB) || rawB === 'anterior' || rawB === 'pasado') {
+    periodB = { ok: true, ...comparablePreviousPeriod(periodA, todayStr), kind: periodA.kind };
+  } else {
+    periodB = resolvePeriod(rawB, todayStr, dataYears);
+  }
+  if (!periodB || !periodB.ok) return { ok: false };
+
+  return { ok: true, periodA, periodB };
 }

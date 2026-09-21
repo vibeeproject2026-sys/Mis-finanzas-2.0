@@ -19,7 +19,7 @@
 // Nunca hay dos llamadas de IA consecutivas para la misma pregunta.
 
 import {
-  normalizeText, resolvePeriod, comparablePreviousPeriod, isValidDateStr
+  normalizeText, resolvePeriod, comparablePreviousPeriod, isValidDateStr, resolveComparisonPeriods
 } from './_lib/zenDates.js';
 import {
   looksLikeWriteRequest, detectMetric, isFollowUp, findAllMentionedCategories
@@ -28,10 +28,15 @@ import * as Dom from './_lib/zenDomain.js';
 import { askAI, parseJsonLoose } from './_lib/zenAI.js';
 
 const CURRENCY_LOCALE = { COP: 'es-CO', USD: 'en-US', MXN: 'es-MX', EUR: 'es-ES' };
+// 'compare_periods' NO está en esta lista a propósito: necesita DOS períodos
+// (periodA/periodB) y sanitizeContext() solo reconstruye
+// {type,categoryId,threshold,compare} — si se aceptara aquí, un contexto
+// reutilizado podría llegar a computeMetric() sin periodB y romper (ver la
+// nota junto a nextContext donde se genera 'compare_periods').
 const METRIC_TYPES = new Set([
-  'total_expense', 'total_income', 'balance', 'available_balance', 'average', 'count', 'top', 'bottom',
-  'by_category', 'large_expenses', 'unusual', 'insights', 'summary', 'compare_categories',
-  'invoices_total', 'invoices_count', 'invoices_max', 'invoices_min', 'unclear'
+  'total_expense', 'total_income', 'balance', 'available_balance', 'savings', 'category_percentage',
+  'average', 'count', 'top', 'bottom', 'by_category', 'large_expenses', 'unusual', 'insights', 'summary',
+  'compare_categories', 'invoices_total', 'invoices_count', 'invoices_max', 'invoices_min', 'unclear'
 ]);
 
 function money(value, currency) {
@@ -113,25 +118,39 @@ function dataYearsFn(transactions, invoices) {
    interpretar lenguaje libre (nunca la base completa de movimientos).
    ========================================================== */
 
+// Hallazgo 2 (QA conversacional): antes "transactionCount"/"invoiceCount"
+// eran totales HISTÓRICOS pero no lo decían en el nombre — la IA los citó
+// más de una vez como si fueran "de este mes". Ahora el bundle tiene dos
+// bloques con nombre explícito, "historico" y "estePeriodo", cada cifra
+// vive solo en el bloque que le corresponde y nunca se repite un mismo
+// número en los dos con significados distintos.
 function buildFundamentalBundle(data, clientToday) {
   const monthStart = `${clientToday.slice(0, 7)}-01`;
   const monthExpenses = Dom.filterTx(data.transactions, { start: monthStart, end: clientToday, type: 'expense' });
   const monthIncome = Dom.filterTx(data.transactions, { start: monthStart, end: clientToday, type: 'income' });
+  const monthInvoices = Dom.filterInvoices(data.invoices, { start: monthStart, end: clientToday });
   const groups = Dom.groupByCategory(monthExpenses, data.categories);
   const allTime = Dom.computeAvailableBalance(data.transactions);
   const prevPeriod = comparablePreviousPeriod({ start: monthStart, end: clientToday, kind: 'month', partial: true }, clientToday);
   const prevExpenses = Dom.filterTx(data.transactions, { start: prevPeriod.start, end: prevPeriod.end, type: 'expense' });
 
   return {
-    availableBalance: allTime.balance,
-    thisMonth: {
-      income: Dom.sumAmount(monthIncome),
-      expense: Dom.sumAmount(monthExpenses),
-      topCategory: groups[0] ? { name: groups[0].name, total: groups[0].total, pct: groups[0].pct } : null,
-      expenseVsPrevMonthPct: Dom.diffPct(Dom.sumAmount(monthExpenses), Dom.sumAmount(prevExpenses))
+    historico: {
+      balanceDisponible: allTime.balance,
+      ingresosTotalesHistoricos: allTime.income,
+      gastosTotalesHistoricos: allTime.expense,
+      movimientosTotalesHistoricos: data.transactions.length,
+      facturasTotalesHistoricas: data.invoices.length
     },
-    transactionCount: data.transactions.length,
-    invoiceCount: data.invoices.length
+    estePeriodo: {
+      etiqueta: 'este mes',
+      ingresos: Dom.sumAmount(monthIncome),
+      gastos: Dom.sumAmount(monthExpenses),
+      movimientos: monthExpenses.length + monthIncome.length,
+      facturas: monthInvoices.length,
+      categoriaPrincipal: groups[0] ? { nombre: groups[0].name, total: groups[0].total, porcentaje: groups[0].pct } : null,
+      variacionGastoVsPeriodoAnteriorPct: Dom.diffPct(Dom.sumAmount(monthExpenses), Dom.sumAmount(prevExpenses))
+    }
   };
 }
 
@@ -181,10 +200,28 @@ function computeMetric(metricInfo, period, data, todayStr) {
     // mencionó un período, así que pregunta por ingresos-gastos DE ESE
     // período (equivalente a computeMonthStats().netSavings cuando el
     // período es el mes actual), no por el acumulado histórico.
-    case 'balance': {
+    // 'savings' (Ronda 3, punto 2/3: ahorro, ingresos-vs-gastos) usa
+    // EXACTAMENTE el mismo cálculo — js/domain.js ya define "ahorro" como
+    // ingresos-gastos del mes (computeMonthStats().netSavings); no se
+    // inventa una fórmula nueva, solo se reutiliza bajo un tipo separado
+    // para que (a diferencia de 'balance') NUNCA se promueva a balance
+    // disponible histórico cuando no hay período explícito.
+    case 'balance':
+    case 'savings': {
       const exp = Dom.sumAmount(Dom.filterTx(transactions, { start, end, type: 'expense' }));
       const inc = Dom.sumAmount(Dom.filterTx(transactions, { start, end, type: 'income' }));
       return { ...base, count: null, income: inc, expense: exp, balance: inc - exp, savingsRate: inc > 0 ? Math.max(0, Math.round(((inc - exp) / inc) * 100)) : 0 };
+    }
+    // Ronda 3, punto 1: porcentaje de UNA categoría sobre el gasto total del
+    // período — reutiliza Dom.percentOf() (ya existía, sin uso hasta ahora)
+    // con la misma fórmula/precisión que Dom.groupByCategory ya usa.
+    case 'category_percentage': {
+      const totalList = Dom.filterTx(transactions, { start, end, type: 'expense' });
+      const totalExpense = Dom.sumAmount(totalList);
+      const catList = Dom.filterTx(transactions, { start, end, type: 'expense', categoryId: metricInfo.categoryId });
+      const categoryTotal = Dom.sumAmount(catList);
+      const categoryName = (categories.find(c => c.id === metricInfo.categoryId) || {}).name || null;
+      return { ...base, count: catList.length, categoryName, categoryTotal, totalExpense, pct: Dom.percentOf(categoryTotal, totalExpense) };
     }
     case 'average': {
       const list = Dom.filterTx(transactions, { start, end, type: 'expense', categoryId: metricInfo.categoryId });
@@ -213,6 +250,19 @@ function computeMetric(metricInfo, period, data, todayStr) {
         return { categoryId: id, name: cat ? cat.name : 'Categoría', total: Dom.sumAmount(list), count: list.length };
       });
       return { ...base, results };
+    }
+    // Hallazgo 7: comparación entre DOS PERÍODOS explícitos ("Compara agosto
+    // con julio"). `period` (start/end/label en `base`) es el período A;
+    // `metricInfo.periodB` trae el período B ya resuelto por
+    // resolveComparisonPeriods() en zenDates.js. Cálculo 100% determinista
+    // reutilizando Dom.filterTx/sumAmount/diffPct — la IA nunca calcula esto.
+    case 'compare_periods': {
+      const pB = metricInfo.periodB;
+      const expenseA = Dom.sumAmount(Dom.filterTx(transactions, { start, end, type: 'expense' }));
+      const expenseB = Dom.sumAmount(Dom.filterTx(transactions, { start: pB.start, end: pB.end, type: 'expense' }));
+      const incomeA = Dom.sumAmount(Dom.filterTx(transactions, { start, end, type: 'income' }));
+      const incomeB = Dom.sumAmount(Dom.filterTx(transactions, { start: pB.start, end: pB.end, type: 'income' }));
+      return { ...base, labelB: pB.label, expenseA, expenseB, incomeA, incomeB, diffPct: Dom.diffPct(expenseA, expenseB) };
     }
     case 'large_expenses': {
       const all = Dom.filterTx(transactions, { start, end, type: 'expense' });
@@ -301,6 +351,17 @@ function buildViz(metricInfo, computed) {
       items: computed.results.map(r => ({ label: r.name, value: r.total, pct: Math.round((r.total / max) * 1000) / 10 }))
     };
   }
+  if (metricInfo.type === 'compare_periods') {
+    const max = Math.max(computed.expenseA, computed.expenseB, 1);
+    return {
+      type: 'bars',
+      title: 'Comparación de gastos por período',
+      items: [
+        { label: computed.label, value: computed.expenseA, pct: Math.round((computed.expenseA / max) * 1000) / 10 },
+        { label: computed.labelB, value: computed.expenseB, pct: Math.round((computed.expenseB / max) * 1000) / 10 }
+      ]
+    };
+  }
   if (metricInfo.type === 'large_expenses' && computed.items?.length) {
     return {
       type: 'table',
@@ -313,7 +374,7 @@ function buildViz(metricInfo, computed) {
 }
 
 function isEmptyResult(metricInfo, computed) {
-  if (['balance', 'insights', 'summary'].includes(metricInfo.type)) return false;
+  if (['balance', 'savings', 'insights', 'summary', 'compare_periods'].includes(metricInfo.type)) return false;
   if (metricInfo.type === 'compare_categories') return (computed.results || []).every(r => r.count === 0);
   if (computed.count === 0) return true;
   if (computed.item === null && ['top', 'bottom', 'invoices_max', 'invoices_min'].includes(metricInfo.type)) return true;
@@ -352,6 +413,15 @@ function templateReply(metricInfo, computed, currency) {
     }
     case 'balance':
       return `En ${computed.label}: ingresos ${m(computed.income)}, gastos ${m(computed.expense)}, balance neto ${m(computed.balance)}.`;
+    case 'savings': {
+      const diff = Math.abs(computed.balance);
+      const quien = computed.balance > 0 ? 'tus ingresos superaron tus gastos' : (computed.balance < 0 ? 'tus gastos superaron tus ingresos' : 'ingresos y gastos quedaron iguales');
+      return `En ${computed.label}: ingresos ${m(computed.income)}, gastos ${m(computed.expense)}. ${computed.balance >= 0 ? 'Ahorraste' : 'Te faltaron'} ${m(diff)} (${quien}).`;
+    }
+    case 'category_percentage':
+      return computed.totalExpense > 0
+        ? `${computed.categoryName || 'Esa categoría'} representa el ${computed.pct}% de tus gastos en ${computed.label} (${m(computed.categoryTotal)} de ${m(computed.totalExpense)} en total).`
+        : `No tengo gastos registrados en ${computed.label} para calcular ese porcentaje.`;
     case 'average':
       return `El gasto promedio en ${computed.label} fue de ${m(computed.avg)} (sobre ${computed.count} movimientos).`;
     case 'count':
@@ -370,6 +440,10 @@ function templateReply(metricInfo, computed, currency) {
       return a && b
         ? `En ${computed.label}: ${a.name} suma ${m(a.total)} (${a.count} mov.) y ${b.name} suma ${m(b.total)} (${b.count} mov.).`
         : `No tengo suficiente información para comparar esas categorías en ${computed.label}.`;
+    }
+    case 'compare_periods': {
+      const dir = computed.diffPct >= 0 ? 'más' : 'menos';
+      return `En ${computed.label} gastaste ${m(computed.expenseA)} y en ${computed.labelB} gastaste ${m(computed.expenseB)} — ${Math.abs(computed.diffPct)}% ${dir} en ${computed.label}.`;
     }
     case 'large_expenses':
       return computed.count
@@ -440,7 +514,8 @@ Reglas estrictas:
 - Cuando cites una cifra, menciona de dónde sale (cuántos movimientos o facturas, y el período).
 - Todo porcentaje de categoría ("pct") que recibas es SIEMPRE el gasto de esa categoría dividido entre el gasto TOTAL del período (nunca el ingreso). Dilo explícito, por ejemplo: "Alimentación representa el 32% de tus gastos totales."
 - Usa los porcentajes y variaciones EXACTAMENTE con el decimal que se te entrega (por ejemplo 18.4%). Nunca los redondees a un número entero.
-- "availableBalance" en el contexto es el balance disponible TOTAL histórico (nunca solo de un período): si respondes sobre él, no lo confundas con el balance de un mes.`;
+- El contexto financiero que recibes tiene DOS bloques con nombre explícito: "historico" (toda la vida de la cuenta, nunca de un solo período) y "estePeriodo" (solo el período actual). NUNCA presentes una cifra de "historico" como si fuera de "estePeriodo", ni al revés. En particular, "historico.movimientosTotalesHistoricos" y "historico.facturasTotalesHistoricas" NO son la cantidad de movimientos/facturas de este período — para eso usa "estePeriodo.movimientos" y "estePeriodo.facturas".
+- Si te preguntan por un período que NO sea "estePeriodo" (por ejemplo un mes distinto) y no tienes esa cifra ya calculada en el contexto, dilo explícitamente en vez de inventar o de asumir que no hay datos — el sistema puede tener esos datos aunque no te los haya dado en este contexto puntual.`;
 
 // Un único prompt que resuelve TANTO la interpretación como (cuando aplica)
 // la redacción final, para nunca encadenar dos llamadas de IA en la misma
@@ -575,8 +650,50 @@ export default async function handler(req, res) {
   // 1) Intención determinista
   let metricInfo = detectMetric(normText, data.categories);
   const mentioned = findAllMentionedCategories(normText, data.categories);
-  if (mentioned.length >= 2 && (metricInfo.compare || /categoria/.test(normText))) {
+  // Hallazgo 5: "Comida o transporte, ¿cuál pesa más?" nombra dos categorías
+  // reales unidas por "o" y pregunta "cuál" — es una comparación aunque no
+  // diga "compara"/"categoría". "cual" se exige junto con dos categorías ya
+  // detectadas para no disparar de más con preguntas no comparativas.
+  if (mentioned.length >= 2 && (metricInfo.compare || /categoria/.test(normText) || /\bcual\b/.test(normText))) {
     metricInfo = { ...metricInfo, type: 'compare_categories', categoryIds: mentioned.slice(0, 2) };
+  }
+
+  // Hallazgo 5 (QA conversacional): un sinónimo de categoría que podría
+  // referirse a MÁS de una categoría real del usuario nunca se adivina —
+  // se aclara de inmediato, 0 llamadas de IA (Sección "regla de no invención").
+  if (metricInfo.ambiguousCategoryNames && metricInfo.ambiguousCategoryNames.length > 1) {
+    return finish(res, t0, 'fast', 0, timing, {
+      reply: `¿Te refieres a ${metricInfo.ambiguousCategoryNames.join(' o a ')}?`,
+      viz: null,
+      context: { lastPeriod: context.lastPeriod, lastMetric: context.lastMetric }
+    });
+  }
+
+  // Hallazgo 7: comparación entre DOS períodos explícitos ("Compara agosto
+  // con julio", "Compara este mes con el anterior") — separada a propósito
+  // de compare_categories de arriba. Se intenta solo cuando la comparación
+  // NO era de categorías (mentioned.length<2) y hay una señal de comparación
+  // en el texto. 100% determinista (resolveComparisonPeriods reutiliza
+  // resolvePeriod/comparablePreviousPeriod ya existentes) — nunca IA.
+  if (metricInfo.type !== 'compare_categories' && metricInfo.compare) {
+    const cmp = resolveComparisonPeriods(normText, clientToday, getDataYears);
+    if (cmp.ok) {
+      const computed = computeMetric({ type: 'compare_periods', periodB: cmp.periodB }, cmp.periodA, data, clientToday);
+      timing.compute = Date.now() - tCompute0;
+      // lastMetric queda en null a propósito: 'compare_periods' necesita DOS
+      // períodos (periodA/periodB) y el contexto sanitizado (sanitizeContext)
+      // solo conserva {type,categoryId,threshold,compare} — si se guardara
+      // aquí, una pregunta de seguimiento que reutilizara este lastMetric
+      // llegaría a computeMetric() sin periodB definido y rompería. Se
+      // conserva lastPeriod (periodA) para que sí sirvan seguimientos de
+      // período simples ("¿y la más cara?").
+      const nextContext = { lastPeriod: cmp.periodA, lastMetric: null };
+      return finish(res, t0, 'fast', 0, timing, {
+        reply: templateReply({ type: 'compare_periods' }, computed, currency),
+        viz: buildViz({ type: 'compare_periods' }, computed),
+        context: nextContext
+      });
+    }
   }
 
   // 2) Período determinista
@@ -612,12 +729,47 @@ export default async function handler(req, res) {
   }
 
   // 3) Seguimiento conversacional: reutiliza contexto previo si falta algo.
+  // Hallazgo 3: una referencia vaga ("ambiguous_reference") se trata IGUAL
+  // que 'unclear' para reutilizar período Y métrica juntos (antes solo se
+  // reutilizaba la métrica sin el período, y una pregunta como "¿qué fue lo
+  // más caro ESE MES?" tras hablar de agosto terminaba calculando sobre el
+  // mes actual en vez de agosto). Si de todas formas no hay contexto
+  // suficiente para resolverla, se aclara — nunca se inventa.
   const followUp = isFollowUp(normText);
-  if ((period.none || !period.ok) && !period.needsClarification && (followUp || metricInfo.type === 'unclear') && context.lastPeriod) {
+  const needsContext = metricInfo.type === 'unclear' || metricInfo.type === 'ambiguous_reference';
+  // metricInfo.vagueReference cubre el caso en que la métrica YA se resolvió
+  // directamente (ej. "más caro" -> 'top') pero el mensaje de todas formas
+  // trae una referencia temporal vaga ("ese mes", "esa semana"): sin esto,
+  // el período de la conversación anterior se perdía y la pregunta caía en
+  // el período por defecto en vez del período del que se venía hablando.
+  if ((period.none || !period.ok) && !period.needsClarification && (followUp || needsContext || metricInfo.vagueReference) && context.lastPeriod) {
     period = { ok: true, ...context.lastPeriod };
   }
-  if (metricInfo.type === 'unclear' && context.lastMetric && (followUp || period.ok)) {
+  if (needsContext && context.lastMetric && context.lastMetric.type !== 'unclear' && (followUp || period.ok)) {
     metricInfo = { ...context.lastMetric, compare: metricInfo.compare || context.lastMetric.compare };
+  } else if (metricInfo.type === 'ambiguous_reference') {
+    timing.compute = Date.now() - tCompute0;
+    return finish(res, t0, 'fast', 0, timing, {
+      reply: 'No tengo claro a qué te refieres exactamente. ¿Puedes decirme la categoría o el gasto específico?',
+      viz: null,
+      context: { lastPeriod: context.lastPeriod, lastMetric: null }
+    });
+  }
+
+  // Ronda 3, punto 5: mes/período aislado SIN contexto previo (ej. "¿Y
+  // junio?" como primer mensaje, o tras una conversación de la que no se
+  // pudo heredar ninguna métrica). El período sí quedó resuelto arriba,
+  // pero no hay métrica ni propia ni heredada -> en vez de mandarlo al
+  // camino de IA (que podría inventar datos o decir "no tengo datos" de
+  // un período que sí existe), se aclara de forma 100% determinista qué
+  // quiere saber el usuario de ese período.
+  if (metricInfo.type === 'unclear' && period.ok && !period.needsClarification) {
+    timing.compute = Date.now() - tCompute0;
+    return finish(res, t0, 'fast', 0, timing, {
+      reply: `Claro. ¿Qué quieres saber de ${period.label}: gastos, ingresos, balance o algo más?`,
+      viz: null,
+      context: { lastPeriod: period, lastMetric: null }
+    });
   }
 
   const aiConfig = { geminiApiKey: GEMINI_API_KEY, geminiModel: GEMINI_MODEL, groqApiKey: GROQ_API_KEY, groqModel: GROQ_MODEL };
