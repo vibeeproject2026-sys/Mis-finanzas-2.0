@@ -470,17 +470,6 @@ export function energySignatureSVG(modifierClass){
   );
 }
 
-// Punto de acceso a Zen (Fase 5A): un botón simple en el mismo hero-top-row
-// que ya usa el badge de estado de nube, en TODAS las pantallas (Dashboard
-// y el resto vía renderGenericHero) — sin crear navegación nueva.
-function renderZenLaunchButton() {
-  return (
-    '<button class="zen-launch-btn" data-action="open-zen" aria-label="Abrir Zen, tu asistente financiero">' +
-    '<span class="zen-launch-icon">✦</span><span class="zen-launch-label">Zen</span>' +
-    '</button>'
-  );
-}
-
 const DASH_HERO_SCENE_BG = {
   morning: 'linear-gradient(to bottom, #1a0a2e 0%, #3d1a6e 25%, #ff6b35 55%, #ffaa40 75%, #ffd166 100%)',
   afternoon: 'linear-gradient(to bottom, #0a1628 0%, #1a3a6e 30%, #2060b0 60%, #1a2a50 100%)',
@@ -531,7 +520,6 @@ export function renderDashboardHero(userName, cloudStatus){
     '<span class="cloud-status-dot cloud-status-dot--' + (cloudStatus || 'unknown') + '" id="cloud-status-dot"></span>' +
     '<span class="cloud-status-icon">☁</span>' +
     '</div>' +
-    renderZenLaunchButton() +
     '</div>' +
     '</div>' +
 
@@ -587,7 +575,6 @@ export function renderGenericHero(tab, cloudStatus){
     '<span class="cloud-status-dot cloud-status-dot--' + (cloudStatus || 'unknown') + '" id="cloud-status-dot"></span>' +
     '<span class="cloud-status-icon">☁</span>' +
     '</div>' +
-    renderZenLaunchButton() +
     '</div>' +
     '</div>' +
 
@@ -2867,6 +2854,19 @@ const FAB_MENU_ACTIONS = [
     desc: 'Moneda y cuenta',
     color: 'var(--ink-muted)',
     bg: 'rgba(255,255,255,0.06)'
+  },
+  {
+    // Fase 5A: acceso a Zen movido del header al menú "+" (una opción más
+    // de FAB_MENU_ACTIONS, sin panel ni evento propios — reutiliza
+    // 'fab-open-zen' -> openZenChat() en app.js, que abre el mismo chat
+    // que ya existía). Usa el isotipo Z real de Zentra (img), no un icono
+    // del set SVG de icon().
+    action: 'fab-open-zen',
+    img: './assets/branding/zentra-symbol.png',
+    label: 'Zen',
+    desc: 'Tu asistente financiero',
+    color: 'var(--neon-cyan)',
+    bg: 'rgba(0,209,255,0.15)'
   }
 ];
 
@@ -2888,7 +2888,11 @@ export function renderFabMenu(){
       a =>
         '<button class="fab-menu-item" data-action="' + a.action + '">' +
         '<div class="icon-box" style="background:' + a.bg + ';color:' + a.color + '">' +
-        icon(a.ic) +
+        (
+          a.img
+            ? '<img class="icon-box-img" src="' + a.img + '" alt="">'
+            : icon(a.ic)
+        ) +
         '</div>' +
         '<span class="fab-menu-item-label">' + a.label + '</span>' +
         '<span class="fab-menu-item-desc">' + a.desc + '</span>' +

@@ -442,6 +442,7 @@
   margin: 0; padding: 0;
 }
 .fab-menu-item .icon-box .icon{ width:18px; height:18px; }
+.fab-menu-item .icon-box .icon-box-img{ width:18px; height:18px; object-fit:contain; }
 
 @keyframes fadeInMenu { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fadeOutMenu { from { opacity: 1; } to { opacity: 0; } }
@@ -470,13 +471,6 @@
    Reutiliza .overlay/.sheet/.sheet-handle/.sheet-head tal cual (mismo
    lenguaje visual), solo añade lo propio del chat.
    ========================================================== */
-
-.zen-launch-btn{
-  display:flex;align-items:center;gap:6px;padding:6px 12px 6px 10px;border-radius:20px;
-  background:rgba(0,209,255,0.1);border:1px solid rgba(0,209,255,0.35);
-  color:var(--neon-cyan);font-size:12px;font-weight:800;flex-shrink:0;
-}
-.zen-launch-icon{font-size:13px;line-height:1;}
 
 .zen-sheet{
   max-width:520px;height:min(86vh,720px);display:flex;flex-direction:column;overflow-y:hidden;
@@ -946,17 +940,18 @@
 }
 
 /* justify-content:flex-start (antes space-between): .hero-top-row ya solo
-   contiene .hero-brand-group (ZENTRA + nube + Zen) — la Z grande salió de
+   contiene .hero-brand-group (ZENTRA + nube) — la Z grande salió de
    esta fila y ahora vive integrada en el fondo del hero como elemento
    independiente (ver .hero-zentra-symbol), así que no hay un segundo
-   grupo del que "separarse". */
+   grupo del que "separarse". El acceso a Zen vive ahora en el menú "+"
+   (ver FAB_MENU_ACTIONS en js/ui.js), ya no en este header. */
 .hero-top-row{
   display:flex;
   align-items:center;
   justify-content:flex-start;
   margin-bottom:10px;
 }
-/* Compactación mobile: menos aire entre la fila ZENTRA/nube/Zen y el
+/* Compactación mobile: menos aire entre la fila ZENTRA/nube y el
    saludo. Tablet/desktop (sin @media aquí) conservan los 10px originales. */
 @media (max-width:767px){
   .hero-top-row{ margin-bottom:6px; }
@@ -1087,11 +1082,10 @@
 }
 
 /* ---- Composición del branding: IZQUIERDA .hero-brand-group (wordmark
-   ZENTRA + nube + botón Zen, en ese orden), todo dentro de .hero-top-row.
-   La Z grande YA NO va en este grupo/fila — ver .hero-zentra-symbol más
-   abajo, ahora un elemento independiente integrado en el fondo del hero.
-   Reutilizado en TODOS los headers dinámicos (renderDashboardHero/
-   renderGenericHero en ui.js). ---- */
+   ZENTRA + nube), todo dentro de .hero-top-row. La Z grande YA NO va en
+   este grupo/fila — ver .hero-zentra-symbol más abajo, ahora un elemento
+   independiente integrado en el fondo del hero. Reutilizado en TODOS los
+   headers dinámicos (renderDashboardHero/renderGenericHero en ui.js). ---- */
 .hero-brand-group{
   display:flex;
   align-items:center;

@@ -103,6 +103,21 @@ let cloudPullError = false;
 let cloudSyncEverSucceeded = false;
 let lastCloudRefreshAt = 0;
 
+// Abre el chat de Zen (Fase 5A, solo lectura): función única reutilizada
+// tanto por la acción directa 'open-zen' como por la opción "Zen" del menú
+// "+" (acción 'fab-open-zen'), para no duplicar la inicialización del chat.
+function openZenChat(){
+
+  zenState = {
+    messages: [],
+    loading: false,
+    context: { lastPeriod:null, lastMetric:null },
+    suggestions: buildZenSuggestions()
+  };
+
+  renderOverlays();
+}
+
 // Evita que un render disparado por una actualización asíncrona de nube
 // (refreshCloudData tras focus/visibilitychange/pageshow/sync) reconstruya
 // #view.innerHTML mientras el usuario está desplazándose: en Chromium/
@@ -2634,14 +2649,7 @@ document.addEventListener(
       'open-zen'
     ){
 
-      zenState = {
-        messages: [],
-        loading: false,
-        context: { lastPeriod:null, lastMetric:null },
-        suggestions: buildZenSuggestions()
-      };
-
-      renderOverlays();
+      openZenChat();
 
       return;
     }
@@ -2949,6 +2957,15 @@ document.addEventListener(
 
                 renderAppContent();
               }
+            );
+
+          } else if (
+            action ===
+            'fab-open-zen'
+          ){
+
+            closeFabMenu(
+              openZenChat
             );
           }
 
