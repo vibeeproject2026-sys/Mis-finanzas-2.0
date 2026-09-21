@@ -821,6 +821,20 @@
   padding-bottom: 1.3rem;
   min-height: 172px;
 }
+/* Composición mobile más compacta: .hero (con .hero-dynamic) y .hero-content
+   (ver más abajo) tienen padding vertical propio cada uno — en mobile eso
+   sumaba espacio vacío antes de que empezara siquiera la fila ZENTRA/nube/
+   Zen. Se recorta SOLO en este breakpoint (tablet ≥768px y desktop ≥1024px
+   no llevan este @media, así que siguen exactamente igual). min-height baja
+   pero se mantiene con margen holgado por encima de la Z mobile (93px, ver
+   .hero-zentra-symbol) para que siga garantizado que cabe completa. */
+@media (max-width:767px){
+  .hero-dynamic{
+    padding-top: 0.65rem;
+    padding-bottom: 0.9rem;
+    min-height: 155px;
+  }
+}
 
 /* "Premium fintech cinematic", UNA sola definición para las 4 pantallas
    con escena dinámica (Dashboard, Movimientos, Créditos, Facturas — todas
@@ -840,6 +854,19 @@
   width:100%; height:70%;
   display:block;
   pointer-events:none;
+}
+/* Causa del recorte de la luna/estrellas en mobile: preserveAspectRatio=
+   "xMidYMax slice" (en dashHeroSceneSVG, js/ui.js) llena esta caja
+   recortando el excedente SIEMPRE por arriba (YMax ancla el borde
+   inferior). Al compactar el hero en mobile, el 70% de su alto (esta caja)
+   se volvió proporcionalmente más ancho/bajo que el viewBox (430x180/200),
+   y "slice" tuvo que recortar más arriba, comiéndose la luna (su halo
+   empieza en y≈14 del viewBox) y las estrellas más altas (y=10). min-height
+   le pone un piso en px a ESTA caja (no al hero) para que esa proporción
+   nunca se aplane tanto como para llegar a esa zona — el 70% base sigue
+   intacto y sigue rigiendo tablet/desktop sin cambios. */
+@media (max-width:767px){
+  .hero-scene-svg{ min-height:195px; }
 }
 
 .hero-scene-overlay{
@@ -871,7 +898,11 @@
    wordmark/nube/Zen— y ese grupo no necesita ceder espacio: ya vive fuera
    de la zona de la Z). Escala junto con el tamaño de la Z por breakpoint
    (ver media queries de .hero-zentra-symbol). */
-.hero-greeting, .hero-quote, .hero-date{ padding-right:104px; }
+/* 104px -> 92px: recalibrado contra la Z mobile ya reducida a 93px (antes
+   100px) — mismo margen de seguridad relativo, más ancho libre para el
+   texto. Solo el valor base cambia (mobile); los @media de abajo (tablet/
+   desktop) quedan intactos. */
+.hero-greeting, .hero-quote, .hero-date{ padding-right:92px; }
 @media (min-width:768px){
   .hero-greeting, .hero-quote, .hero-date{ padding-right:140px; }
 }
@@ -925,6 +956,11 @@
   justify-content:flex-start;
   margin-bottom:10px;
 }
+/* Compactación mobile: menos aire entre la fila ZENTRA/nube/Zen y el
+   saludo. Tablet/desktop (sin @media aquí) conservan los 10px originales. */
+@media (max-width:767px){
+  .hero-top-row{ margin-bottom:6px; }
+}
 
 /* Saludo con mucha más presencia (Sección 9/10, FASE 1B.6): Outfit ya
    llega heredado de la regla global h1{font-family}. Texto en foreground
@@ -960,7 +996,12 @@
   text-shadow: 0 1px 6px rgba(0,0,0,0.55);
   margin-top:7px;
   line-height:1.4;
-  max-width:82%;
+  /* Ajuste composición hero: este max-width:82% (legado de antes de que la
+     Z tuviera su propio gutter vía padding-right, ver arriba) recortaba la
+     frase a un 82% de un ancho que YA estaba reducido por ese padding-right
+     — doble angostamiento que forzaba 3 líneas innecesarias. El
+     padding-right ya reserva exactamente la columna de la Z; la frase debe
+     poder usar el 100% de lo que queda a su izquierda. */
 }
 .hero-quote-accent{
   flex-shrink:0;
@@ -981,6 +1022,11 @@
   margin-top:11px;
   text-transform:capitalize;
   letter-spacing:0.3px;
+}
+/* Compactación mobile: la fecha queda inmediatamente después de la frase.
+   Tablet/desktop (sin @media aquí) conservan los 11px originales. */
+@media (max-width:767px){
+  .hero-date{ margin-top:6px; }
 }
 
 /* ---- Botón mostrar/ocultar saldo ---- */
@@ -1092,8 +1138,12 @@
   position:absolute;
   top:50%;
   right:10px;
-  height:100px;
-  width:100px;
+  /* Ajuste de composición mobile: 100px -> 93px SOLO en el valor base (que
+     por diseño mobile-first es el que rige <768px; tablet/desktop siguen
+     con sus propios @media min-width sin tocar, ver más abajo). Libera un
+     poco de columna para el texto sin afectar el tamaño en tablet/desktop. */
+  height:93px;
+  width:93px;
   transform: translateY(-50%) rotate(-6deg);
   z-index:3;
   pointer-events:none;
