@@ -52,6 +52,11 @@ import {
   catById
 } from './domain.js';
 
+import {
+  renderZenSheet,
+  buildZenSuggestions
+} from './zen-ui.js';
+
 /* ==========================================================
    ESTADO DE LA INTERFAZ
    ========================================================== */
@@ -85,6 +90,12 @@ let UI = {
 let sheet = null;
 let confirmState = null;
 let scanningOverlay = null;
+
+// Estado de Zen (Fase 5A, solo lectura). null = cerrado. La memoria
+// conversacional (messages + context) se limita a esta sesión de chat: se
+// descarta por completo al cerrar (ver acción 'close-zen'), nunca se
+// persiste en DB/localStorage.
+let zenState = null;
 let momCarouselInterval = null;
 let syncPending = false;
 let cloudRefreshInFlight = false;
@@ -1011,8 +1022,7 @@ function renderAuthShell(bodyHtml){
     '<div class="auth-shell">' +
     '<div class="auth-shell-bg">' + authDecorSVG() + '</div>' +
     '<div class="auth-brand">' +
-    '<div class="auth-brand-mark">' + energySignatureSVG() + '</div>' +
-    '<div class="auth-brand-name">Zentra</div>' +
+    '<img class="auth-brand-logo energy-signature-pulse" src="./assets/branding/zentra-logo.png" alt="Zentra">' +
     '<div class="auth-brand-tagline">Tu dinero, más claro.<br>Tu vida, más tranquila.</div>' +
     '</div>' +
     '<div class="card auth-card">' + bodyHtml + '</div>' +
@@ -2225,6 +2235,16 @@ function renderOverlays(){
       );
   }
 
+  if (
+    zenState
+  ){
+
+    html +=
+      renderZenSheet(
+        zenState
+      );
+  }
+
   el.innerHTML =
     html;
 
@@ -2233,6 +2253,14 @@ function renderOverlays(){
   ){
 
     attachSheetFieldSync();
+  }
+
+  if (
+    zenState
+  ){
+
+    attachZenListeners();
+    scrollZenToBottom();
   }
 
   const saveBtn =
@@ -2321,6 +2349,80 @@ function attachSearchListener(){
       }
     );
   }
+}
+
+/* ==========================================================
+   ZEN (Fase 5A — asistente financiero de solo lectura)
+   ========================================================== */
+
+function scrollZenToBottom(){
+  const el = document.getElementById('zen-messages');
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+function attachZenListeners(){
+  const input = document.getElementById('zen-input');
+  if (!input) return;
+
+  input.focus();
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (text) sendZenChatMessage(text);
+    }
+  });
+}
+
+// clientDate = todayStr() del dispositivo (Sección 6: la fecha de
+// referencia SIEMPRE la da la app, nunca se deja que el modelo la invente).
+function sendZenChatMessage(text){
+  if (!zenState || zenState.loading) return;
+
+  zenState.messages.push({ role:'user', content:text });
+  zenState.loading = true;
+
+  renderOverlays();
+
+  const history = zenState.messages
+    .slice(-8)
+    .map(m => ({ role:m.role, content:m.content }));
+
+  API.sendZenMessage(
+    text,
+    history,
+    zenState.context,
+    todayStr()
+  )
+  .then(res => {
+
+    if (!zenState) return; // el usuario cerró el chat mientras esperaba
+
+    zenState.messages.push({
+      role:'assistant',
+      content: res && res.reply ? res.reply : 'No obtuve una respuesta clara. ¿Puedes reformular la pregunta?',
+      viz: (res && res.viz) || null
+    });
+
+    zenState.context = (res && res.context) || zenState.context;
+  })
+  .catch(err => {
+
+    if (!zenState) return;
+
+    zenState.messages.push({
+      role:'assistant',
+      content: (err && err.message) || 'Zen no pudo responder en este momento. Intenta de nuevo en unos segundos.'
+    });
+  })
+  .finally(() => {
+
+    if (!zenState) return;
+
+    zenState.loading = false;
+    renderOverlays();
+  });
 }
 
 function attachWelcomeNameListener(){
@@ -2519,6 +2621,87 @@ document.addEventListener(
         false;
 
       renderAppContent();
+
+      return;
+    }
+
+    /* ======================================================
+       ZEN (Fase 5A — asistente financiero de solo lectura)
+       ====================================================== */
+
+    if (
+      action ===
+      'open-zen'
+    ){
+
+      zenState = {
+        messages: [],
+        loading: false,
+        context: { lastPeriod:null, lastMetric:null },
+        suggestions: buildZenSuggestions()
+      };
+
+      renderOverlays();
+
+      return;
+    }
+
+    if (
+      action ===
+      'close-zen'
+    ){
+
+      // Se descarta todo el estado (mensajes + contexto): la memoria
+      // conversacional de Zen vive solo mientras el chat está abierto
+      // (Sección 21 del encargo), nunca se persiste.
+      zenState = null;
+
+      renderOverlays();
+
+      return;
+    }
+
+    if (
+      action ===
+      'zen-suggestion'
+    ){
+
+      const question =
+        t.dataset.question;
+
+      if (
+        question
+      ){
+        sendZenChatMessage(
+          question
+        );
+      }
+
+      return;
+    }
+
+    if (
+      action ===
+      'send-zen-message'
+    ){
+
+      const input =
+        document.getElementById(
+          'zen-input'
+        );
+
+      const text =
+        input
+          ? input.value.trim()
+          : '';
+
+      if (
+        text
+      ){
+        sendZenChatMessage(
+          text
+        );
+      }
 
       return;
     }

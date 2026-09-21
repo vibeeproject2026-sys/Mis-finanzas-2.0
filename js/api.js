@@ -215,6 +215,24 @@ export async function fetchUserData(token, userId) {
   }
 }
 
+// Zen (Fase 5A, asistente financiero de solo lectura). Igual que
+// scanInvoiceViaProxy, el token vive en localStorage y viaja como Bearer;
+// el backend (api/zen-chat.js) es quien valida la sesión y decide a qué
+// datos puede acceder — el frontend nunca envía un user_id propio.
+export async function sendZenMessage(message, history, context, clientToday) {
+  const token = localStorage.getItem('supabase_token');
+  if (!token) throw new Error('Debes iniciar sesión para hablar con Zen.');
+  const response = await fetch('/api/zen-chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ message, history, context, clientToday })
+  });
+  let data = {};
+  try { data = await response.json(); } catch (_) {}
+  if (!response.ok) throw new Error(data?.message || 'Zen no pudo responder en este momento.');
+  return data || {};
+}
+
 export async function scanInvoiceViaProxy(base64Data, mimeType) {
   const token = localStorage.getItem('supabase_token');
   if (!base64Data || !token) throw new Error('Debes iniciar sesión para escanear facturas.');

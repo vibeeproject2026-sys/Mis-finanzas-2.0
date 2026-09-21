@@ -415,6 +415,12 @@ function dashHeroSceneSVG(scene){
 // preserveAspectRatio="xMaxYMid meet" escala siempre de forma uniforme
 // (nunca distorsiona los blurs). La respiración de luz es CSS
 // (.energy-signature-pulse, ver main.css), respeta prefers-reduced-motion.
+//
+// NOTA (rebrand Zentra): esta firma ya NO se usa en los headers ni en
+// Login/Registro — fue reemplazada por el isotipo Z (.hero-zentra-symbol /
+// .auth-brand-mark, ver renderDashboardHero/renderGenericHero en este
+// archivo y renderAuthShell en app.js). Se conserva la función sin
+// llamadas activas en vez de eliminarla.
 export function energySignatureSVG(modifierClass){
 
   const cls =
@@ -464,6 +470,17 @@ export function energySignatureSVG(modifierClass){
   );
 }
 
+// Punto de acceso a Zen (Fase 5A): un botón simple en el mismo hero-top-row
+// que ya usa el badge de estado de nube, en TODAS las pantallas (Dashboard
+// y el resto vía renderGenericHero) — sin crear navegación nueva.
+function renderZenLaunchButton() {
+  return (
+    '<button class="zen-launch-btn" data-action="open-zen" aria-label="Abrir Zen, tu asistente financiero">' +
+    '<span class="zen-launch-icon">✦</span><span class="zen-launch-label">Zen</span>' +
+    '</button>'
+  );
+}
+
 const DASH_HERO_SCENE_BG = {
   morning: 'linear-gradient(to bottom, #1a0a2e 0%, #3d1a6e 25%, #ff6b35 55%, #ffaa40 75%, #ffd166 100%)',
   afternoon: 'linear-gradient(to bottom, #0a1628 0%, #1a3a6e 30%, #2060b0 60%, #1a2a50 100%)',
@@ -501,15 +518,20 @@ export function renderDashboardHero(userName, cloudStatus){
 
   return (
     '<div class="hero hero-dynamic hero-dashboard hero-scene--' + bucket.scene + '">' +
+    '<div class="hero-clip">' +
     dashHeroSceneSVG(bucket.scene) +
-    energySignatureSVG('hero-energy-signature') +
     '<div class="hero-scene-overlay"></div>' +
+    '</div>' +
     '<div class="hero-content">' +
 
-    '<div class="hero-top-row" style="justify-content:flex-start;">' +
+    '<div class="hero-top-row">' +
+    '<div class="hero-brand-group">' +
+    '<img class="hero-wordmark" src="./assets/branding/zentra-wordmark.png" alt="Zentra">' +
     '<div class="cloud-status-badge" aria-label="Estado de sincronización">' +
     '<span class="cloud-status-dot cloud-status-dot--' + (cloudStatus || 'unknown') + '" id="cloud-status-dot"></span>' +
     '<span class="cloud-status-icon">☁</span>' +
+    '</div>' +
+    renderZenLaunchButton() +
     '</div>' +
     '</div>' +
 
@@ -519,7 +541,9 @@ export function renderDashboardHero(userName, cloudStatus){
     '<div class="hero-date">' + esc(dateCapitalized) + '</div>' +
     '</div>' +
 
-    '</div></div>'
+    '</div>' +
+    '<div class="hero-zentra-symbol"><img src="./assets/branding/zentra-symbol.png" alt="" aria-hidden="true"></div>' +
+    '</div>'
   );
 }
 
@@ -550,22 +574,29 @@ export function renderGenericHero(tab, cloudStatus){
 
   return (
     '<div class="hero hero-dynamic hero-scene--' + bucket.scene + '">' +
+    '<div class="hero-clip">' +
     dashHeroSceneSVG(bucket.scene) +
-    energySignatureSVG('hero-energy-signature') +
     '<div class="hero-scene-overlay"></div>' +
+    '</div>' +
     '<div class="hero-content">' +
 
-    '<div class="hero-top-row" style="justify-content:flex-start;">' +
+    '<div class="hero-top-row">' +
+    '<div class="hero-brand-group">' +
+    '<img class="hero-wordmark" src="./assets/branding/zentra-wordmark.png" alt="Zentra">' +
     '<div class="cloud-status-badge" aria-label="Estado de sincronización">' +
     '<span class="cloud-status-dot cloud-status-dot--' + (cloudStatus || 'unknown') + '" id="cloud-status-dot"></span>' +
     '<span class="cloud-status-icon">☁</span>' +
+    '</div>' +
+    renderZenLaunchButton() +
     '</div>' +
     '</div>' +
 
     '<h1 class="hero-greeting">' + esc(meta.title) + '</h1>' +
     '<p class="hero-quote"><span class="hero-quote-accent"></span>' + esc(meta.subtitle) + '</p>' +
 
-    '</div></div>'
+    '</div>' +
+    '<div class="hero-zentra-symbol"><img src="./assets/branding/zentra-symbol.png" alt="" aria-hidden="true"></div>' +
+    '</div>'
   );
 }
 
